@@ -1,5 +1,12 @@
 export default {
     languages: {
+        uk: {
+            code: 'uk',
+            name: 'Українська',
+
+            lang_choice_title: 'Ласкаво просимо',
+            lang_choice_subtitle: 'Виберіть мову',
+        },
         ru: {
             code: 'ru',
             name: 'Русский',
@@ -13,13 +20,6 @@ export default {
 
             lang_choice_title: 'Welcome',
             lang_choice_subtitle: 'Choose your language',
-        },
-        uk: {
-            code: 'uk',
-            name: 'Українська',
-
-            lang_choice_title: 'Ласкаво просимо',
-            lang_choice_subtitle: 'Виберіть мову',
         },
         be: {
             code: 'be',
@@ -59,14 +59,14 @@ export default {
         cs: {
             code: "cs",
             name: "Čeština",
-      
+
             lang_choice_title: "Vítejte",
             lang_choice_subtitle: "Vyberte svůj jazyk",
         },
         ro: {
             code: "ro",
             name: "Română",
-      
+
             lang_choice_title: "Bun venit",
             lang_choice_subtitle: "Alegeți limba",
         },
