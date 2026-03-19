@@ -158,7 +158,7 @@ Arrays.extend(window.lampa_settings, {
 
     // Использовать аккаунты CUB
     // account_use: true,
-    account_use: false,
+    account_use: true,
 
     // Синхронизировать закладки, таймкоды и прочее
     account_sync: true,
