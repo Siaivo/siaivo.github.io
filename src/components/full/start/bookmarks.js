@@ -3,7 +3,6 @@ import Controller from '../../../core/controller'
 import Select from '../../../interaction/select'
 import Favorite from '../../../core/favorite'
 import Lang from '../../../core/lang'
-import Account from '../../../core/account/account'
 
 export default {
     onCreate: function(){
@@ -37,9 +36,7 @@ export default {
                         title: Lang.translate('title_'+m),
                         type: m,
                         picked: status[m],
-                        collect: true,
-                        noenter: !Account.hasPremium(),
-                        ghost: !Account.hasPremium(),
+                        collect: true
                     })
                 })
             }
@@ -51,17 +48,6 @@ export default {
                 onSelect: label,
                 onBack: ()=>{
                     Controller.toggle('content')
-                },
-                onDraw: (item, elem)=>{
-                    if(elem.collect){
-                        if(!Account.hasPremium()){
-                            item.on('hover:enter', ()=>{
-                                Select.close()
-
-                                Account.Modal[Account.Permit.token ? 'premium' : 'account']()
-                            })
-                        }
-                    }
                 }
             })
         })
