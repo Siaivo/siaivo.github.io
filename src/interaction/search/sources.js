@@ -53,7 +53,7 @@ function Sources(params = {}){
         let sources
 
         if(Permit.child){
-            sources = [Api.sources.cub.discovery()]
+            sources = [] // [Api.sources.cub.discovery()]
 
             sources.forEach(this.build.bind(this))
         }

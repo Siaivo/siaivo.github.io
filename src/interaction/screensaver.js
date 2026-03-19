@@ -4,7 +4,7 @@ import Storage from "../core/storage/storage"
 
 import Nature from './screensaver/nature'
 import Chrome from './screensaver/chrome'
-import Cub from './screensaver/cub'
+// import Cub from './screensaver/cub'
 import Aerial from './screensaver/aerial'
 
 /**
@@ -28,7 +28,7 @@ class Screensaver{
         this.class_list = {
             nature: Nature,
             chrome: Chrome,
-            cub: Cub,
+            // cub: Cub,
             aerial: Aerial
         }
     }
