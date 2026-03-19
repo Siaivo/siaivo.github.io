@@ -201,7 +201,6 @@ function init(){
     let screensaver_types = {
         'nature': '#{settings_param_screensaver_nature}',
         'chrome': 'ChromeCast',
-        'cub': 'CUB',
         'aerial': 'Aerial'
     }
 
@@ -596,8 +595,7 @@ select('player_hls_method',{
 
 
 select('source',{
-    'tmdb': 'TMDB',
-    'cub': 'CUB'
+    'tmdb': 'TMDB'
 },'tmdb')
 
 select('start_page', {
