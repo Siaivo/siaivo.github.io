@@ -3,7 +3,7 @@ name: Build and Deploy Lampa
 on:
   push:
     branches:
-      - public
+      - rework
   workflow_dispatch:
 
 permissions:
