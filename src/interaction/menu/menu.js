@@ -204,7 +204,7 @@ function ready(){
             Router.call('category', {
                 url: action,
                 title: (action == 'movie' ? Lang.translate('menu_movies') : action == 'anime' ? Lang.translate('menu_anime') : Lang.translate('menu_tv')) + ' - ' + Storage.field('source').toUpperCase(),
-                source: action == 'anime' ? 'cub' : Storage.field('source')
+                source: action == 'anime' ? 'tmdb' : Storage.field('source')
             })
         }
 
