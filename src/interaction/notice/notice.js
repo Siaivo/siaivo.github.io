@@ -11,7 +11,7 @@ import Head from '../head/head'
 
 import NoticeAll from './all'
 import NoticeLampa from './lampa'
-// import NoticeCub from './cub'
+import NoticeCub from './cub'
 
 function translate(str){
     if(Arrays.isObject(str)){
@@ -38,7 +38,7 @@ class Notice{
 
         this.classes.all   = new NoticeAll()
         this.classes.lampa = new NoticeLampa()
-        // this.classes.cub   = new NoticeCub()
+        this.classes.cub   = new NoticeCub()
 
         Lampa.Listener.follow('app',e=>{
             if(e.type == 'ready') this.drawCount()

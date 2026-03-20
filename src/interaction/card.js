@@ -14,6 +14,7 @@ import Manifest from '../core/manifest'
 import Search from './search/global'
 import Loading from './loading'
 import TmdbApi from '../core/api/sources/tmdb'
+import Account from '../core/account/account'
 
 /**
  * Карточка
@@ -397,7 +398,8 @@ function Card(data, params = {}){
                     title: Lang.translate('title_'+m),
                     where: m,
                     picked: status[m],
-                    collect: true
+                    collect: true,
+                    noenter: !Account.hasPremium()
                 })
             })
         }
@@ -472,6 +474,24 @@ function Card(data, params = {}){
                 if(this.onMenuSelect) this.onMenuSelect(a, this.card, data)
 
                 Controller.toggle(enabled)
+            },
+            onDraw: (item, elem)=>{
+                if(elem.collect){
+                    if(!Account.hasPremium()){
+                        let wrap = $('<div class="selectbox-item__lock"></div>')
+                            wrap.append(Template.js('icon_lock'))
+
+                        item.find('.selectbox-item__checkbox').remove()
+
+                        item.append(wrap)
+
+                        item.on('hover:enter',()=>{
+                            Select.close()
+
+                            Account.showCubPremium()
+                        })
+                    }
+                }
             }
         })
     }

@@ -108,8 +108,8 @@ import account from '../templates/account'
 import account_limited from '../templates/account_limited'
 import account_none from '../templates/account/none'
 import account_premium from '../templates/account/premium'
-// import cub_premium from '../templates/cub_premium'
-// import cub_premium_modal from '../templates/cub_premium_modal'
+import cub_premium from '../templates/cub_premium'
+import cub_premium_modal from '../templates/cub_premium_modal'
 import explorer from '../templates/explorer/main'
 import explorer_button_back from '../templates/explorer/button_back'
 import https from '../templates/https'
@@ -239,8 +239,8 @@ let templates = {
     account_limited,
     account_none,
     account_premium,
-    // cub_premium,
-    // cub_premium_modal,
+    cub_premium,
+    cub_premium_modal,
     selectbox_icon,
     explorer,
     explorer_button_back,

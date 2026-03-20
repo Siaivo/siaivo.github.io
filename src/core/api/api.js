@@ -5,7 +5,7 @@ import Progress from '../../utils/progress'
 import Arrays from '../../utils/arrays'
 import Storage from '../storage/storage'
 import TMDB from './sources/tmdb'
-// import CUB  from './sources/cub'
+import CUB  from './sources/cub'
 import Manifest from '../manifest'
 import Lang from '../lang'
 import LineModule from '../../interaction/items/line/module/module'
@@ -14,15 +14,15 @@ import LineModule from '../../interaction/items/line/module/module'
  * Источники
  */
 let sources = {
-    tmdb: TMDB
-    // cub: CUB
+    tmdb: TMDB,
+    cub: CUB
 }
 
 /**
  * Чтоб не переписали их
  */
 Object.defineProperty(sources, 'tmdb', { get: ()=> TMDB })
-// Object.defineProperty(sources, 'cub', { get: ()=> CUB })
+Object.defineProperty(sources, 'cub', { get: ()=> CUB })
 
 let network = new Reguest()
 
