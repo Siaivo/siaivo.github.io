@@ -1,24 +1,32 @@
-# Lampa
+# Lampa Source (Fork)
 
-Все исходники приложения **lampa**, всем желающим прошу до хаты :)
+This repository is a fork of the original Lampa source:
+https://github.com/yumata/lampa-source
 
-Приветствуется ваши идеи и правки в коде, сделаем вместе приложение еще лучше!
+It includes custom project-specific changes and overrides that are not part of the upstream repository.
 
-MSX версия тут: https://github.com/yumata/lampa
+Ideas and pull requests are welcome.
 
-## Как запустить
+MSX app repository: https://github.com/yumata/lampa
 
-Открываем CMD и запускаем команду `npm install`
+## Run Locally
 
-Затем запускаем команду `npm run start`
+1. Install dependencies:
+   `npm install`
+2. Start the dev server:
+   `npm run start`
+3. Open:
+   `http://localhost:3000`
 
-Открываем браузер и вводим адрес `http://localhost:3000`
+## Documentation
 
-## Документация
+Generate local docs:
+`npm run doc`
 
-В приложении появилась документация, которая будет постоянно обновляться и дополняться. Выполните команду `npm run doc` затем перейдите в папку `build/doc` и откройте файл `index.html`
+Then open:
+`build/doc/index.html`
 
-И техническая документация от ИИ с обновлением раз в неделю [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yumata/lampa-source)
+## Upgrade to 3.0
 
-## Переход на версию 3.0
-В версии 3.0 произошли значительные изменения в структуре проекта и кодовой базе. Пожалуйста, ознакомьтесь с [руководством по миграции](UPGRADE.md), чтобы узнать, как обновить ваше приложение до новой версии.
+Version 3.0 introduced major project structure and codebase changes.
+Read the [migration guide](UPGRADE.md) before upgrading.
