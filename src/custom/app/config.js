@@ -11,6 +11,7 @@ export default {
         subscribe: true,
         persons: true,
         ads: true,
-        install_proxy: true
+        install_proxy: true,
+        blacklist: true,
     }
 }
