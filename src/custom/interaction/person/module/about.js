@@ -1,11 +1,11 @@
-import Map from '../interaction/person/module/map'
-import Template from '../interaction/template'
-import TMDB from '../core/api/sources/tmdb'
-import Lang from '../core/lang'
-import Utils from '../utils/utils'
-import Modal from '../interaction/modal'
-import Controller from '../core/controller'
-import Noty from '../interaction/noty'
+import Map from '../../../../interaction/person/module/map'
+import Template from '../../../../interaction/template'
+import TMDB from '../../../../core/api/sources/tmdb'
+import Lang from '../../../../core/lang'
+import Utils from '../../../../utils/utils'
+import Modal from '../../../../interaction/modal'
+import Controller from '../../../../core/controller'
+import Noty from '../../../../interaction/noty'
 
 Map.About = {
     onCreate: function() {

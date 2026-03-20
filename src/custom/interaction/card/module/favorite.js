@@ -1,10 +1,10 @@
-import Controller from '../core/controller'
-import Favorite from '../core/favorite'
-import Lang from '../core/lang'
-import Select from '../interaction/select'
-import Template from '../interaction/template'
-import BookmarksModule from '../components/full/start/bookmarks'
-import FavoriteModule from '../interaction/card/module/favorite'
+import Controller from '../../../../core/controller'
+import Favorite from '../../../../core/favorite'
+import Lang from '../../../../core/lang'
+import Select from '../../../../interaction/select'
+import Template from '../../../../interaction/template'
+import BookmarksModule from '../../../../components/full/start/bookmarks'
+import FavoriteModule from '../../../../interaction/card/module/favorite'
 
 const MARKS = ['look', 'viewed', 'scheduled', 'continued', 'thrown']
 

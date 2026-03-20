@@ -1,4 +1,4 @@
-import Api from '../core/api/api'
+import Api from '../../../core/api/api'
 
 function resolve(oncomplite, payload) {
     if (typeof oncomplite === 'function') {

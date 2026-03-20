@@ -1,5 +1,5 @@
-import Storage from '../core/storage/storage'
-import Params from '../interaction/settings/params'
+import Storage from '../../../core/storage/storage'
+import Params from '../../../interaction/settings/params'
 
 function removeOption(options, key) {
     if (options && Object.prototype.hasOwnProperty.call(options, key)) {

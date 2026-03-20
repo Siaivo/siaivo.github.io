@@ -1,4 +1,4 @@
-import Template from '../interaction/template'
+import Template from '../../interaction/template'
 
 let personStart = Template.string('person_start')
 

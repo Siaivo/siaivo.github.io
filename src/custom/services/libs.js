@@ -1,4 +1,4 @@
-import Utils from '../utils/utils'
+import Utils from '../../utils/utils'
 
 const BLOCKED = ['/plugin/sport', '/plugin/tsarea', '/plugin/shots']
 

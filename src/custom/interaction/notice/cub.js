@@ -1,4 +1,4 @@
-import NoticeCub from '../interaction/notice/cub'
+import NoticeCub from '../../../interaction/notice/cub'
 
 NoticeCub.prototype.update = function() {
     this.notices = []

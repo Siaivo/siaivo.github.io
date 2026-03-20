@@ -1,6 +1,6 @@
-import Lang from '../core/lang'
-import Router from '../core/router'
-import Storage from '../core/storage/storage'
+import Lang from '../../../core/lang'
+import Router from '../../../core/router'
+import Storage from '../../../core/storage/storage'
 
 function bindMenuPatch() {
     if (!window.Lampa || !Lampa.Listener) {
