@@ -1,26 +1,34 @@
-# Lampa
+# Lampa (Fork)
 
-Приложение полностью бесплатное и использует публичные ссылки для просмотра информации о фильмах, новинках, популярных фильмов и т.д. Вся доступная информация используется исключительно в познавательных целях, приложение не использует свои собственные серверы для распространения информации.
+This repository is a fork of:
+https://github.com/yumata/lampa-source
 
-Исходники лампы доступны тут: https://github.com/yumata/lampa-source
+It contains custom changes for this distribution and may differ from upstream behavior.
 
-#### Устройства
-* LG WebOS
-* Samsung Tizen
-* MSX
-* Android
-* MacOS
-* Windows
+The app is free and uses public links to display movie and TV metadata.
+It does not use private backend infrastructure to distribute content.
 
-## Установка для MSX
+## Supported Devices
 
-На данный момент ручная установка, вам необходим свой собственный хостинг или локальный веб-сервер. 
+- LG WebOS
+- Samsung Tizen
+- MSX
+- Android
+- macOS
+- Windows
 
-1. Тут же нажмите на зеленую кнопку (Code) и выберите (Download ZIP) загрузите файлы на хостинг или веб-сервер.
-2. Откройте файл `msx/start.json` и замените содержиое `{domain}` на свой домен или IP
-3. Откройте MSX и выполните установку
+## MSX Installation
 
-## Запуск в Docker'е
+Manual installation requires your own hosting or local web server.
 
-1. Соберите образ `docker build --build-arg domain={domain} -t lampa . `
-2. Запустите контейнер `docker run -p 8080:80 -d --restart unless-stopped -it --name lampa lampa`
+1. Click the green `Code` button and choose `Download ZIP`.
+2. Upload files to your hosting or local web server.
+3. Open `msx/start.json` and replace `{domain}` with your domain or IP.
+4. Open MSX and install the app.
+
+## Run in Docker
+
+1. Build image:
+   `docker build --build-arg domain={domain} -t lampa .`
+2. Run container:
+   `docker run -p 8080:80 -d --restart unless-stopped -it --name lampa lampa`
