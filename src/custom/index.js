@@ -1,4 +1,5 @@
 import './app/config-apply'
+import './core/manifest'
 import './core/personal'
 import './interaction/settings/params'
 import './core/api/api'

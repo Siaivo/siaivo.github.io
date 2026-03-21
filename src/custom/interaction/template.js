@@ -1,4 +1,5 @@
 import Template from '../../interaction/template'
+import about from '../templates/about'
 
 let personStart = Template.string('person_start')
 
@@ -11,3 +12,5 @@ if (personStart && personStart.indexOf('button--subscribe') >= 0) {
         )
     )
 }
+
+Template.add('about', about);
