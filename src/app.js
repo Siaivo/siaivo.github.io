@@ -124,6 +124,8 @@ import ServiceFPS from './services/fps'
 import ServiceEvents from './services/events'
 import ServiceChildren from './services/children'
 
+import './custom/index.js'
+
 window.screen_width  = window.innerWidth
 window.screen_height = window.innerHeight
 

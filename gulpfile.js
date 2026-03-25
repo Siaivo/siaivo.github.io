@@ -421,3 +421,4 @@ exports.default = parallel(watch, browser_sync);
 exports.debug = series(enable_debug_mode, this.default)
 exports.doc = series(sync_doc, buildDoc)
 exports.write_manifest = series(write_manifest)
+exports.build_github = series(merge, sass_task, lang_task, sync_github, uglify_task, public_github, write_manifest, index_github);
