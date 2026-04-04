@@ -185,23 +185,47 @@ function build_web(done){
     done();
 }
 
+function read_manifest_versions(){
+    let candidates = [
+        srcFolder+'custom/core/manifest.js',
+        srcFolder+'core/manifest.js'
+    ]
+
+    for(let i = 0; i < candidates.length; i++){
+        let manifest_path = candidates[i]
+
+        if(!fs.existsSync(manifest_path)) continue
+
+        let content = fs.readFileSync(manifest_path, 'utf8')
+        let app_match = content.match(/app_version:\s*'([^']+)'/)
+        let css_match = content.match(/css_version:\s*'([^']+)'/)
+
+        if(app_match && css_match){
+            return {
+                source: manifest_path,
+                app_version: app_match[1],
+                css_version: css_match[1]
+            }
+        }
+    }
+
+    throw new Error('Unable to read app_version/css_version from manifest files')
+}
+
 function write_manifest(done){
-    var manifest = fs.readFileSync(srcFolder+'core/manifest.js', 'utf8')
+    var versions = read_manifest_versions()
     var hash     = getFileHash(dstFolder + '/app.js')
 
-    var app_version = manifest.match(/app_version: '(.*?)',/)[1]
-    var css_version = manifest.match(/css_version: '(.*?)',/)[1]
-
     var object = {
-        app_version: app_version,
-        css_version: css_version,
-        css_digital: parseInt(css_version.replace(/\./g,'')),
-        app_digital: parseInt(app_version.replace(/\./g,'')),
+        app_version: versions.app_version,
+        css_version: versions.css_version,
+        css_digital: parseInt(versions.css_version.replace(/\./g,'')),
+        app_digital: parseInt(versions.app_version.replace(/\./g,'')),
         time: Date.now(),
         hash: hash
     }
 
-    console.log('assembly', object)
+    console.log('assembly from', versions.source, object)
 
     fs.writeFileSync(idxFolder+'github/assembly.json', JSON.stringify(object, null, 4))
 

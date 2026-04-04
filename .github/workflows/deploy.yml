@@ -27,9 +27,51 @@ jobs:
       - name: Build Lampa for GitHub
         run: npx gulp build_github
 
-      - name: Deploy to GitHub Pages
+      - name: Prepare GitHub Pages build (replace MSX domain placeholders)
+        env:
+          MSX_DOMAIN: ${{ vars.MSX_DOMAIN }}
+          MSX_PREFIX: ${{ vars.MSX_PREFIX }}
+        run: |
+          set -euo pipefail
+
+          DOMAIN="${MSX_DOMAIN:-}"
+          PREFIX="${MSX_PREFIX:-https://}"
+
+          if [ -z "$DOMAIN" ] && [ -f "./index/github/CNAME" ]; then
+            DOMAIN="$(tr -d '\r\n' < ./index/github/CNAME)"
+          fi
+
+          if [ -z "$DOMAIN" ]; then
+            echo "MSX_DOMAIN is empty. Set repository variable MSX_DOMAIN or index/github/CNAME."
+            exit 1
+          fi
+
+          rm -rf ./build/github/lampa-pages
+          cp -R ./build/github/lampa ./build/github/lampa-pages
+
+          sed -i \
+            -e "s|{domain}|$DOMAIN|g" \
+            -e "s|{PREFIX}|$PREFIX|g" \
+            ./build/github/lampa-pages/msx/start.json
+
+          grep -q '{domain}' ./build/github/lampa/msx/start.json
+          grep -q '{PREFIX}' ./build/github/lampa/msx/start.json
+
+          if grep -qE '\{domain\}|\{PREFIX\}' ./build/github/lampa-pages/msx/start.json; then
+            echo "Placeholder replacement failed for gh-pages build."
+            exit 1
+          fi
+
+      - name: Deploy self-hosted template branch
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/github/lampa/
-          publish_branch: main
+          publish_branch: selfhost
+
+      - name: Deploy to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/github/lampa-pages/
+          publish_branch: gh-pages
