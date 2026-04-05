@@ -3,10 +3,10 @@
   "headline": "Загрузчик приложений",
   "extension": "Версия MSX: 1.0.0",
   "version": "1.0.0",
-  "parameter": "content:http://siaivo.isroot.in/msx/start.json",
+  "parameter": "content:{PREFIX}{domain}/msx/start.json",
   "note": "For this service, Media Station X 0.1.120 or higher is needed",
   "action": "[settings:validate_links:0|home]",
-  "dictionary": "http://siaivo.isroot.in/msx/lang/ru.json",
+  "dictionary": "{PREFIX}{domain}/msx/lang/ru.json",
   "pages": [
     {
       "items": [
@@ -19,9 +19,9 @@
         {
           "type": "control",
           "layout": "0,0,5,1",
-          "image": "http://siaivo.isroot.in/msx-logo.png",
+          "image": "{PREFIX}{domain}/msx-logo.png",
           "label": "Lampa",
-          "action": "link:http://siaivo.isroot.in/",
+          "action": "link:{PREFIX}{domain}",
           "selection": {
             "important": true,
             "action": "update:content:description",
