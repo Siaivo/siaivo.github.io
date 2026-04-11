@@ -570,7 +570,9 @@ select('parse_lang',{
 select('parse_timeout',{
     '15': '15',
     '30': '30',
-    '60': '60'
+    '60': '60',
+    '90': '90',
+    '120': '120'
 },'15')
 
 select('player_rewind',{
@@ -731,7 +733,7 @@ trigger('cache_images', false)
 trigger('interface_sound_play', false)
 trigger('menu_always', false)
 trigger('vlc_fullscreen', true)
-
+trigger('adult_content_view', false)
 
 
 /**

@@ -264,7 +264,7 @@ export default {
     torrent_parser_voice_amateur: 'Аматорський',
     torrent_parser_reset: 'Скинути фільтр',
     torrent_parser_empty: 'Не вдалося отримати результатів',
-    torrent_parser_no_hash: 'Неможливо отримати HASH',
+    torrent_parser_no_hash: 'Неможливо отримати HASH, спробуйте перезавантажити TorrServer',
     torrent_parser_added_to_mytorrents: 'додано до «Моїх торрентів»',
     torrent_parser_add_to_mytorrents: 'Додати до «Моїх торентів»',
     torrent_parser_label_title: 'Позначити',
@@ -1266,4 +1266,12 @@ export default {
     dmca_descr_lgbt: 'Перегляд недоступний у вашому регіоні, оскільки, можливо, містить ЛГБТ-контент. У деяких країнах такі матеріали можуть бути заборонені або обмежені.',
 
     settings_lgbt_content_block: 'Блокувати ЛГБТ контент',
+
+    // todo:
+    adult_content_title: 'Контент для дорослих',
+    adult_content_text_warning: 'Контент може містити матеріали для дорослих, які можуть бути неприйнятними для деяких глядачів.',
+    adult_content_text_modal: 'Цей фільм або серіал позначений як такий, що містить контент для дорослих. Для перегляду цього матеріалу вам має бути 18 років або більше. Будь ласка, підтвердіть, що ви досягли повноліття, щоб продовжити перегляд.',
+
+    adult_content_confirm: 'Мені 18 років або більше',
+    adult_content_deny: 'Мені менше 18 років',
 }

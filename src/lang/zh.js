@@ -262,7 +262,7 @@ export default {
     torrent_parser_voice_amateur: '业余',
     torrent_parser_reset: '重置筛选',
     torrent_parser_empty: '获取结果失败',
-    torrent_parser_no_hash: '获取HASH失败',
+    torrent_parser_no_hash: '获取HASH失败,请尝试重新加载TorrServer',
     torrent_parser_added_to_mytorrents: '添加到“我的种子”',
     torrent_parser_add_to_mytorrents: '添加到“我的种子”',
     torrent_parser_label_title: '标记',
@@ -1241,4 +1241,12 @@ export default {
     dmca_descr_lgbt: '由于内容可能包含 LGBT 内容，您所在地区无法观看。此类内容在某些国家/地区可能被禁止或限制。',
 
     settings_lgbt_content_block: '阻止 LGBT 内容',
+
+    // todo:
+    adult_content_title: '成人内容',
+    adult_content_text_warning: '内容可能包含不适合部分观众的成人内容。',
+    adult_content_text_modal: '该影片或剧集被标记为含有成人内容。您必须年满18岁才能观看此内容。请确认您已达到法定年龄以继续观看。',
+
+    adult_content_confirm: '我已满18岁',
+    adult_content_deny: '我未满18岁',
 }
