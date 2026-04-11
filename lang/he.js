@@ -259,7 +259,7 @@ export default {
     torrent_parser_voice_amateur: 'חובבן',
     torrent_parser_reset: 'אפס סנון',
     torrent_parser_empty: 'נכשל בהשגת תוצאות',
-    torrent_parser_no_hash: 'אין אפשרות להשיג את HASH',
+    torrent_parser_no_hash: 'אין אפשרות להשיג את HASH, נסה להפעיל מחדש את TorrServer',
     torrent_parser_added_to_mytorrents: 'הוסיף ל" הנחלים שלי',
     torrent_parser_add_to_mytorrents: 'הוסף ל" הנחלים שלי',
     torrent_parser_label_title: 'דגל',
@@ -1192,4 +1192,12 @@ export default {
     dmca_descr_lgbt: 'הצפייה אינה זמינה באזור שלך מכיוון שהיא עשויה להכיל תוכן להט"בי. חומר כזה עשוי להיות אסור או מוגבל במדינות מסוימות.',
 
     settings_lgbt_content_block: 'חסימת תוכן להט"בי',
+
+    // todo:
+    adult_content_title: 'תוכן למבוגרים',
+    adult_content_text_warning: 'התוכן עשוי להכיל חומר למבוגרים שעלול להיות בלתי הולם לחלק מהצופים.',
+    adult_content_text_modal: 'סרט או סדרה זו מסומנים כמכילים תוכן למבוגרים. עליך להיות בן 18 ומעלה כדי לצפות בחומר זה. אנא אשר שהגעת לגיל החוקי כדי להמשיך לצפות.',
+
+    adult_content_confirm: 'אני בן 18 ומעלה',
+    adult_content_deny: 'אני מתחת לגיל 18',
 }
