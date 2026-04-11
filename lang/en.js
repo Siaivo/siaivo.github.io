@@ -283,7 +283,7 @@ export default {
     torrent_parser_voice_amateur: 'Amateur',
     torrent_parser_reset: 'Reset filter',
     torrent_parser_empty: 'Failed to get results',
-    torrent_parser_no_hash: 'Failed to get HASH',
+    torrent_parser_no_hash: 'Failed to get HASH, try reloading TorrServer',
     torrent_parser_added_to_mytorrents: 'added to "My torrents"',
     torrent_parser_add_to_mytorrents: 'Add to "My torrents"',
     torrent_parser_label_title: 'Flag',
@@ -1291,4 +1291,12 @@ export default {
     dmca_descr_lgbt: 'Viewing is unavailable in your region as it may contain LGBT content. Such material may be prohibited or restricted in some countries.',
 
     settings_lgbt_content_block: 'Block LGBT content',
+
+    // todo:
+    adult_content_title: 'Adult Content',
+    adult_content_text_warning: 'Content may contain adult material that may be inappropriate for some viewers.',
+    adult_content_text_modal: 'This film or series is marked as containing adult content. You must be 18 years of age or older to view this material. Please confirm that you are of legal age to continue viewing.',
+
+    adult_content_confirm: 'I am 18 or older',
+    adult_content_deny: 'I am under 18',
 }
