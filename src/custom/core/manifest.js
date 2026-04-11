@@ -3,8 +3,7 @@ import Manifest from '../../core/manifest'
 const manifestData = {
     author: 'Siaivo',
     github: 'https://github.com/Siaivo/siaivo.github.io',
-    css_version: '3.1.7.2',
-    app_version: '3.1.7.2',
+    patch_version: 25,
     cub_site: 'cub.rip',
     apk_link_download: 'https://github.com/lampa-app/LAMPA/releases/download/v1.12.3/app-lite-release.apk'
 }
@@ -36,8 +35,16 @@ function writeMirrorStorage(mirrors) {
 
 function applyManifestData() {
     Object.keys(manifestData).forEach((key) => {
+        if (key === 'patch_version') return
+
         Manifest[key] = manifestData[key]
     })
+
+    if (typeof manifestData.patch_version === 'number') {
+        const patch = manifestData.patch_version
+        Manifest.app_version = Manifest.app_version + '.' + patch
+        Manifest.css_version = Manifest.css_version + '.' + patch
+    }
 }
 
 function applyMirrorOverride(mirrors) {
