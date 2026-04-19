@@ -1,10 +1,6 @@
 # Security Policy
 
-This repository is a fork of `yumata/lampa-source` and includes custom changes.
+:x: Этот проект не обеспечивает безопасность ваших данных.
 
-:x: This project does not guarantee the security of your data.
-
-The project supports third-party plugins.
-Untrusted plugins may contain malicious code and can compromise application behavior.
-
-Install plugins only from trusted sources.
+Проект поддерживает возможность подключать сторонние плагины. Непроверенные плагины могут содержать в себе вредоносный код, который может пагубно повлиять на работу приложения.
+Устанавливайте только проверенные плагины. 

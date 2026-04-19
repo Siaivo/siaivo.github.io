@@ -3,10 +3,10 @@
   "headline": "Загрузчик приложений",
   "extension": "Версия MSX: 1.0.0",
   "version": "1.0.0",
-  "parameter": "content:https://siaivo.isroot.in/msx/start.json",
+  "parameter": "content:http://siaivo.isroot.in/msx/start.json",
   "note": "For this service, Media Station X 0.1.120 or higher is needed",
   "action": "[settings:validate_links:0|home]",
-  "dictionary": "https://siaivo.isroot.in/msx/lang/ru.json",
+  "dictionary": "http://siaivo.isroot.in/msx/lang/ru.json",
   "pages": [
     {
       "items": [
@@ -19,9 +19,9 @@
         {
           "type": "control",
           "layout": "0,0,5,1",
-          "image": "https://siaivo.isroot.in/msx-logo.png",
+          "image": "http://siaivo.isroot.in/msx-logo.png",
           "label": "Lampa",
-          "action": "link:https://siaivo.isroot.in",
+          "action": "link:http://siaivo.isroot.in",
           "selection": {
             "important": true,
             "action": "update:content:description",
@@ -93,9 +93,7 @@
             "important": true,
             "action": "update:content:description",
             "data": {
-              "text": [
-                "{txt:msx-white: OTTplayer} — сервис, позволяющий собрать все ваше IP-телевидение в один плейлист, настроить порядок каналов, получить электронный телегид."
-              ]
+              "text": ["{txt:msx-white: OTTplayer} — сервис, позволяющий собрать все ваше IP-телевидение в один плейлист, настроить порядок каналов, получить электронный телегид."]
             }
           }
         }
