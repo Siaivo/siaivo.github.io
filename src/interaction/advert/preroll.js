@@ -4,8 +4,7 @@ import VPN from '../../core/vpn'
 import Controller from '../../core/controller'
 import Personal from '../../core/personal'
 import Utils from '../../utils/utils'
-import Vast2 from './vast_2'
-import Vast3 from './vast_3'
+import Vast from './vast'
 import Platform from '../../core/platform'
 import Manifest from '../../core/manifest'
 import Background from '../background'
@@ -32,24 +31,14 @@ function init(){
 function video(preroll, num, started, ended){
     console.log('Ad', 'launch')
 
-    let item = preroll.vast_api == 3 ? new Vast3(preroll) : new Vast2(preroll)
+    let item = new Vast(preroll)
 
     item.listener.follow('launch', started)
 
     item.listener.follow('ended', ()=>{
-        if(num < 2){
-            let next_preroll = getAnyPreroll()
+        waite_time = Date.now()
 
-            waite_time = Date.now()
-
-            if(next_preroll) video(next_preroll, num + 1, started, ended)
-            else ended()
-        }
-        else{
-            waite_time = Date.now()
-
-            ended()
-        } 
+        ended()
     })
 
     item.listener.follow('error', ()=>{
@@ -163,7 +152,7 @@ function show(data, call){
 
     // Проверка IPTV
     if(data.iptv && (Lampa.Activity.active().movie || Lampa.Activity.active().card)){
-        //data.iptv = false
+        data.iptv = false
     }
 
     if(!vast_api || data.iptv || is_torrent || is_youtube || is_continue){
