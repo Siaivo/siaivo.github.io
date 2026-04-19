@@ -21,8 +21,18 @@ function translate(str){
         else if(str.ru) return str.ru
         else return str[Arrays.getKeys(str)[0]]
     }
-    
+
     return str
+}
+
+function normalizeImageLink(link){
+    if(typeof link !== 'string') return ''
+
+    let value = link.trim()
+
+    if(!value) return ''
+
+    return value
 }
 
 class Notice{
@@ -139,7 +149,9 @@ class Notice{
                 else this.listener.send('select',{display: element.display || this.display, element})
             }).on('visible',()=>{
                 if(icon){
-                    icon = translate(icon)
+                    icon = normalizeImageLink(translate(icon))
+
+                    if(!icon) return
 
                     if(icon.indexOf('http') == -1) icon = TMDB.image('t/p/w300/'+icon)
 
@@ -164,7 +176,11 @@ class Notice{
 
                     img_icon.src = Utils.fixProtocolLink(icon)
 
-                    if(element.author) img_author.src = Utils.fixProtocolLink(author_data.img.indexOf('http') >= 0 ? author_data.img : TMDB.image('t/p/w200/'+author_data.img))
+                    if(element.author){
+                        let author_img = normalizeImageLink(author_data.img)
+
+                        if(author_img) img_author.src = Utils.fixProtocolLink(author_img.indexOf('http') >= 0 ? author_img : TMDB.image('t/p/w200/'+author_img))
+                    }
                 }
             })
 
