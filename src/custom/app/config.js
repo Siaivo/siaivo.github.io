@@ -1,5 +1,5 @@
 export default {
-    feed: false,
+    feed: true,
     services: false,
     mirrors: false,
     disable_features: {
