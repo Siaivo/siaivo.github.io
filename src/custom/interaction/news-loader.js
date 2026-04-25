@@ -13,7 +13,7 @@ function initNewsAutoload() {
     Lampa.Listener.follow('app', function(e) {
         if (e.type !== 'ready') return
 
-        const NEWS_SCRIPT = 'https://lampa-ua-pack.github.io/feed.js'
+        const NEWS_SCRIPT = 'https://siaivo.github.io/lampa-ua-pack/feed.js'
 
         // Перевіряємо, чи скрипт вже завантажено (через Plugins.loaded())
         if (window.Lampa && Lampa.Plugins && Lampa.Plugins.loaded().includes(NEWS_SCRIPT)) {
