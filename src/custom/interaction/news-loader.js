@@ -15,8 +15,8 @@ function initNewsAutoload() {
             return
         }
 
-        // Використовуємо Utils.putScriptAsync — нативний метод Lampa
-        Utils.putScriptAsync(
+        // Використовуємо Lampa.Utils.putScriptAsync — нативний метод Lampa
+        Lampa.Utils.putScriptAsync(
             [NEWS_SCRIPT],
             () => {
                 console.log('Custom: news.js успішно завантажено')
