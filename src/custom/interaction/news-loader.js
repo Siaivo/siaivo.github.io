@@ -32,4 +32,19 @@ function initNewsAutoload() {
     })
 }
 
-initNewsAutoload()
+// Запускаємо ініціалізацію, коли Lampa буде доступний
+if (window.Lampa) {
+    initNewsAutoload()
+} else {
+    // Чекаємо на завантаження Lampa
+    document.addEventListener('DOMContentLoaded', () => {
+        const checkLampa = () => {
+            if (window.Lampa) {
+                initNewsAutoload()
+            } else {
+                setTimeout(checkLampa, 50)
+            }
+        }
+        checkLampa()
+    })
+}
