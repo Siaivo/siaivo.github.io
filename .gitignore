@@ -8,3 +8,4 @@ svg/
 temp/
 .idea/
 package-lock.json
+.opencode
