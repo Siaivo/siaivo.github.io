@@ -158,10 +158,8 @@ export default {
     settings_player_reset_descr: 'Resetează player-ul Android selectat în aplicație',
     settings_player_path: 'Cale către player',
     settings_player_path_descr: 'Specifică calea către executabilul player-ului (.exe)',
-    settings_player_vlc_header: 'Setări VLC',
-    settings_player_vlc_api_password: 'Parolă API VLC',
-    settings_player_vlc_api_password_descr: 'Implicit: 123456',
-    settings_player_vlc_fullscreen: 'Lansare în modul pe tot ecranul',
+    settings_player_external_header: 'Player extern',
+    settings_player_external_fullscreen: 'Lansare în modul pe tot ecranul',
     settings_player_normalization: 'Normalizare sunet',
     settings_player_normalization_descr: 'Normalizează sunetul la un singur nivel, scade sunetele puternice și le amplifică pe cele încet.',
     settings_player_next_episode: 'Următorul episod',
@@ -1298,4 +1296,15 @@ export default {
 
     adult_content_confirm: 'Am 18 ani sau mai mult',
     adult_content_deny: 'Am sub 18 ani',
+
+    inner_player_disclaimer_title: 'Avertisment player',
+    inner_player_disclaimer_text: 'Înțeleg că pornesc un player cu suport incomplet și înțeleg că acest lucru poate duce la comportament atipic pe dispozitiv. Este recomandat să treceți la playere din familia tvOS sau la alte alternative.',
+
+    inner_player_disclaimer_change_player: 'Schimbă playerul',
+    remote_configuration_settings_title: 'Configurare de la distanță',
+    remote_configuration_registration_text: 'Configurarea de la distanță oferă acces temporar la aplicația dvs., o altă aplicație va putea instala extensii și configura parametrii.',
+    remote_configuration_waite_text: 'Acum puteți transmite acest cod unei alte aplicații pentru a acorda acces la setări.',
+    remote_configuration_open_button: 'Deschide accesul',
+    remote_configuration_code_life: 'Codul este valabil',
+    remote_configuration_notice_nocode: 'Nu s-a putut deschide accesul'
 }

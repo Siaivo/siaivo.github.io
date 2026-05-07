@@ -144,10 +144,8 @@ export default {
     settings_player_reset_descr: 'מאתחל את נגן האנדרואיד הנבחר ביישום',
     settings_player_path: 'נתיב אל נגן',
     settings_player_path_descr: 'exe. סמן את הנתיב אל הנגן',
-    settings_player_vlc_header: 'הגדרות VLC',
-    settings_player_vlc_api_password: 'סיסמת VLC API',
-    settings_player_vlc_api_password_descr: 'ברירת מחדל: 123456',
-    settings_player_vlc_fullscreen: 'הפעלה במצב מסך מלא',
+    settings_player_external_header: 'נגן חיצוני',
+    settings_player_external_fullscreen: 'הפעלה במצב מסך מלא',
     settings_player_normalization: 'נימול צלילי',
     settings_player_normalization_descr: 'מנרמל את הצליל לרמה אחת, מוריד את הצלילים הקולניים ומקפיץ את השקטים.',
     settings_player_next_episode: 'הפרק הבא',
@@ -1200,4 +1198,15 @@ export default {
 
     adult_content_confirm: 'אני בן 18 ומעלה',
     adult_content_deny: 'אני מתחת לגיל 18',
+
+    inner_player_disclaimer_title: 'הצהרת נגן',
+    inner_player_disclaimer_text: 'אני מבין שאני מפעיל נגן עם תמיכה חלקית, ואני מבין שזה עלול לגרום להתנהגות לא טיפוסית במכשיר. מומלץ לעבור לנגנים ממשפחת tvOS או לחלופות אחרות.',
+
+    inner_player_disclaimer_change_player: 'החלף נגן',
+    remote_configuration_settings_title: 'הגדרה מרחוק',
+    remote_configuration_registration_text: 'ההגדרה מרחוק מספקת גישה זמנית לאפליקציה שלך, אפליקציה אחרת תוכל להתקין הרחבות ולהגדיר פרמטרים.',
+    remote_configuration_waite_text: 'כעת תוכל להעביר קוד זה לאפליקציה אחרת כדי להעניק גישה להגדרות.',
+    remote_configuration_open_button: 'פתח גישה',
+    remote_configuration_code_life: 'הקוד בתוקף',
+    remote_configuration_notice_nocode: 'נכשל בפתיחת הגישה'
 }
