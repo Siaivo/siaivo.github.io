@@ -146,10 +146,8 @@ export default {
     settings_player_reset_descr: '重置应用程序中选定的Android播放器',
     settings_player_path: '播放器路径',
     settings_player_path_descr: '指定播放器.exe的路径',
-    settings_player_vlc_header: 'VLC 设置',
-    settings_player_vlc_api_password: 'VLC API 密码',
-    settings_player_vlc_api_password_descr: '默认值：123456',
-    settings_player_vlc_fullscreen: '以全屏模式运行',
+    settings_player_external_header: '外部播放器',
+    settings_player_external_fullscreen: '以全屏模式运行',
     settings_player_normalization: '声音标准化',
     settings_player_normalization_descr: '将声音标准化为一级，降低响亮的声音并增强安静的',
     settings_player_next_episode: '下一集',
@@ -1249,4 +1247,15 @@ export default {
 
     adult_content_confirm: '我已满18岁',
     adult_content_deny: '我未满18岁',
+
+    inner_player_disclaimer_title: '播放器免责声明',
+    inner_player_disclaimer_text: '我理解我正在启动一个支持不完整的播放器，并且我理解这可能会导致设备出现非典型行为。建议切换到 tvOS 系列播放器或其他替代方案。',
+
+    inner_player_disclaimer_change_player: '更换播放器',
+    remote_configuration_settings_title: '远程配置',
+    remote_configuration_registration_text: '远程配置提供对您应用程序的临时访问，其他应用程序将能够安装扩展并配置参数。',
+    remote_configuration_waite_text: '您现在可以将此代码传递给另一个应用程序，以授予对设置的访问权限。',
+    remote_configuration_open_button: '开放访问',
+    remote_configuration_code_life: '代码有效',
+    remote_configuration_notice_nocode: '无法开放访问'
 }

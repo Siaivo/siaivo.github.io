@@ -123,6 +123,7 @@ import ServiceLGBT from './services/lgbt'
 import ServiceFPS from './services/fps'
 import ServiceEvents from './services/events'
 import ServiceChildren from './services/children'
+import ServiceRemoteConfiguration from './services/remote_configuration'
 
 import './custom/index.js'
 
@@ -195,7 +196,9 @@ Arrays.extend(window.lampa_settings,{
         // Трейлеры
         trailers: false,
         // Установка прокси для запросов
-        install_proxy: false
+        install_proxy: false,
+        // Удаленная конфигурация
+        remote_configuration: false
     },
 
     // Подключить другие языки интерфейса, по умолчанию только русский и английский
@@ -707,6 +710,9 @@ function startApp(){
 
     ServiceChildren.init()
     LoadingProgress.status('ServiceChildren init')
+
+    ServiceRemoteConfiguration.init()
+    LoadingProgress.status('ServiceRemoteConfiguration init')
 
     // Обновляем слои
 

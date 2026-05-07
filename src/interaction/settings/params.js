@@ -460,9 +460,22 @@ function update(elem,elems,elems_html){
             $(this).toggleClass('hide', $(this).data('visible-value') !== key)
         })
 
-        parent.filter('[data-visible-value-in]').each(function(){
-            $(this).toggleClass('hide', !key.toLowerCase().includes($(this).data('visible-value-in').toLowerCase()))
-        })
+        parent.filter('[data-visible-value-in]').each(function() {
+            const valueStr = this.getAttribute('data-visible-value-in');
+            const valueList = valueStr.split(',').map(function (item) {
+                return item.trim().toLowerCase();
+            });
+
+            let isVisible = false;
+            for (let i = 0; i < valueList.length; i++) {
+                if (key.toLowerCase().indexOf(valueList[i]) !== -1) {
+                    isVisible = true;
+                    break;
+                }
+            }
+
+            $(this).toggleClass('hide', !isVisible);
+        });
 
         listener.send('update_scroll_position')
     }
@@ -732,7 +745,7 @@ trigger('card_interfice_reactions', true)
 trigger('cache_images', false)
 trigger('interface_sound_play', false)
 trigger('menu_always', false)
-trigger('vlc_fullscreen', true)
+trigger('player_external_fullscreen', true)
 trigger('adult_content_view', false)
 
 
@@ -759,8 +772,6 @@ select('device_name','','Lampa')
 select('player_nw_path','','C:/Program Files/VideoLAN/VLC/vlc.exe')
 select('tmdb_proxy_api','','')
 select('tmdb_proxy_image','','')
-// Настройки VLC API
-select('vlc_api_password', '', '123456')
 
 export default {
     listener,

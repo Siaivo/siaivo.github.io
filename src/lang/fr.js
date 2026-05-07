@@ -158,10 +158,8 @@ export default {
     settings_player_reset_descr: 'Réinitialise le lecteur Android sélectionné dans l\'application',
     settings_player_path: 'Chemin du lecteur',
     settings_player_path_descr: 'Spécifier le chemin vers l\'exécutable du lecteur (.exe)',
-    settings_player_vlc_header: 'Paramètres VLC',
-    settings_player_vlc_api_password: 'Mot de passe API VLC',
-    settings_player_vlc_api_password_descr: 'Par défaut : 123456',
-    settings_player_vlc_fullscreen: 'Lancer en plein écran',
+    settings_player_external_header: 'Lecteur externe',
+    settings_player_external_fullscreen: 'Lancer en plein écran',
     settings_player_normalization: 'Normalisation du son',
     settings_player_normalization_descr: 'Équilibre le volume : baisse les sons forts et augmente les sons faibles.',
     settings_player_next_episode: 'Épisode suivant',
@@ -1298,4 +1296,16 @@ export default {
 
     adult_content_confirm: "J'ai 18 ans ou plus",
     adult_content_deny: "J'ai moins de 18 ans",
+
+    inner_player_disclaimer_title: 'Avertissement du lecteur',
+    inner_player_disclaimer_text: 'Je comprends que je lance un lecteur avec une prise en charge incomplète, et je comprends que cela peut provoquer un comportement atypique de l appareil. Il est recommande de passer aux lecteurs de la famille tvOS ou a d autres alternatives.',
+
+    inner_player_disclaimer_change_player: 'Changer le lecteur',
+}
+    remote_configuration_settings_title: 'Configuration à distance',
+    remote_configuration_registration_text: "La configuration à distance fournit un accès temporaire à votre application, une autre application pourra installer des extensions et configurer des paramètres.",
+    remote_configuration_waite_text: "Vous pouvez maintenant transmettre ce code à une autre application pour lui accorder l'accès aux paramètres.",
+    remote_configuration_open_button: "Ouvrir l'accès",
+    remote_configuration_code_life: 'Le code est valide',
+    remote_configuration_notice_nocode: "Impossible d'ouvrir l'accès"
 }
