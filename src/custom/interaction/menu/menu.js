@@ -17,15 +17,17 @@ function bindMenuPatch() {
             if (cartoonItem.length) {
                 var animeMovieBtn = $(
                     '<li class="menu__item selector">' +
-                    '<div class="menu__ico"><svg><use xlink:href="#sprite-movie"></use></svg></div>' +
-                    '<div class="menu__text">' + Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_movies') + '</div>' +
+                    '<div class="menu__ico"><svg><use xlink:href="#sprite-anime"></use></svg></div>' +
+                    //'<div class="menu__text">' + Lang.translate('menu_movies') + '</div>' +
+                    '<div class="menu__text">AMV</div>' +
                     '</li>'
                 ).attr('data-action', 'anime_movie')
 
                 var animeTvBtn = $(
                     '<li class="menu__item selector">' +
-                    '<div class="menu__ico"><svg><use xlink:href="#sprite-tv"></use></svg></div>' +
-                    '<div class="menu__text">' + Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_tv') + '</div>' +
+                    '<div class="menu__ico"><svg><use xlink:href="#sprite-anime"></use></svg></div>' +
+                    //'<div class="menu__text">' + Lang.translate('menu_tv') + '</div>' +
+                    '<div class="menu__text">TVA</div>' +
                     '</li>'
                 ).attr('data-action', 'anime_tv')
 
