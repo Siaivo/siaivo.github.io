@@ -712,7 +712,7 @@ function locked(data, call){
     else call()
 }
 
-function externalPlayer(player_need, data, players){
+function externalPlayer(player_need, data, players, infuseCallbacks){
     let player   = Storage.field(player_need)
     let url      = encodeURIComponent(data.url.replace('&preload','&play'))
     let _url     = encodeURI(data.url.replace('&preload','&play'))
@@ -724,7 +724,59 @@ function externalPlayer(player_need, data, players){
         players[p] = players[p].replace('${url}', url).replace('${_url}', _url).replace('${furl}', furl).replace('${playlist}', playlist).replace('${segments}', segments)
     }
 
+    // Infuse multi-URL playlist support for x-callback-url
+    if(player == 'infuse'){
+        let multiUrl = buildInfuseMultiUrl(data, infuseCallbacks)
+        if(multiUrl) return multiUrl
+    }
+
     return players[player]
+}
+
+function buildInfuseMultiUrl(data, callbacks){
+    callbacks = callbacks || {}
+
+    let items = (Array.isArray(data.playlist) ? data.playlist : [])
+        .filter(p => typeof p.url == 'string')
+
+    if(items.length <= 1) return null
+
+    let currentUrl = data.url.replace('&preload','&play')
+    let currentIndex = -1
+
+    for(let i = 0; i < items.length; i++){
+        if(items[i].url.replace('&preload','&play') === currentUrl){
+            currentIndex = i
+            break
+        }
+    }
+
+    if(currentIndex < 0) currentIndex = 0
+
+    let urlParts = []
+
+    for(let i = currentIndex; i < items.length; i++){
+        let item = items[i]
+        let itemUrl = encodeURIComponent(item.url.replace('&preload','&play'))
+        urlParts.push('url=' + itemUrl)
+
+        if(item.title){
+            let filename = Utils.clearHtmlTags(item.title).trim()
+            if(filename){
+                urlParts.push('filename=' + encodeURIComponent(filename))
+            }
+        }
+    }
+
+    if(callbacks.x_success){
+        urlParts.push('x-success=' + encodeURIComponent(callbacks.x_success))
+    }
+
+    if(callbacks.x_error){
+        urlParts.push('x-error=' + encodeURIComponent(callbacks.x_error))
+    }
+
+    return 'infuse://x-callback-url/play?' + urlParts.join('&')
 }
 
 function needInnerPlayerDisclaimer(player_need){
@@ -853,6 +905,9 @@ function start(data, need, inner){
             tvos:       'lampa://video?player=tvos&src=${url}&playlist=${playlist}&segments=${segments}',
             tvosl:      'lampa://video?player=tvosav&src=${url}&playlist=${playlist}&segments=${segments}',
             tvosSelect: 'lampa://video?player=lists&src=${url}&playlist=${playlist}&segments=${segments}'
+        }, {
+            x_success: `${apple_tv_client}://infuseDidFinish`,
+            x_error: `${apple_tv_client}://infuseDidFail`
         })
 
         if (external_url) {

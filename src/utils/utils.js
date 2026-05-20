@@ -328,9 +328,7 @@ function shortText(fullStr, strLen, separator){
 }
 
 function protocol(){
-    let prot = localStorage.getItem('protocol')
-
-    Manifest.cub_mirrors_only_https.indexOf(Manifest.cub_domain) > -1 ? prot = 'https' : prot = prot || 'https'
+    let prot = Storage.get('protocol') || 'https'
 
     return window.location.protocol == 'https:' ? 'https://' : prot + '://'
 }
