@@ -23,6 +23,15 @@ Notice.open = function() {
     open()
 }
 
+let pushNotice = Notice.pushNotice.bind(Notice);
+Notice.pushNotice = function(class_name, data, resolve, reject) {
+    if (data && data.card && !data.card.source) {
+        data.card.source = 'tmdb';
+    }
+    
+    return pushNotice(class_name, data, resolve, reject);
+};
+
 NoticeCub.prototype.update = function() {
     this.notices = []
 }
