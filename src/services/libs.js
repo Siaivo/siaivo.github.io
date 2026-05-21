@@ -1,5 +1,6 @@
 import Utils from '../utils/utils'
 import Manifest from '../core/manifest'
+import Platform from '../core/platform'
 
 /**
  * Инициализация дополнительных библиотек
