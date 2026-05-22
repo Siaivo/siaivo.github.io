@@ -1,11 +1,14 @@
 node_modules
 public/.DS_Store
 .DS_Store
-build/
-build/web/
+build
 dest/
 svg/
 temp/
 .idea/
 package-lock.json
 .opencode
+.codegraph
+.cursor
+*.css
+public
