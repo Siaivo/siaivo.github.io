@@ -1,3 +1,4 @@
+import './app/custom-welcome'
 import './app/config-apply'
 import './core/manifest'
 import './core/personal'
