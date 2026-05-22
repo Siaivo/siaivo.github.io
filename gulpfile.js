@@ -50,10 +50,21 @@ var docFolder = './build/doc/';
 var isDebugEnabled = false;
 
 function merge(done) {
-    let plugins = [babel({
+    let plugins = [nodeResolve.nodeResolve(), commonjs(), babel({
         babelHelpers: 'bundled',
-        presets: ['@babel/preset-env']
-    }), commonjs, nodeResolve, worker()]
+        exclude: 'node_modules/core-js/**',
+        presets: [
+            ['@babel/preset-env', {
+                targets: {
+                    chrome: '38',
+                    safari: '7',
+                    samsung: '4'
+                },
+                useBuiltIns: 'usage',
+                corejs: 3
+            }]
+        ]
+    }), worker()]
 
     rollup({
         // Point to the entry file
@@ -95,10 +106,21 @@ function merge(done) {
 }
 
 function bubbleFile(name) {
-    let plug = [babel({
+    let plug = [nodeResolve.nodeResolve(), commonjs(), babel({
         babelHelpers: 'bundled',
-        presets: ['@babel/preset-env']
-    }), commonjs, nodeResolve]
+        exclude: 'node_modules/core-js/**',
+        presets: [
+            ['@babel/preset-env', {
+                targets: {
+                    chrome: '38',
+                    safari: '7',
+                    samsung: '4'
+                },
+                useBuiltIns: 'usage',
+                corejs: 3
+            }]
+        ]
+    })]
 
     rollup({
         input: plgFolder + name,

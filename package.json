@@ -29,6 +29,7 @@
     "@rollup/plugin-commonjs": "^21.0.0",
     "@rollup/stream": "^2.0.0",
     "browser-sync": "^2.27.5",
+    "core-js": "^3.49.0",
     "doctrine": "^3.0.0",
     "gulp-autoprefixer": "^8.0.0",
     "gulp-file-include": "^2.3.0",
