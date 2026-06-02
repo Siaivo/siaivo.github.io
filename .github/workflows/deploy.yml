@@ -61,6 +61,43 @@ jobs:
           publish_dir: ./build/github/lampa/
           publish_branch: main
 
+      - name: Inject pre-installed plugin for GitHub Pages build
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('fs');
+            const path = 'build/github/lampa-pages/index.html';
+            const html = fs.readFileSync(path, 'utf8');
+
+            const script = '<script>\n' +
+            '(function() {\n' +
+            '  var FLAG = \"gh_pages_kb_autoinstall_done\";\n' +
+            '  if (localStorage.getItem(FLAG)) return;\n' +
+            '  var pluginUrl = \"https://lampame.github.io/main/kb.js\";\n' +
+            '  var pluginName = \"KinoBase\";\n' +
+            '  try {\n' +
+            '    var existing = JSON.parse(localStorage.getItem(\"plugins\") || \"[]\");\n' +
+            '    if (!Array.isArray(existing)) existing = [];\n' +
+            '    function norm(u) {\n' +
+            '      return (u || \"\").replace(/[?#].*\$/, \"\").replace(/\\/+$/, \"\").replace(/^https?:\\/\\//i, \"\").toLowerCase();\n' +
+            '    }\n' +
+            '    var found = existing.some(function(p) {\n' +
+            '      return norm(p.url) === norm(pluginUrl) || p.name === pluginName;\n' +
+            '    });\n' +
+            '    if (!found) {\n' +
+            '      existing.push({url: pluginUrl, name: pluginName, status: 1});\n' +
+            '      localStorage.setItem(\"plugins\", JSON.stringify(existing));\n' +
+            '    }\n' +
+            '    localStorage.setItem(FLAG, \"1\");\n' +
+            '  } catch(e) {}\n' +
+            '})();\n' +
+            '</script>\n';
+
+            const result = html.replace('<div class=\"welcome\">', script + '    <div class=\"welcome\">');
+            fs.writeFileSync(path, result);
+            console.log('Pre-installed plugin injected for gh-pages');
+          "
+
       - name: Deploy to GitHub Pages branch
         uses: peaceiris/actions-gh-pages@v3
         with:
