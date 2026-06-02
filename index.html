@@ -34,33 +34,6 @@
         window.youtube_lazy_load = true
     </script>
 
-    <script>
-(function() {
-  var FLAG = "gh_pages_kb_autoinstall_done";
-  if (localStorage.getItem(FLAG)) return;
-  var pluginUrl = "https://lampame.github.io/main/kb.js";
-  var pluginName = "KinoBase";
-  try {
-    var existing = JSON.parse(localStorage.getItem("plugins") || "[]");
-    if (!Array.isArray(existing)) existing = [];
-    function norm(u) {
-      return (u || "")
-        .replace(/[?#].*$/, "")
-        .replace(/[/]+$/, "")
-        .replace(/^https?:[/][/]/i, "")
-        .toLowerCase();
-    }
-    var found = existing.some(function(p) {
-      return norm(p.url) === norm(pluginUrl) || p.name === pluginName;
-    });
-    if (!found) {
-      existing.push({url: pluginUrl, name: pluginName, status: 1});
-      localStorage.setItem("plugins", JSON.stringify(existing));
-    }
-    localStorage.setItem(FLAG, "1");
-  } catch(e) {}
-})();
-</script>
     <div class="welcome"></div>
 
     <div id="app">
