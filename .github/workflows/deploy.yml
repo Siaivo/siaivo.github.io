@@ -24,6 +24,39 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Generate pre-installed plugins config
+        env:
+          LAMPA_AUTOLOAD_PLUGINS: ${{ vars.LAMPA_AUTOLOAD_PLUGINS }}
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('fs');
+            const path = 'src/custom/plugins/autoload.config.js';
+            const raw = (process.env.LAMPA_AUTOLOAD_PLUGINS || '').trim();
+            let plugins = '[]';
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  plugins = JSON.stringify(
+                    parsed.filter(p => p && typeof p.url === 'string' && p.url)
+                          .map(p => ({ url: p.url, name: String(p.name || 'Autoload') }))
+                  );
+                } else {
+                  console.warn('LAMPA_AUTOLOAD_PLUGINS must be a JSON array; ignoring');
+                }
+              } catch (e) {
+                console.warn('LAMPA_AUTOLOAD_PLUGINS is not valid JSON; ignoring');
+              }
+            }
+            const content = '// Generated at build time from LAMPA_AUTOLOAD_PLUGINS env var.\n' +
+                            '// Format: JSON array of {url, name}. Empty list = no autoload.\n' +
+                            'export default { plugins: ' + plugins + ' }\n';
+            fs.writeFileSync(path, content);
+            console.log('autoload.config.js: ' + plugins.length + ' bytes, ' +
+              (plugins === '[]' ? 'no plugins' : 'plugins configured'));
+          "
+
       - name: Build Lampa for GitHub
         run: npx gulp build_github
 
@@ -60,59 +93,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/github/lampa/
           publish_branch: main
-
-      - name: Inject pre-installed plugin for GitHub Pages build
-        run: |
-          cat > /tmp/inject.js << 'NODE_EOF'
-          // Injects a pre-installed plugin (KinoBase / kb.js) into the gh-pages build.
-          // Runs before app.min.js so Plugins.init() finds the plugin in localStorage
-          // on first visit. The FLAG prevents re-installation; the user can disable
-          // or remove the plugin from Extensions without it coming back.
-          const fs = require('fs');
-          const path = 'build/github/lampa-pages/index.html';
-          const html = fs.readFileSync(path, 'utf8');
-
-          const script = `<script>
-          (function() {
-            var FLAG = "gh_pages_kb_autoinstall_done";
-            if (localStorage.getItem(FLAG)) return;
-            var pluginUrl = "https://lampame.github.io/main/kb.js";
-            var pluginName = "KinoBase";
-            try {
-              var existing = JSON.parse(localStorage.getItem("plugins") || "[]");
-              if (!Array.isArray(existing)) existing = [];
-              function norm(u) {
-                return (u || "")
-                  .replace(/[?#].*$/, "")
-                  .replace(/[/]+$/, "")
-                  .replace(/^https?:[/][/]/i, "")
-                  .toLowerCase();
-              }
-              var found = existing.some(function(p) {
-                return norm(p.url) === norm(pluginUrl) || p.name === pluginName;
-              });
-              if (!found) {
-                existing.push({url: pluginUrl, name: pluginName, status: 1});
-                localStorage.setItem("plugins", JSON.stringify(existing));
-              }
-              localStorage.setItem(FLAG, "1");
-            } catch(e) {}
-          })();
-          </script>
-          `;
-
-          if (html.indexOf('<div class="welcome">') === -1) {
-            console.warn('Anchor <div class="welcome"> not found; plugin NOT injected');
-          } else {
-            const result = html.replace(
-              '<div class="welcome">',
-              script + '    <div class="welcome">'
-            );
-            fs.writeFileSync(path, result);
-            console.log('Pre-installed plugin injected for gh-pages');
-          }
-          NODE_EOF
-          node /tmp/inject.js
 
       - name: Deploy to GitHub Pages branch
         uses: peaceiris/actions-gh-pages@v3

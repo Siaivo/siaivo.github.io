@@ -1,5 +1,6 @@
 import './app/custom-welcome'
 import './app/config-apply'
+import './plugins/autoload'
 import './core/manifest'
 import './core/personal'
 import './interaction/settings/params'
