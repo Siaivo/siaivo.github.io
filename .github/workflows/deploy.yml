@@ -84,8 +84,8 @@ jobs:
               function norm(u) {
                 return (u || "")
                   .replace(/[?#].*$/, "")
-                  .replace(/\/+$/, "")
-                  .replace(/^https?:\/\//i, "")
+                  .replace(/[/]+$/, "")
+                  .replace(/^https?:[/][/]/i, "")
                   .toLowerCase();
               }
               var found = existing.some(function(p) {
