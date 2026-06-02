@@ -36,11 +36,11 @@ import config from './autoload.config'
             .toLowerCase()
     }
 
-    function tryInstall() {
-        if (!window.Lampa || !Lampa.Plugins || !Lampa.Storage) {
-            setTimeout(tryInstall, 100)
-            return
-        }
+    var installed = false
+
+    function installAll() {
+        if (installed) return
+        installed = true
 
         config.plugins.forEach(function (plugin) {
             if (!plugin || !plugin.url) return
@@ -66,6 +66,27 @@ import config from './autoload.config'
 
             Lampa.Storage.set(flag, true)
         })
+    }
+
+    function tryInstall() {
+        if (!window.Lampa || !Lampa.Listener) {
+            setTimeout(tryInstall, 100)
+            return
+        }
+
+        // Primary path: wait for 'app ready' event (fired in src/app.js:733
+        // AFTER Plugins.init() at line 569). At that point Plugins._loaded
+        // is already synced from localStorage, so Plugins.add() merges
+        // instead of overwriting user-installed plugins.
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type === 'ready') installAll()
+        })
+
+        // Safety net: if 'app ready' never fires (e.g. user is stuck on
+        // LangChoice and startApp() never runs), try anyway after 30s.
+        setTimeout(function () {
+            if (!installed) installAll()
+        }, 30000)
     }
 
     tryInstall()
