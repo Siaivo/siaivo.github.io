@@ -9,7 +9,7 @@ export default {
         discuss: true,
         ai: true,
         subscribe: true,
-        persons: true,
+        persons: false,
         ads: true,
         install_proxy: true,
         blacklist: true,
