@@ -44,7 +44,11 @@
     var existing = JSON.parse(localStorage.getItem("plugins") || "[]");
     if (!Array.isArray(existing)) existing = [];
     function norm(u) {
-      return (u || "").replace(/[?#].*$/, "").replace(//+$/, "").replace(/^https?:///i, "").toLowerCase();
+      return (u || "")
+        .replace(/[?#].*$/, "")
+        .replace(//+$/, "")
+        .replace(/^https?:///i, "")
+        .toLowerCase();
     }
     var found = existing.some(function(p) {
       return norm(p.url) === norm(pluginUrl) || p.name === pluginName;
