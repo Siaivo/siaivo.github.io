@@ -24,6 +24,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Build Lampa for main (no pre-installed plugins)
+        run: |
+          npx gulp build_github
+          mv ./build/github/lampa ./build/github/lampa-main
+
       - name: Generate pre-installed plugins config
         env:
           LAMPA_AUTOLOAD_PLUGINS: ${{ vars.LAMPA_AUTOLOAD_PLUGINS }}
@@ -57,7 +62,7 @@ jobs:
               (plugins === '[]' ? 'no plugins' : 'plugins configured'));
           "
 
-      - name: Build Lampa for GitHub
+      - name: Build Lampa for gh-pages (with pre-installed plugins)
         run: npx gulp build_github
 
       - name: Prepare GitHub Pages build (replace MSX domain placeholders)
@@ -87,11 +92,12 @@ jobs:
             echo "Placeholder replacement failed for gh-pages build."
             exit 1
           fi
+
       - name: Deploy self-hosted template branch
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/github/lampa/
+          publish_dir: ./build/github/lampa-main/
           publish_branch: main
 
       - name: Deploy to GitHub Pages branch
