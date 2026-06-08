@@ -13,10 +13,11 @@ function patchAnimeCategory() {
     var originalCategory = tmdb.category.bind(tmdb)
 
     tmdb.category = function(params, oncomplite, onerror) {
+        var clean_onerror = onerror || function() {}
         if (params.url === 'anime_movie' || params.url === 'anime_tv') {
-            return animeCategory(params, oncomplite, onerror)
+            return animeCategory(params, oncomplite, clean_onerror)
         }
-        return originalCategory(params, oncomplite, onerror)
+        return originalCategory(params, oncomplite, clean_onerror)
     }
 }
 

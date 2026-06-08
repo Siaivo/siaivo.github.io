@@ -68,7 +68,7 @@ function patchTranslationFallback() {
             oncomplite(data)
         }
 
-        originalFull(params, wrappedOnComplite, onerror)
+        originalFull(params, wrappedOnComplite, onerror || function(){})
     }
 }
 
