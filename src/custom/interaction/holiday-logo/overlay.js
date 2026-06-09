@@ -118,8 +118,6 @@ function createIconElement() {
     
     if (Head && Head.addElement) {
         Head.addElement($(el), showNotification)
-        // addElement binding hover:enter, але для надійності кліку мишкою:
-        el.addEventListener('click', showNotification)
     } else {
         el.addEventListener('click', showNotification)
         el.addEventListener('hover:enter', showNotification)
