@@ -1,6 +1,7 @@
 import './app/custom-welcome'
 import './app/custom-head'
 import './app/config-apply'
+import './app/markers-visibility'
 import './plugins/autoload'
 import './core/manifest'
 import './interaction/settings/siaivo'
