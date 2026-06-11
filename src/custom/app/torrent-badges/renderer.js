@@ -27,10 +27,11 @@ function groupBadges(badges) {
 /**
  * Створює jQuery-елемент з бейджами для заголовку торренту
  * @param {string} title - заголовок торренту
+ * @param {object} [element] - повний об'єкт елемента (для jacred)
  * @returns {jQuery|null} jQuery-елемент з бейджами або null, якщо співпадінь немає
  */
-export function renderBadges(title) {
-    let matched = matchBadges(title)
+export function renderBadges(title, element) {
+    let matched = matchBadges(title, element)
     if (!matched || matched.length === 0) return null
 
     let groups = groupBadges(matched)

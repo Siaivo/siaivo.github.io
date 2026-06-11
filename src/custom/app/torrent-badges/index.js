@@ -19,10 +19,10 @@ function injectStyles() {
     let style = document.createElement('style')
     style.id = 'torrent-badges-style'
     style.textContent =
-        '.torrent-item__badges{display:flex;flex-wrap:wrap;gap:.4em;margin-top:.5em;align-items:center}' +
-        '.torrent-item__badges-group{display:flex;gap:.3em;align-items:center}' +
-        '.torrent-item__badges-group+.torrent-item__badges-group{margin-left:.3em}' +
-        '.torrent-item__badges img{height:1.4em;width:auto;vertical-align:middle}'
+        '.torrent-item__badges{display:flex;flex-wrap:wrap;gap:.6em;margin-top:.6em;align-items:center}' +
+        '.torrent-item__badges-group{display:flex;gap:.4em;align-items:center}' +
+        '.torrent-item__badges-group+.torrent-item__badges-group{margin-left:.4em}' +
+        '.torrent-item__badges img{height:1.5em;width:auto;vertical-align:middle}'
     document.head.appendChild(style)
 }
 
@@ -62,7 +62,7 @@ function init() {
         // Якщо бейджі ще не завантажені — чекаємо
         if (!getBadges().length) {
             fetchPromise.then(() => {
-                let badges = renderBadges(title)
+                let badges = renderBadges(title, e.element)
                 if (badges) {
                     e.item.find('.torrent-item__title').after(badges)
                 }
@@ -70,7 +70,7 @@ function init() {
             return
         }
 
-        let badges = renderBadges(title)
+        let badges = renderBadges(title, e.element)
         if (badges) {
             e.item.find('.torrent-item__title').after(badges)
         }

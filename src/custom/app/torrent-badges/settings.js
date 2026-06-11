@@ -44,12 +44,13 @@ export function init() {
             item.attr('data-parent', 'torrents_v2')
         },
         onChange: function (value) {
-            // При зміні URL — перезавантажуємо бейджі
-            if (window.Lampa && window.Lampa.Storage && window.Lampa.Storage.field('torrents_v2') === 'true') {
-                // Скидаємо кеш і перезавантажуємо
-                if (window.torrentBadgesReload) {
-                    window.torrentBadgesReload()
-                }
+            // При зміні URL — скидаємо кеш і перезавантажуємо бейджі
+            // Зберігаємо новий URL щоб badges.js прочитав його при reload
+            if (window.Lampa && window.Lampa.Storage) {
+                window.Lampa.Storage.set('torrents_v2_manifest', value)
+            }
+            if (window.torrentBadgesReload) {
+                window.torrentBadgesReload()
             }
         }
     })

@@ -95,20 +95,46 @@ function compileBadge(badge) {
 /**
  * Повертає масив бейджів, які підходять до заголовку torrent-роздачі
  * @param {string} title - заголовок торренту
+ * @param {object} [element] - повний об'єкт елемента (для jacred з ffprobe/languages)
  * @returns {Array} масив співпадінь badge-об'єктів
  */
-export function matchBadges(title) {
+export function matchBadges(title, element) {
     if (!badgesCache || !title) return []
+
+    // Для jacred: розширюємо текст для матчингу додатковими полями
+    let searchText = title
+    if (element) {
+        let extra = []
+        if (element.languages && Array.isArray(element.languages)) {
+            extra.push(element.languages.join(' '))
+        }
+        if (element.ffprobe && Array.isArray(element.ffprobe)) {
+            element.ffprobe.forEach(stream => {
+                if (stream.codec_name) extra.push(stream.codec_name)
+                if (stream.channel_layout) extra.push(stream.channel_layout)
+                if (stream.tags && stream.tags.language) extra.push(stream.tags.language)
+                if (stream.tags && stream.tags.title) extra.push(stream.tags.title)
+            })
+        }
+        if (element.info) {
+            if (element.info.videotype) extra.push(element.info.videotype)
+            if (element.info.voices && Array.isArray(element.info.voices)) {
+                extra.push(element.info.voices.join(' '))
+            }
+        }
+        if (extra.length) {
+            searchText = title + ' ' + extra.join(' ')
+        }
+    }
 
     return badgesCache.filter((badge) => {
         if (!badge.isEnabled) return false
         try {
-            if (!badge.regex.test(title)) return false
+            if (!badge.regex.test(searchText)) return false
 
             // Для мовних бейджів (id починається з 'l-') вимагаємо явну назву мови
-            // Бо деякі патерни (напр. l-ru з [Ѐ-ӿ]{3,}) матчать будь-яку кирилицю
             if (badge.id && badge.id.startsWith('l-')) {
-                return hasExplicitLanguage(title, badge.id)
+                return hasExplicitLanguage(searchText, badge.id)
             }
 
             return true
