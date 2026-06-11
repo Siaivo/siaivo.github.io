@@ -1,0 +1,23 @@
+.torrent-item__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    margin-top: 0.5em;
+    align-items: center;
+
+    &-group {
+        display: flex;
+        gap: 0.3em;
+        align-items: center;
+
+        & + & {
+            margin-left: 0.3em;
+        }
+    }
+
+    img {
+        height: 1.4em;
+        width: auto;
+        vertical-align: middle;
+    }
+}
