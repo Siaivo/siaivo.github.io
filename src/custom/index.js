@@ -24,6 +24,7 @@ import './interaction/lang'
 import './interaction/advert/vast_manager'
 import './lang/meta-apply'
 import './interaction/news-loader'
+import './interaction/profile-window'
 import './app/torrent-badges'
 
 import './core/tmdb/translation-fallback'
