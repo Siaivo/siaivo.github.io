@@ -39,10 +39,6 @@ function Component(name, component_params = {}){
             comp.find('.is--player').remove()
         }
 
-        if(!Platform.is('apple') && !Platform.is('apple_tv') && !Platform.macOS()){
-            comp.find('.is--infuse').remove()
-        }
-
         if(!Platform.desktop() || Platform.macOS()){
             comp.find('.is--nw').remove()
         }

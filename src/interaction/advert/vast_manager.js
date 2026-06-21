@@ -4,7 +4,6 @@ import Storage from '../../core/storage/storage'
 import Platform from '../../core/platform'
 import Timer from '../../core/timer'
 import Arrays from '../../utils/arrays'
-import VPN from '../../core/vpn'
 
 class VastManager {
     constructor(params){
@@ -32,10 +31,10 @@ class VastManager {
     }
 
     load(){
-        let pos = 0
+        let pos = 1
 
         let request = ()=>{
-            let domain = Manifest.cub_mirrors[pos]
+            let domain = Manifest.soc_mirrors[pos]
 
             if(domain){
                 $.ajax({
@@ -98,14 +97,14 @@ class VastManager {
         return tags[0]
     }
 
-    filter(view){
+    filter(view, player_data){
         view = view.filter(v => !this.played.prerolls.find(pr => pr == v.name))
 
         if(!window.lampa_settings.developer.ads){
             view = view.filter(v => this.whitoutGenres(v.whitout_genre) !== true)
             view = view.filter(v => v.screen == (Platform.screen('tv') ? 'tv' : 'mobile') || v.screen == 'all')
             view = view.filter(v => v.platforms.indexOf(Platform.get()) !== -1 || v.platforms.indexOf('all') !== -1 || !v.platforms.length)
-            view = view.filter(v => v.region.split(',').indexOf(VPN.code()) !== -1 || v.region.indexOf('all') !== -1 || !v.region.length)
+            view = view.filter(v => v.region.split(',').indexOf(player_data.ad_region) !== -1 || v.region.indexOf('all') !== -1 || !v.region.length)
         }
 
         console.log('Ad', 'manager ' + this.params.api, 'filter view', view)
@@ -121,10 +120,10 @@ class VastManager {
         return null
     }
 
-    get(first_run = false){
+    get(player_data, first_run = false){
         if(first_run) this.played.prerolls = []
 
-        return this.data_loaded.ad.length ? this.filter(this.data_loaded.ad) : null
+        return this.data_loaded.ad.length ? this.filter(this.data_loaded.ad, player_data) : null
     }
 }
 

@@ -100,24 +100,9 @@ function is(need_array = []){
     return need_array.indexOf(responce_code) >= 0
 }
 
-let vpn = {
+export default {
+    region,
     task,
+    code: ()=>responce_code,
     is
 }
-
-Object.defineProperty(vpn, 'region', {
-    value: function(call) {
-        region(call)
-    },
-    writable: false
-})
-
-Object.defineProperty(vpn, 'code', {
-    value: function() {
-        return responce_code
-    },
-    writable: false
-})
-
-
-export default vpn

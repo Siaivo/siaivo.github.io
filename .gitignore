@@ -12,6 +12,3 @@ package-lock.json
 .cursor
 *.css
 public
-.opencode
-.omo
-.sisyphus

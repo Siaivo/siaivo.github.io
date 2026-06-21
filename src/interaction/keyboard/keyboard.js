@@ -220,7 +220,7 @@ function Keyboard(params = {}){
 
             if(mobile) keyboard.addClass('simple-keyboard--with-textarea')
 
-            if(Platform.screen('mobile') || Platform.mouse()){
+            if(Platform.screen('mobile')){
                 let buttons = $('<div class="simple-keyboard-buttons"><div class="simple-keyboard-buttons__enter">'+Lang.translate('ready')+'</div><div class="simple-keyboard-buttons__cancel">'+Lang.translate('cancel')+'</div></div>')
 
                 buttons.find('.simple-keyboard-buttons__enter').on('click',()=>{

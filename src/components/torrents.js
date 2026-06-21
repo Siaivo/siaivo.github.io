@@ -21,7 +21,6 @@ import Explorer from '../interaction/explorer'
 import Layer from '../core/layer'
 import WatchedHistory from '../interaction/watched_history'
 import Listener from './torrents/listener'
-import TitleParser from './torrents/parser'
 
 import voices from './torrents/voices'
 import filter_langs from './torrents/lang'
@@ -84,7 +83,6 @@ function component(object){
     let filter_multiple = ['quality','voice','tracker','season','lang']
 
     let sort_translate = {
-        popular: Lang.translate('title_popular'),
         Seeders: Lang.translate('torrent_parser_sort_by_seeders'),
         Size: Lang.translate('torrent_parser_sort_by_size'),
         Title: Lang.translate('torrent_parser_sort_by_name'),
@@ -156,10 +154,6 @@ function component(object){
 
         Parser.get(object,(data)=>{
             results = data
-
-            results.Results.forEach(element => {
-                element.general = TitleParser.general(element.Title.toLowerCase())
-            })
 
             this.build()
 
@@ -242,12 +236,8 @@ function component(object){
     }
 
     this.buildSorted = function(){
-        let need   = Storage.get('torrents_sort','popular')
+        let need   = Storage.get('torrents_sort','Seeders')
         let select = [
-            {
-                title: Lang.translate('title_popular'),
-                sort: 'popular'
-            },
             {
                 title: Lang.translate('torrent_parser_sort_by_seeders'),
                 sort: 'Seeders'
@@ -278,32 +268,13 @@ function component(object){
             if(element.sort == need) element.selected = true
         });
 
-        this.sortResults(need)
+        filter.sort(results.Results, need)
+
+        this.sortWithViewed()
 
         filter.set('sort', select)
 
         this.selectedSort()
-    }
-
-    this.sortResults = function(need){
-        if(object.movie.number_of_seasons && need == 'popular'){
-            results.Results.sort((a, b) => {
-                let s_a = parseInt(String(a.general.season).split('-').pop())
-                let s_b = parseInt(String(b.general.season).split('-').pop())
-                let e_a = a.general.episodes ? parseInt(String(a.general.episodes).split('-').pop()) : 0
-                let e_b = b.general.episodes ? parseInt(String(b.general.episodes).split('-').pop()) : 0
-
-                return (
-                    s_b - s_a ||
-                    e_b - e_a ||
-                    b.Seeders - a.Seeders
-                )
-            })
-        }
-        else if(need == 'popular') filter.sort(results.Results, 'Seeders')
-        else filter.sort(results.Results, need)
-
-        this.sortWithViewed()
     }
 
     this.sortWithViewed = function(){
@@ -377,6 +348,8 @@ function component(object){
         filter_items.tracker = [Lang.translate('torrent_parser_any_two')]
         filter_items.season  = [Lang.translate('torrent_parser_any_two')]
 
+        
+
         results.Results.forEach(element => {
             let title = element.Title.toLowerCase(),
                 tracker = element.Tracker;
@@ -386,12 +359,6 @@ function component(object){
 
                 if(title.indexOf(voice) >= 0){
                     if(filter_items.voice.indexOf(voices[i]) == -1) filter_items.voice.push(voices[i])
-                }
-
-                if(!element.info){
-                    element.info = {
-                        voices: TitleParser.voices(element.Title)
-                    }
                 }
                 
                 if(element.info && element.info.voices){
@@ -405,14 +372,21 @@ function component(object){
                 if(filter_items.tracker.indexOf(t.trim()) === -1) filter_items.tracker.push(t.trim())
             })
 
-            element.general.seasons.forEach(season=>{
-                let number = season + ''
+            let season = title.match(/.?s\[(\d+)-\].?|.?s(\d+).?|.?\((\d+) сезон.?|.?season (\d+),.?/)
 
-                if(finded_seasons.indexOf(number) == -1){
-                    finded_seasons.push(number)
-                    finded_seasons_full.push(number)
+            if(season){
+                season = season.filter(c=>c)
+
+                if(season.length > 1){
+                    let orig   = season[1]
+                    let number = parseInt(orig) + ''
+
+                    if(number && finded_seasons.indexOf(number) == -1){
+                        finded_seasons.push(number)
+                        finded_seasons_full.push(orig)
+                    }
                 }
-            })
+            }
         })
 
         finded_seasons_full.sort((a,b)=>{
@@ -436,7 +410,7 @@ function component(object){
         if(finded_seasons.length) filter_items.season = filter_items.season.concat(finded_seasons)
 
         
-        // Надо очистить от отсутствующих ключей
+        //надо очистить от отсутствующих ключей
         need.voice   = Arrays.removeNoIncludes(Arrays.toArray(need.voice), filter_items.voice)
         need.tracker = Arrays.removeNoIncludes(Arrays.toArray(need.tracker), filter_items.tracker)
         need.season  = Arrays.removeNoIncludes(Arrays.toArray(need.season), filter_items.season)
@@ -484,7 +458,7 @@ function component(object){
     }
 
     this.selectedSort = function(){
-        let select = Storage.get('torrents_sort','popular')
+        let select = Storage.get('torrents_sort','Seeders')
 
         filter.chosen('sort', [sort_translate[select]])
     }
@@ -499,7 +473,9 @@ function component(object){
             if(type == 'sort'){
                 Storage.set('torrents_sort',a.sort)
 
-                this.sortResults(a.sort)
+                filter.sort(results.Results, a.sort)
+
+                this.sortWithViewed()
             }
             else{
                 if(a.reset){
@@ -661,7 +637,21 @@ function component(object){
                             let i = finded_seasons.indexOf(a)
                             let f = parseInt(finded_seasons_full[i])
 
-                            if(element.general.seasons.indexOf(f) >= 0) any = true
+                            var SES1 = title.match(/\[s(\d+)-(\d+)\]/)
+                            var SES2 = title.match(/season (\d+)-(\d+)/)
+                            var SES3 = title.match(/season (\d+) - (\d+).?/)
+                            var SES4 = title.match(/сезон: (\d+)-(\d+) \/.?/)
+
+                            function pad(n) {
+                                return (n < 10 && n != '01') ? '0' + n : n
+                            }
+
+                            if(Array.isArray(SES1) && (f >= SES1[1] && f <= SES1[2] || pad(f) >= SES1[1] && pad(f) <= SES1[2] || f >= pad(SES1[1]) && f <= pad(SES1[2]))) any = true
+                            if(Array.isArray(SES2) && (f >= SES2[1] && f <= SES2[2] || pad(f) >= SES2[1] && pad(f) <= SES2[2] || f >= pad(SES2[1]) && f <= pad(SES2[2]))) any = true
+                            if(Array.isArray(SES3) && (f >= SES3[1] && f <= SES3[2] || pad(f) >= SES3[1] && pad(f) <= SES3[2] || f >= pad(SES3[1]) && f <= pad(SES3[2]))) any = true
+                            if(Array.isArray(SES4) && (f >= SES4[1] && f <= SES4[2] || pad(f) >= SES4[1] && pad(f) <= SES4[2] || f >= pad(SES4[1]) && f <= pad(SES4[2]))) any = true
+
+                            if (test('.?\\[0' + f + 'x0.?|.?\\[0' + f + 'х0.?|.?\\[s' + f + '-.?|.?-' + f + '\\].?|.?\\[s0' + f + '\\].?|.?\\[s' + f + '\\].?|.?s' + f + 'e.?|.?s' + f + '-.?|.?сезон: ' + f + ' .?|.?сезон:' + f + '.?|сезон ' +f+ ',.?|\\[' +f+ ' сезон.?|.?\\(' +f+ ' сезон.?|.?season ' +f+'.?')) any = true
                         }
                     })
 
@@ -795,31 +785,16 @@ function component(object){
             })
 
             let item = Template.get('torrent',element)
-            let need_remove_ffprobe = false
-
-            if(!element.ffprobe){
-                element.ffprobe = []
-
-                need_remove_ffprobe = true
-            }
 
             if(element.ffprobe){
                 let ffprobe_elem = item.find('.torrent-item__ffprobe')
                 let ffprobe_tags = []
-                let general      = element.general || {}
-                let quality      = element.info && element.info.quality ? Utils.qualityToText(element.info.quality + 'p') : general.resolution
-
-                if(object.movie.number_of_seasons && general.season){
-                    ffprobe_elem.append('<div class="m-general"><div>S'+general.season+'</div>'+(general.episodes ? '<div>' + general.episodes + '</div>' : '')+'</div>')
-                }
-
-                if(quality) ffprobe_tags.push({media: 'resolution', value: quality})
     
                 let video = element.ffprobe.find(a=>a.codec_type == 'video')
                 let audio = element.ffprobe.filter(a=>a.codec_type == 'audio' && a.tags)
                 let subs  = element.ffprobe.filter(a=>a.codec_type == 'subtitle' && a.tags)
-                let voice = Arrays.clone(element.info && element.info.voices ? element.info.voices : [])
-
+                let voice = element.info && element.info.voices ? element.info.voices : []
+    
                 if(video) ffprobe_tags.push({media: 'video',value: video.width + 'x' + video.height})
 
                 let is_71 = element.ffprobe.find(a=>a.codec_type == 'audio' && a.channels == 8)
@@ -831,18 +806,13 @@ function component(object){
                 audio.forEach(a=>{
                     let line = []
                     let lang = (a.tags.language || '').toUpperCase()
-                    let name = a.tags.title || a.tags.handler_name || ''
-                    let short = voices.find(v=>name.toLowerCase().indexOf(v.toLowerCase()) >= 0)
-
-                    if(short) name = short
-
-                    let find = voice.find(v=>name.toLowerCase().indexOf(v.toLowerCase()) >= 0)
-
-                    if(find) Arrays.remove(voice, find)
+                    let name = a.tags.title || a.tags.handler_name
 
                     if(lang) line.push(lang)
                     if(name && lang !== 'ENG'){
-                        name = find || name
+                        let translate = voice.find(v=>name.toLowerCase().indexOf(v.toLowerCase()) >= 0)
+                        
+                        name = translate ? translate : name
 
                         if(name.toLowerCase().indexOf('dub') >= 0 || name.toLowerCase() == 'd') name = Lang.translate('torrent_parser_voice_dubbing')
                         
@@ -850,10 +820,6 @@ function component(object){
                     }
 
                     if(line.length) ffprobe_tags.push({media: 'audio',value: line.join(' - ')})
-                })
-
-                voice.forEach(v=>{
-                    ffprobe_tags.push({media: 'audio',value: v})
                 })
 
                 let find_subtitles = []
@@ -878,9 +844,7 @@ function component(object){
                     ffprobe_elem.append('<div class="m-'+tag.media+'">'+tag.value+'</div>')
                 })
     
-                if($('> div', ffprobe_elem).length) ffprobe_elem.removeClass('hide')
-
-                if(need_remove_ffprobe) delete element.ffprobe
+                if(ffprobe_tags.length) ffprobe_elem.removeClass('hide')
             }
 
             if (!bitrate) item.find('.bitrate').remove()
@@ -1008,7 +972,7 @@ function component(object){
     }
 
     this.pause = function(){
-        listener && listener.destroy()
+        listener.destroy()
     }
 
     this.stop = function(){
@@ -1027,7 +991,7 @@ function component(object){
 
         scroll.destroy()
 
-        listener && listener.destroy()
+        listener.destroy()
 
         results = null
         network = null
