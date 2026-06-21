@@ -109,14 +109,14 @@ Object.defineProperty(vpn, 'region', {
     value: function(call) {
         region(call)
     },
-    writable: false
+    writable: true
 })
 
 Object.defineProperty(vpn, 'code', {
     value: function() {
         return responce_code
     },
-    writable: false
+    writable: true
 })
 
 
