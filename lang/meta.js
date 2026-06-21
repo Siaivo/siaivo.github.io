@@ -77,12 +77,5 @@ export default {
             lang_choice_title: 'Bienvenue',
             lang_choice_subtitle: 'Choisissez votre langue',
         },
-        pl: {
-            code: "pl",
-            name: "Polski",
-      
-            lang_choice_title: "Witamy",
-            lang_choice_subtitle: "Wybierz język",
-        }
     }
 }
