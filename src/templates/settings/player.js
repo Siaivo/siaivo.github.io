@@ -17,6 +17,14 @@ let html = `<div>
         <div class="settings-param__descr">#{settings_player_torrent_type_descr}</div>
     </div>
 
+    <div class="is--infuse hide" data-infuse-launch>
+        <div class="settings-param selector" data-type="select" data-name="infuse_launch_mode">
+            <div class="settings-param__name">#{settings_infuse_launch_mode}</div>
+            <div class="settings-param__value"></div>
+            <div class="settings-param__descr">#{settings_infuse_launch_mode_descr}</div>
+        </div>
+    </div>
+
     <div class="settings-param selector is--android" data-type="select" data-name="player_launch_trailers">
         <div class="settings-param__name">#{settings_player_launch_trailers}</div>
         <div class="settings-param__value"></div>

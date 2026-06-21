@@ -58,9 +58,13 @@ function bind(){
             return scroll.append(item)
         }
         
-        let item = Template.get(element.template || 'selectbox_item', element)
+        let item = Template.get(element.template || (element.thumbnail ? 'selectbox_icon' : 'selectbox_item') , element)
 
         if(!element.subtitle) item.find('.selectbox-item__subtitle').remove()
+
+        if(element.thumbnail){
+            item.find('.selectbox-item__icon').empty().append('<img class="size-youtube" src="'+element.thumbnail+'">')
+        }
 
         if(element.checkbox){
             item.addClass('selectbox-item--checkbox')

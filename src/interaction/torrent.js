@@ -403,7 +403,19 @@ function list(items, params){
 
         element.title = (element.fname || element.title).replace(/<[^>]*>?/gm, '')
 
-        playlist.push(element)
+        element.playlist = playlist
+
+        playlist.push({
+            title: element.title,
+            subtitle: element.episode ? Lang.translate('torrent_serial_episode') + ': ' + element.episode : '',
+            url: element.url,
+            season: element.season,
+            episode: element.episode,
+            path: element.path,
+            timeline: element.timeline,
+            thumbnail: element.thumbnail,
+            subtitles: element.subtitles
+        })
         
         item.on('hover:enter',()=>{
             stopAutostart()
@@ -413,21 +425,6 @@ function list(items, params){
 
             if(params.movie.id) Favorite.add('history', params.movie, 100)
 
-            if ((Platform.is('android') || Platform.is('apple_tv') || Platform.is('apple') || Platform.macOS()) && playlist.length > 1){
-                let trim_playlist = []
-
-                playlist.forEach((elem)=>{
-                    trim_playlist.push({
-                        title: elem.title,
-                        url: elem.url,
-                        timeline: elem.timeline,
-                        thumbnail: elem.thumbnail,
-                    })
-                })
-
-                element.playlist = trim_playlist
-            }
-
             preload(element, ()=>{
                 Player.play(element)
 
@@ -436,8 +433,6 @@ function list(items, params){
                 })
 
                 Player.playlist(playlist)
-
-                Player.stat(element.url)
 
                 if(callback){
                     callback()
