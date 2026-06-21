@@ -1,5 +1,4 @@
 node_modules
-public/.DS_Store
 .DS_Store
 build
 dest/
@@ -11,7 +10,7 @@ package-lock.json
 .codegraph
 .cursor
 *.css
-public
-.opencode
+public/.DS_Store
+public/css/
 .omo
 .sisyphus
