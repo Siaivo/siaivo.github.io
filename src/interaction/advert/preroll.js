@@ -7,9 +7,13 @@ import Platform from '../../core/platform'
 import Background from '../background'
 import VastManager from './vast_manager'
 import IMA from './ima'
+import Metric from '../../services/metric'
+import Account from '../../core/account/account'
+import Personal from '../../core/personal'
 
 let running     = 0
 let player_data = {}
+let prerolls_played = []
 
 let Manager = new VastManager({
     api: 'preroll',
@@ -32,8 +36,10 @@ function video(preroll, num, started, ended){
     console.log('Ad', 'preroll launch')
 
     let advert = preroll.vast_api == 3 ? new Vast3(preroll) : new Vast2(preroll)
-    let next   = () => {
+    let next   = (mark) => {
         let any = getAnyPreroll()
+
+        mark && Manager.markCooling()
 
         any ? video(any, num + 1, started, ended) : ended()
     }
@@ -136,10 +142,17 @@ function getVastPlugin(data){
  * @return {Object|Boolean} данные для показа рекламы или false, если не показывать
  */
 function getAnyPreroll(first_run = false){
-    let manager = Manager.get(player_data, first_run)
+    let manager = Manager.get(first_run)
     let plugin  = getVastPlugin(player_data)
 
-    return Manager.coolingReady() ? manager || plugin : false
+    let any = Manager.coolingReady() ? manager || plugin : false
+
+    if(any){
+        if(prerolls_played.indexOf(any.url) == -1) prerolls_played.push(any.url)
+        else any = false
+    } 
+
+    return any
 }
 
 /**
@@ -151,11 +164,16 @@ function getAnyPreroll(first_run = false){
 function show(data, call){
     player_data = data
 
+    prerolls_played = []
+
     // Пометить регион для таргетинга рекламы
     player_data.ad_region = VPN.code()
 
     // Не показывать рекламу для iptv/torrent/youtube/continue
     let type = IMA.getMediaType(data)
+    let whoi = Account.hasPremium() ? 'premium' : Personal.confirm() ? 'personal' : 'none'
+
+    Metric.counter('ad_preroll_start', VPN.code(), whoi, type.any ? 'skip' : 'show')
 
     if(type.any){
         console.log('Ad', 'preroll skipped, no vast api or iptv/torrent/youtube/continue', type)
@@ -173,8 +191,6 @@ function show(data, call){
     let ended = ()=>{
         running = 0
 
-        Manager.markCooling()
-
         console.log('Ad', 'preroll ended')
 
         call()
@@ -182,8 +198,12 @@ function show(data, call){
 
     // Получаем данные для показа рекламы (преролл или плагин)
     let preroll = getAnyPreroll(true)
+    let canshow = IMA.canShow(data)
 
-    if(preroll && IMA.canShow(data)){
+    Metric.counter('ad_preroll_show', VPN.code(), preroll ? 'ready' : 'none', canshow ? 'ready' : 'none')
+    Metric.counter('ad_preroll_colling', VPN.code(), Manager.coolingReady() ? 'ready' : 'cooling')
+
+    if(preroll && canshow){
         // Загружаем SDK для выбранного преролла, чтобы он был готов к показу
         IMA.loadSDK(preroll.vast_api).catch(()=>{
             console.log('Ad', 'IMA SDK load error', preroll.vast_api)

@@ -25,6 +25,7 @@ import Preroll from './advert/preroll'
 import Footer from './player/footer'
 import Segments from './player/segments'
 import ExternalPlayer from '../core/externalPlayer.js'
+import InfusePlayer from '../core/infusePlayer.js'
 
 let html
 let listener = Subscribe()
@@ -43,6 +44,8 @@ let show_disclaimer = false
 let preloader = {
     wait: false
 }
+
+let play_pending = null
 
 let viewing = {
     time: 0,
@@ -371,8 +374,6 @@ function init(){
             Video.setParams(params)
 
             if(e.item.callback) e.item.callback()
-
-            if(Torserver.ip() && e.item.url.indexOf(Torserver.ip()) > -1) Info.set('stat',e.item.url)
 
             Playlist.active()
 
@@ -717,66 +718,31 @@ function externalPlayer(player_need, data, players, infuseCallbacks){
     let url      = encodeURIComponent(data.url.replace('&preload','&play'))
     let _url     = encodeURI(data.url.replace('&preload','&play'))
     let furl     = data.url.replace('&preload','&play')
-    let playlist = data.playlist ? encodeURIComponent(JSON.stringify(data.playlist)) : ''
-    let segments = data.segments ? encodeURIComponent(JSON.stringify(data.segments)) : ''
+    let playlist = InfusePlayer.serializePlaylist(data.playlist)
+    let segments = InfusePlayer.serializeJson(data.segments)
 
     for(let p in players){
         players[p] = players[p].replace('${url}', url).replace('${_url}', _url).replace('${furl}', furl).replace('${playlist}', playlist).replace('${segments}', segments)
     }
 
-    // Infuse multi-URL playlist support for x-callback-url
+    // Infuse: save_and_play, readable filenames, season playlist
     if(player == 'infuse'){
-        let multiUrl = buildInfuseMultiUrl(data, infuseCallbacks)
-        if(multiUrl) return multiUrl
+        InfusePlayer.normalizePlayData(data)
+
+        let customUrl = null
+
+        listener.send('infuse_build_url', {
+            data,
+            callbacks: infuseCallbacks,
+            setUrl: (url) => { customUrl = url }
+        })
+
+        if(customUrl) return customUrl
+
+        return InfusePlayer.resolveUrl(data, infuseCallbacks)
     }
 
     return players[player]
-}
-
-function buildInfuseMultiUrl(data, callbacks){
-    callbacks = callbacks || {}
-
-    let items = (Array.isArray(data.playlist) ? data.playlist : [])
-        .filter(p => typeof p.url == 'string')
-
-    if(items.length <= 1) return null
-
-    let currentUrl = data.url.replace('&preload','&play')
-    let currentIndex = -1
-
-    for(let i = 0; i < items.length; i++){
-        if(items[i].url.replace('&preload','&play') === currentUrl){
-            currentIndex = i
-            break
-        }
-    }
-
-    if(currentIndex < 0) currentIndex = 0
-
-    let urlParts = []
-
-    for(let i = currentIndex; i < items.length; i++){
-        let item = items[i]
-        let itemUrl = encodeURIComponent(item.url.replace('&preload','&play'))
-        urlParts.push('url=' + itemUrl)
-
-        if(item.title){
-            let filename = Utils.clearHtmlTags(item.title).trim()
-            if(filename){
-                urlParts.push('filename=' + encodeURIComponent(filename))
-            }
-        }
-    }
-
-    if(callbacks.x_success){
-        urlParts.push('x-success=' + encodeURIComponent(callbacks.x_success))
-    }
-
-    if(callbacks.x_error){
-        urlParts.push('x-error=' + encodeURIComponent(callbacks.x_error))
-    }
-
-    return 'infuse://x-callback-url/play?' + urlParts.join('&')
 }
 
 function needInnerPlayerDisclaimer(player_need){
@@ -840,6 +806,66 @@ function showInnerPlayerDisclaimer(call){
     })
 }
 
+function prepareInfuseLaunch(data, player_need, callback, onCancel){
+    if(Storage.field(player_need) !== 'infuse') return callback()
+
+    let setting = Storage.field('infuse_launch_mode') || 'play'
+
+    if(setting !== 'ask'){
+        data.infuse_mode = setting
+        return callback()
+    }
+
+    delete data.infuse_mode
+
+    let enabled = Controller.enabled()
+
+    Select.show({
+        title: Lang.translate('title_action_infuse'),
+        items: [
+            {
+                title: Lang.translate('settings_infuse_launch_save_and_play'),
+                mode: 'save_and_play'
+            },
+            {
+                title: Lang.translate('settings_infuse_launch_play'),
+                mode: 'play'
+            }
+        ],
+        onSelect: (item)=>{
+            Controller.toggle(enabled.name)
+
+            data.infuse_mode = item.mode
+            callback()
+
+            delete data.infuse_mode
+        },
+        onBack: ()=>{
+            Controller.toggle(enabled.name)
+
+            if(onCancel) onCancel()
+        }
+    })
+}
+
+function launchExternalPlayer(data, player_need, players, infuseCallbacks, onFallback){
+    let launch = (external_url)=>{
+        if(!external_url) return onFallback ? onFallback() : null
+
+        Preroll.show(data,()=>{
+            listener.send('external',data)
+
+            window.location.assign(external_url)
+        })
+    }
+
+    prepareInfuseLaunch(data, player_need, ()=>{
+        launch(externalPlayer(player_need, data, players, infuseCallbacks))
+    }, ()=>{
+        listener.send('destroy',{})
+    })
+}
+
 function start(data, need, inner){
     let player_need = 'player' + (need ? '_' + need : '')
     let launchInner = ()=>{
@@ -851,52 +877,31 @@ function start(data, need, inner){
 
     if(launch_player == 'lampa' || launch_player == 'inner' || Video.verifyTube(data.url)) launchInner()
     else if(Platform.is('apple')){
-        let external_url = externalPlayer(player_need, data, {
+        launchExternalPlayer(data, player_need, {
             vlc:        'vlc://${furl}',
             nplayer:    'nplayer-${furl}',
-            infuse:     'infuse://x-callback-url/play?url=${url}',
             senplayer:  'senplayer://x-callback-url/play?url=${url}',
             vidhub:     'open-vidhub://x-callback-url/open?&url=${url}',
             svplayer:   'svplayer://x-callback-url/stream?url=${url}',
             tracyplayer:'tracy://open?url=${url}'
+        }, null, ()=>{
+            if(Storage.field(player_need) == 'ios'){
+                html.addClass('player--ios')
+                launchInner()
+            }
+            else launchInner()
         })
-
-        if (external_url) {
-            Preroll.show(data,()=>{
-                listener.send('external',data)
-
-                window.location.assign(external_url)
-            })
-        }
-        else if(Storage.field(player_need) == 'ios'){
-            html.addClass('player--ios')
-            
-            launchInner()
-        }
-        else launchInner()
     }
     else if(Platform.macOS()){
-        let external_url = externalPlayer(player_need, data, {
+        launchExternalPlayer(data, player_need, {
             mpv:    'mpv://${_url}',
             iina:   'iina://weblink?url=${url}',
-            nplayer:'nplayer-${_url}',
-            infuse: 'infuse://x-callback-url/play?url=${url}'
-        })
-
-        if (external_url) {
-            Preroll.show(data,()=>{
-                listener.send('external',data)
-
-                window.location.assign(external_url)
-            })
-        }
-        else launchInner()
+            nplayer:'nplayer-${_url}'
+        }, null, launchInner)
     }
     else if(Platform.is('apple_tv')){
-        let apple_tv_client = Storage.field('apple_tv_client') ?? 'lampa';
-        let external_url = externalPlayer(player_need, data, {
+        launchExternalPlayer(data, player_need, {
             vlc:        'vlc-x-callback://x-callback-url/stream?url=${url}',
-            infuse:     `infuse://x-callback-url/play?x-success=${apple_tv_client}://infuseDidFinish&x-error=${apple_tv_client}://infuseDidFail&url=\${url}&playlist=\${playlist}`,
             senplayer:  'SenPlayer://x-callback-url/play?url=${url}',
             vidhub:     'open-vidhub://x-callback-url/open?url=${url}',
             svplayer:   'svplayer://x-callback-url/stream?url=${url}',
@@ -905,19 +910,7 @@ function start(data, need, inner){
             tvos:       'lampa://video?player=tvos&src=${url}&playlist=${playlist}&segments=${segments}',
             tvosl:      'lampa://video?player=tvosav&src=${url}&playlist=${playlist}&segments=${segments}',
             tvosSelect: 'lampa://video?player=lists&src=${url}&playlist=${playlist}&segments=${segments}'
-        }, {
-            x_success: `${apple_tv_client}://infuseDidFinish`,
-            x_error: `${apple_tv_client}://infuseDidFail`
-        })
-
-        if (external_url) {
-            Preroll.show(data,()=>{
-                listener.send('external',data)
-
-                window.location.assign(external_url)
-            })
-        }
-        else launchInner()
+        }, null, launchInner)
     }
     else if(Platform.is('webos') && (Storage.field(player_need) == 'webos' || launch_player == 'webos')){
         Preroll.show(data,()=>{
@@ -977,6 +970,10 @@ function start(data, need, inner){
         })
     }
     else launchInner()
+
+    launch_player = ''
+
+    if(data.launch_player) delete data.launch_player
 }
 
 /**
@@ -1066,7 +1063,8 @@ function play(data){
 
                 Playlist.url(data.url)
 
-                Playlist.set(Playlist.get()) //надо повторно отправить, а то после рекламы неправильно показывает
+                if(data.playlist && data.playlist.length) Playlist.set(data.playlist)
+                else Playlist.set(Playlist.get()) //надо повторно отправить, а то после рекламы неправильно показывает
 
                 Panel.quality(data.quality,data.url)
 
@@ -1082,6 +1080,8 @@ function play(data){
                 if(data.voiceovers) Panel.setTracks(data.voiceovers)
 
                 Info.set('name',data.title)
+
+                stat(data.url)
 
                 if(!data.iptv){
                     if(data.card) Footer.appendAbout(data.card)
@@ -1109,9 +1109,16 @@ function play(data){
         })
     }
 
-    start(data, data.torrent_hash ? 'torrent' : '', lauch)
+    play_pending = data
 
-    launch_player = ''
+    if(launch_player) data.launch_player = launch_player
+
+    setTimeout(()=>{
+        if(!play_pending) return
+
+        start(play_pending, play_pending.torrent_hash ? 'torrent' : '', lauch)
+        play_pending = null
+    }, 0)
 }
 
 function iptv(data){
@@ -1158,7 +1165,9 @@ function iptv(data){
  * @param {String} url 
  */
 function stat(url){
-    if(work || preloader.wait) Info.set('stat',url)
+    if(work || preloader.wait){
+        if(Torserver.ip() && url.indexOf(Torserver.ip()) > -1) Info.set('stat',url)
+    }
 }
 
 /**
@@ -1170,7 +1179,9 @@ function stat(url){
  */
 
 function playlist(playlist){
-    if(work || preloader.wait || wait_for_disclaimer) Playlist.set(playlist)
+    if(play_pending && !play_pending.playlist) play_pending.playlist = playlist
+
+    if(play_pending || work || preloader.wait || wait_for_disclaimer) Playlist.set(playlist)
 }
 
 /**

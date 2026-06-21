@@ -150,6 +150,17 @@
         &__cancel{
             padding: 0.7em;
             font-size: 1.2em;
+            border-radius: 0.3em;
+        }
+
+        &__enter,
+        &__cancel{
+            cursor: pointer;
+            
+            &:hover{
+                background-color: #fff;
+                color: #000;
+            }
         }
     }
 
@@ -183,6 +194,13 @@
         display: flex;
         align-items: center;
         color: #fff;
+        position: relative;
+
+        .simple-keyboard-buttons{
+            position: absolute;
+            top: 100%;
+            left: 3.4em;
+        }
     }
 
     &--with-textarea{
@@ -197,15 +215,6 @@
             border-radius: 0.3em;
             padding: 0.2em 0.4em;
         }
-    }
-}
-
-body.true--mobile .simple-keyboard--with-mic{
-    position: relative;
-
-    .simple-keyboard-buttons{
-        position: absolute;
-        top: 100%;
     }
 }
 
