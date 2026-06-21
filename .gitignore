@@ -12,5 +12,6 @@ package-lock.json
 *.css
 public/.DS_Store
 public/css/
+public/lang/
 .omo
 .sisyphus
