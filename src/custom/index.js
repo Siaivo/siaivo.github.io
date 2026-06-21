@@ -27,6 +27,7 @@ import './interaction/news-loader'
 import './interaction/profile-window'
 import './app/torrent-badges'
 
+import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-category'
 
