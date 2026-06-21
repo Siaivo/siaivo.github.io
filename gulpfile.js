@@ -100,9 +100,8 @@ function merge(done) {
         .pipe(replace(/return kIsNodeJS/g, "return false"))
         .pipe(replace(/return kIsNodeJS/g, "return false"))
         // Where to send the output file
-        .pipe(dest(dstFolder));
-
-    done();
+        .pipe(dest(dstFolder))
+        .on('end', done);
 }
 
 function bubbleFile(name) {
