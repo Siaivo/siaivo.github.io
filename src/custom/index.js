@@ -25,7 +25,7 @@ import './interaction/advert/vast_manager'
 import './lang/meta-apply'
 import './interaction/news-loader'
 import './interaction/profile-window'
-import './interaction/player-compatibility'
+//import './interaction/player-compatibility'
 import './app/torrent-badges'
 
 
