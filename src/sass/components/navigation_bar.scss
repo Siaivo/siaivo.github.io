@@ -49,6 +49,10 @@ body.true--mobile.orientation--landscape .navigation-bar{
     }
 }
 
+body.platform--apple .navigation-bar__body{
+    border-radius: 5em;
+}
+
 body.ambience--enable .navigation-bar{
     visibility: hidden;
 }

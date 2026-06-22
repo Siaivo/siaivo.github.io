@@ -501,6 +501,8 @@ function toggle(){
  */
 
 function backward(){
+    launch_player = ''
+
     destroy()
 
     if(callback) callback()
@@ -971,8 +973,6 @@ function start(data, need, inner){
     }
     else launchInner()
 
-    launch_player = ''
-
     if(data.launch_player) delete data.launch_player
 }
 
@@ -1113,12 +1113,9 @@ function play(data){
 
     if(launch_player) data.launch_player = launch_player
 
-    setTimeout(()=>{
-        if(!play_pending) return
+    start(play_pending, play_pending.torrent_hash ? 'torrent' : '', lauch)
 
-        start(play_pending, play_pending.torrent_hash ? 'torrent' : '', lauch)
-        play_pending = null
-    }, 0)
+    play_pending = null
 }
 
 function iptv(data){
