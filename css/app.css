@@ -665,6 +665,11 @@ body.true--mobile.orientation--landscape .navigation-bar .navigation-bar__body {
           flex-direction: column;
 }
 
+body.platform--apple .navigation-bar__body {
+  -webkit-border-radius: 5em;
+          border-radius: 5em;
+}
+
 body.ambience--enable .navigation-bar {
   visibility: hidden;
 }
