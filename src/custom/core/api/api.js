@@ -13,7 +13,12 @@ if (cub) {
         resolve(oncomplite, { results: [] })
     }
 
-    cub.discussGet = function(params, oncomplite) {
+    cub.discussGet = function(params, oncomplite, onerror) {
+        if (window.lampa_settings.disable_features.discuss) {
+            if (typeof onerror === 'function') onerror()
+            return
+        }
+
         resolve(oncomplite, { results: [] })
     }
 
