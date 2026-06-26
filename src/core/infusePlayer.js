@@ -12,7 +12,7 @@ const DEFAULTS = {
     seasonOnly: true,
     maxItems: 40,
     maxUrlLength: 65536,
-    // false = не добавлять [источник] в filename; true + data.source = показывать [MODS]
+    // false = не добавлять [источник] в filename; true + data.source = показывать [источник]
     filenameSource: true,
     // false = без озвучки; true + voice_name/title = показывать в filename
     filenameVoice: true
@@ -80,16 +80,6 @@ function serializePlaylist(playlist) {
     }
 }
 
-function serializeJson(value) {
-    if (value == null) return ''
-
-    try {
-        return encodeURIComponent(JSON.stringify(value))
-    } catch (e) {
-        return ''
-    }
-}
-
 function compareStreamUrl(a, b) {
     if (!a || !b) return false
 
@@ -131,9 +121,28 @@ function parseEpisodeMeta(item) {
             if (!season) season = parsePositiveInt(match[1])
             if (!episode) episode = parsePositiveInt(match[2])
         }
-        else if (!episode) {
-            let episodeMatch = title.match(/^(\d+)\s*\//) || title.match(/(?:^|\s)(\d{1,3})\s*[-–]\s/)
-            if (episodeMatch) episode = parsePositiveInt(episodeMatch[1])
+        else {
+            // Lampa online: "S1 / Серия 5" или "S1 / Episode 5 - title"
+            let onlineSeasonMatch = title.match(/\bS(\d{1,2})\s*\/\s*/i)
+
+            if (!season && onlineSeasonMatch) season = parsePositiveInt(onlineSeasonMatch[1])
+
+            if (!episode) {
+                let episodeMatch = title.match(/(?:серия|episode|ep\.?)\s*(\d{1,3})/i)
+                    || title.match(/^(\d+)\s*\//)
+                    || title.match(/(?:^|\s)(\d{1,3})\s*[-–]\s/)
+
+                if (episodeMatch) episode = parsePositiveInt(episodeMatch[1])
+            }
+        }
+    }
+
+    if ((!season || !episode) && item.url) {
+        let match = String(item.url).match(/[Ss](\d{1,2})[Ee](\d{1,3})/i)
+
+        if (match) {
+            if (season == null) season = parsePositiveInt(match[1])
+            if (episode == null) episode = parsePositiveInt(match[2])
         }
     }
 
@@ -147,13 +156,14 @@ function getRawPlaylist(data) {
 
 function enrichPlayItem(data, item) {
     item = item || {}
-    let fromItem = parseEpisodeMeta(item)
+    let meta = parseEpisodeMeta(item)
     let patch = {}
 
-    if (item.season == null && fromItem.season != null) patch.season = fromItem.season
+    if (item.season == null && meta.season != null) patch.season = meta.season
     else if (item.season == null && data && data.season != null) patch.season = data.season
 
-    if (item.episode == null && fromItem.episode != null) patch.episode = fromItem.episode
+    if (item.episode == null && meta.episode != null) patch.episode = meta.episode
+    else if (item.episode == null && data && data.episode != null) patch.episode = data.episode
 
     if (!Object.keys(patch).length) return item
 
@@ -171,33 +181,43 @@ function resolvePlaylist(data) {
     return playlist.map((item) => enrichPlayItem(data, item))
 }
 
-function findPlayItem(data, playlist) {
-    playlist = playlist || resolvePlaylist(data)
+function findItemIndexInList(items, data) {
+    if (!items.length) return -1
 
-    if (!playlist.length) return data
+    data = data || {}
 
-    let currentUrl = data && data.url ? sanitizeStreamUrl(data.url) : ''
+    let currentUrl = data.url ? sanitizeStreamUrl(data.url) : ''
 
     if (currentUrl) {
-        for (let i = 0; i < playlist.length; i++) {
-            if (compareStreamUrl(playlist[i].url, currentUrl)) return playlist[i]
+        for (let i = 0; i < items.length; i++) {
+            if (compareStreamUrl(items[i].url, currentUrl)) return i
         }
     }
 
     let dataMeta = parseEpisodeMeta(data)
 
     if (dataMeta.episode != null) {
-        for (let i = 0; i < playlist.length; i++) {
-            let meta = parseEpisodeMeta(playlist[i])
+        for (let i = 0; i < items.length; i++) {
+            let meta = parseEpisodeMeta(items[i])
 
             if (dataMeta.episode !== meta.episode) continue
             if (dataMeta.season != null && meta.season != null && dataMeta.season !== meta.season) continue
 
-            return playlist[i]
+            return i
         }
     }
 
-    return data
+    return -1
+}
+
+function findPlayItem(data, playlist) {
+    playlist = playlist || resolvePlaylist(data)
+
+    if (!playlist.length) return data
+
+    let index = findItemIndexInList(playlist, data)
+
+    return index >= 0 ? playlist[index] : data
 }
 
 function normalizeLaunchMode(mode) {
@@ -215,13 +235,21 @@ function isTorrentStream(data) {
 }
 
 function resolveInfuseMode(data) {
-    if (data && data.infuse_mode) return normalizeLaunchMode(data.infuse_mode)
+    let mode
 
-    let stored = Storage.field('infuse_launch_mode') || DEFAULTS.mode
+    if (data && data.infuse_mode) {
+        mode = normalizeLaunchMode(data.infuse_mode)
+    } else {
+        let stored = Storage.field('infuse_launch_mode') || DEFAULTS.mode
 
-    if (stored === 'ask') return normalizeLaunchMode(DEFAULTS.mode)
+        if (stored === 'ask') mode = normalizeLaunchMode(DEFAULTS.mode)
+        else mode = normalizeLaunchMode(stored)
+    }
 
-    return normalizeLaunchMode(stored)
+    // Торрент: только play? — save не возвращает position
+    if (isTorrentStream(data) && mode !== 'play') return 'play'
+    
+    return mode
 }
 
 function resolveOptions(data, callbacks = {}) {
@@ -390,15 +418,6 @@ function getMovieYear(movie) {
     return year && year !== '0000' ? year : ''
 }
 
-function shouldUseCleanFilename(mode, data) {
-    let launchMode = normalizeLaunchMode(mode)
-
-    if (launchMode === 'play') return true
-    if (isTorrentStream(data) && launchMode === 'save_and_play') return true
-
-    return false
-}
-
 function getTorrentFileMeta(item) {
     let segment = ''
 
@@ -440,13 +459,12 @@ function generateTorrentFilename(item, movie, data, launchMode) {
 
     let fileMeta = getTorrentFileMeta(item)
     let isSeries = isSeriesMedia(movie, item, data)
-    let mode = normalizeLaunchMode(launchMode)
     let name = fileMeta.name.replace(/\s*\{tmdb-\d+\}\s*/gi, '').trim()
     let ext = fileMeta.extension || getExtension(item)
 
     if (!name) name = 'file'
 
-    if (!isSeries && mode !== 'play' && movie && movie.id && name.indexOf('{tmdb-') === -1) {
+    if (!isSeries && movie && movie.id && name.indexOf('{tmdb-') === -1) {
         name += ' {tmdb-' + movie.id + '}'
     }
 
@@ -469,12 +487,15 @@ function generateFilename(item, movie, sourceOverride, data, launchMode) {
         }
     }
 
-    let playItem = Object.assign({}, data, item, { season, episode })
+    let playItem = Object.assign({}, data, item)
+
+    if (season != null) playItem.season = season
+    if (episode != null) playItem.episode = episode
     let isSeries = isSeriesMedia(movie, playItem, data)
     let humanTitle = resolveMediaTitle(movie, data, playItem)
     let voiceLabel = formatVoiceLabel(playItem, isSeries, humanTitle)
     let sourceLabel = formatSourceLabel(sourceOverride || playItem.source || data.source || '')
-    let cleanFilename = shouldUseCleanFilename(launchMode, data)
+    let cleanFilename = normalizeLaunchMode(launchMode) === 'play'
     let base = ''
 
     if (isSeries && (season || episode)) {
@@ -493,16 +514,16 @@ function generateFilename(item, movie, sourceOverride, data, launchMode) {
 
     if (isSeries) {
         base = base.replace(/\s*\{tmdb-\d+\}\s*/gi, '').trim()
-    } else if (normalizeLaunchMode(launchMode) !== 'play' && movie && movie.id && base.indexOf('{tmdb-') === -1) {
+    } else if (movie && movie.id && base.indexOf('{tmdb-') === -1) {
         base += ' {tmdb-' + movie.id + '}'
     }
 
     return base + extension
 }
 
-function getResumePosition(data) {
-    if (!data || !data.timeline) return 0
-    let tl = data.timeline
+function getResumePosition(source) {
+    if (!source || !source.timeline) return 0
+    let tl = source.timeline
 
     if (tl.time != null && !isNaN(tl.time) && tl.time > 1) {
         return Math.max(0, Math.floor(tl.time))
@@ -511,6 +532,17 @@ function getResumePosition(data) {
     if (tl.percent != null && tl.duration != null && tl.duration > 0) {
         let percent = tl.percent > 1 ? tl.percent / 100 : tl.percent
         return Math.max(0, Math.floor(tl.duration * percent))
+    }
+
+    return 0
+}
+
+function resolveLinkPosition(item, data, url) {
+    let position = getResumePosition(item)
+    if (position > 0) return position
+
+    if (data && url && data.url && compareStreamUrl(url, data.url)) {
+        return getResumePosition(data)
     }
 
     return 0
@@ -546,46 +578,40 @@ function buildSaveQuery(links, callbacks, data) {
     return appendCallbacks(query, callbacks)
 }
 
-function buildPlayQuery(links, resumePosition, callbacks) {
-    let query = links.map((link, index) => linkToQueryPart(link, index === 0 ? resumePosition : null)).join('&')
+function buildPlayQuery(links, callbacks) {
+    let query = links.map((link) => linkToQueryPart(link, link.position)).join('&')
 
     return appendCallbacks(query, callbacks)
 }
 
-function buildAppleTvPlayUrl(links, resumePosition, callbacks) {
-    callbacks = callbacks || {}
+function buildAppleTvPlayUrl(links, callbacks) {
+    // Несколько серий — flat url&position по доке Infuse (position на каждую)
+    if (links.length > 1) {
+        return PLAY_PREFIX + buildPlayQuery(links, callbacks)
+    }
 
     let playlist = encodeURIComponent(JSON.stringify(links.map((item) => ({
         url: item.url,
         filename: item.filename
     }))))
 
-    let infuseUrl = PLAY_PREFIX
-        + 'url=' + encodeURIComponent(links[0].url)
+    let query = linkToQueryPart(links[0], links[0].position) + '&playlist=' + playlist
 
-    if (links[0].filename) infuseUrl += '&filename=' + encodeURIComponent(links[0].filename)
-    if (links[0].sub) infuseUrl += '&sub=' + encodeURIComponent(links[0].sub)
-    if (resumePosition > 0) infuseUrl += '&position=' + Math.floor(resumePosition)
-
-    infuseUrl += '&playlist=' + playlist
-
-    return appendCallbacks(infuseUrl, callbacks)
+    return PLAY_PREFIX + appendCallbacks(query, callbacks)
 }
 
-function buildPlayLaunchUrl(playLinks, resumePosition, callbacks) {
+function buildPlayLaunchUrl(playLinks, callbacks) {
+    callbacks = resolveCallbacks(callbacks)
+
     if (Platform.is('apple_tv') === true) {
-        return buildAppleTvPlayUrl(playLinks, resumePosition, callbacks)
+        return buildAppleTvPlayUrl(playLinks, callbacks)
     }
 
-    return PLAY_PREFIX + buildPlayQuery(playLinks, resumePosition, callbacks)
+    return PLAY_PREFIX + buildPlayQuery(playLinks, callbacks)
 }
 
-function buildSaveAndPlayUrl(saveLinks, playLinks, data, resumePosition, callbacks) {
-    if (isTorrentStream(data)) {
-        return SAVE_PREFIX + buildSaveQuery(saveLinks, callbacks, data)
-    }
-
-    let playUrl = buildPlayLaunchUrl(playLinks, resumePosition, callbacks)
+function buildSaveAndPlayUrl(saveLinks, playLinks, data, callbacks) {
+    let playUrl = buildPlayLaunchUrl(playLinks, callbacks)
 
     return SAVE_PREFIX + buildSaveQuery(saveLinks, {
         x_success: playUrl,
@@ -601,7 +627,6 @@ function buildLaunchUrl(saveLinks, playLinks, data, options) {
 
     options = options || {}
     let mode = normalizeLaunchMode(options.mode)
-    let resumePosition = getResumePosition(data)
     let callbacks = resolveCallbacks(options)
 
     if (mode === 'save') {
@@ -609,10 +634,10 @@ function buildLaunchUrl(saveLinks, playLinks, data, options) {
     }
 
     if (mode === 'play') {
-        return buildPlayLaunchUrl(playLinks, resumePosition, callbacks)
+        return buildPlayLaunchUrl(playLinks, callbacks)
     }
 
-    return buildSaveAndPlayUrl(saveLinks, playLinks, data, resumePosition, callbacks)
+    return buildSaveAndPlayUrl(saveLinks, playLinks, data, callbacks)
 }
 
 function buildLaunchUrlLength(saveLinks, playLinks, data, options) {
@@ -633,30 +658,9 @@ function getPlaylistItems(data) {
 function findStartIndex(items, data) {
     if (!items.length) return 0
 
-    data = data || {}
+    let index = findItemIndexInList(items, data)
 
-    let currentUrl = data.url ? sanitizeStreamUrl(data.url) : ''
-
-    if (currentUrl) {
-        for (let i = 0; i < items.length; i++) {
-            if (compareStreamUrl(items[i].url, currentUrl)) return i
-        }
-    }
-
-    let dataMeta = parseEpisodeMeta(data)
-
-    if (dataMeta.episode != null) {
-        for (let i = 0; i < items.length; i++) {
-            let meta = parseEpisodeMeta(items[i])
-
-            if (dataMeta.episode !== meta.episode) continue
-            if (dataMeta.season != null && meta.season != null && dataMeta.season !== meta.season) continue
-
-            return i
-        }
-    }
-
-    return 0
+    return index >= 0 ? index : 0
 }
 
 function rotatePlayLinks(links, startIndex) {
@@ -668,26 +672,21 @@ function rotatePlayLinks(links, startIndex) {
 function buildLink(url, item, movie, sourceName, data, launchMode) {
     let playItem = item || {}
     if (!playItem.url) playItem.url = url
+    let streamUrl = sanitizeStreamUrl(url)
 
     return {
-        url: sanitizeStreamUrl(url),
+        url: streamUrl,
         filename: isTorrentStream(data)
             ? generateTorrentFilename(playItem, movie, data, launchMode)
             : generateFilename(playItem, movie, sourceName, data, launchMode),
-        sub: getSubtitleUrl(playItem, data)
+        sub: getSubtitleUrl(playItem, data),
+        position: resolveLinkPosition(playItem, data, streamUrl)
     }
 }
 
 function buildLinksForItems(data, items, movie, source, options, launchMode, startIndex) {
     startIndex = startIndex || 0
     let links = []
-    let torrent = isTorrentStream(data)
-    let probeMode = launchMode
-
-    if (torrent) {
-        if (launchMode === 'play') probeMode = 'play'
-        else if (launchMode === 'save_and_play') probeMode = 'save'
-    }
 
     for (let i = 0; i < items.length && links.length < options.maxItems; i++) {
         let playItem = enrichPlayItem(data, items[i])
@@ -695,7 +694,7 @@ function buildLinksForItems(data, items, movie, source, options, launchMode, sta
         let nextSave = links.concat([link])
         let nextPlay = rotatePlayLinks(nextSave, startIndex)
         let probeLength = buildLaunchUrlLength(nextSave, nextPlay, data, {
-            mode: probeMode,
+            mode: launchMode,
             x_success: options.x_success,
             x_error: options.x_error
         })
@@ -742,10 +741,10 @@ function buildLinksFromPlayData(data, movie, options) {
  * Сборка infuse://x-callback-url/… по документации Firecore:
  * https://support.firecore.com/hc/ru/articles/215090997
  *
- * play/save: url + filename + sub + position (сек), download=0 для save
- * save_and_play: save?…&x-success=encode(play?…)
- * torrent save_and_play: только save (play→save и save→play ломают TorrServer в Infuse)
- * torrent save: filename = имя файла из path/url (как в ITS), без download=0
+ * play: url + filename + sub + position (сек) на каждую серию в плейлисте
+ * save: без position (API Infuse)
+ * save_and_play: save?…&x-success=encode(play?…) — онлайн
+ * torrent: всегда play? + position из timeline (save/save_and_play → play в resolveInfuseMode)
  *
  * data.url — текущий поток
  * data.playlist — эпизоды (season, episode, url)
@@ -784,27 +783,17 @@ function buildFallbackUrl(data, callbacks) {
     let source = formatSourceLabel(data.source || '')
     let options = resolveOptions(data, callbacks)
     let link = buildLink(data.url, playItem, movie, source, data, options.mode)
-    let url = link.url
 
     if (Platform.is('apple_tv') === true) {
+        let query = linkToQueryPart(link, link.position)
         let playlist = serializePlaylist(data.playlist)
-        let infuseUrl = PLAY_PREFIX + 'url=' + encodeURIComponent(url)
 
-        if (link.filename) infuseUrl += '&filename=' + encodeURIComponent(link.filename)
-        if (link.sub) infuseUrl += '&sub=' + encodeURIComponent(link.sub)
+        if (playlist) query += '&playlist=' + playlist
 
-        let resumePosition = getResumePosition(data)
-        if (resumePosition > 0) infuseUrl += '&position=' + Math.floor(resumePosition)
-        if (playlist) infuseUrl += '&playlist=' + playlist
-
-        return appendCallbacks(infuseUrl, callbacks)
+        return PLAY_PREFIX + appendCallbacks(query, callbacks)
     }
 
-    let query = 'url=' + encodeURIComponent(url)
-    if (link.filename) query += '&filename=' + encodeURIComponent(link.filename)
-    if (link.sub) query += '&sub=' + encodeURIComponent(link.sub)
-
-    return PLAY_PREFIX + appendCallbacks(query, callbacks)
+    return PLAY_PREFIX + buildPlayQuery([link], callbacks)
 }
 
 /**
@@ -824,11 +813,11 @@ export default {
     buildLaunchUrl,
     generateFilename,
     formatSourceLabel,
+    isTorrentStream,
     resolveCard,
     resolveCallbacks,
     resolveOptions,
     resolveUrl,
     normalizePlayData,
-    serializeJson,
     serializePlaylist
 }

@@ -30,6 +30,14 @@ import InfusePlayer from '../core/infusePlayer.js'
 let html
 let listener = Subscribe()
 
+let skip_button
+let skip_current = null
+let skip_timer  = null
+let skip_text_in  = ''
+let skip_text_btn = ''
+let skip_is_end   = false
+let skip_phase    = ''
+
 let callback
 let work = false
 let launch_player
@@ -70,6 +78,10 @@ function init(){
     html.append(Info.render())
     html.append(Footer.render())
 
+    skip_button = $(`<div class="player-skip selector hide"><span class="player-skip__text"></span></div>`)
+    html.append(skip_button)
+    skip_button.on('hover:enter', skipDo)
+
     let timer_hide_cursor
 
     html.on('mousemove',()=>{
@@ -94,6 +106,20 @@ function init(){
         Panel.update('position', (e.current / e.duration * 100) + '%')
 
         Screensaver.resetTimer()
+
+        let near     = Segments.getNear(e.current || 0)
+        let user_seg = near && Storage.get('player_segments_' + near.type, 'auto') == 'user' && !near.segment.skiped
+
+        if(user_seg){
+            if(near.phase === 'preview'){
+                if(!skip_current || skip_current.segment !== near.segment || skip_phase !== 'preview') skipPreview(near)
+                else skipPreviewUpdate(near.starts_in)
+            }
+            else if(near.phase === 'inside'){
+                if(!skip_current || skip_current.segment !== near.segment || skip_phase !== 'active') skipActive(near)
+            }
+        }
+        else if(skip_current) skipHide()
 
         if(work && work.timeline && !work.timeline.waiting_for_user && !work.timeline.stop_recording && e.duration){
             if(Storage.field('player_timecode') !== 'again' && !work.timeline.continued){
@@ -433,6 +459,113 @@ function init(){
 /**
  * Главный контроллер
  */
+/**
+ * Тексты кнопки пропуска сегмента
+ */
+function skipTexts(e){
+    let v   = Video.video()
+    let dur = v ? (v.duration || 0) : 0
+    let end = dur && e.type == 'skip' && (e.segment.start >= dur * 0.7 || e.segment.end >= dur - 15)
+
+    skip_is_end = Boolean(end)
+
+    if(end){
+        skip_text_in  = Lang.translate('player_segments_next_in')
+        skip_text_btn = Lang.translate('player_segments_next')
+    }
+    else if(e.type == 'skip'){
+        skip_text_in  = Lang.translate('player_segments_skip_in')
+        skip_text_btn = Lang.translate('player_segments_skip_now')
+    }
+    else{
+        skip_text_in  = Lang.translate('player_segments_skip_in')
+        skip_text_btn = Lang.translate('player_segments_skip_now')
+    }
+}
+
+/**
+ * Превью за 5 с до начала сегмента
+ */
+function skipPreview(e){
+    if(!skip_button) return
+
+    clearInterval(skip_timer)
+
+    skip_current = e
+    skip_phase   = 'preview'
+
+    skipTexts(e)
+    skipPreviewUpdate(e.starts_in)
+
+    skip_button.removeClass('hide focus').addClass('player-skip--preview')
+}
+
+function skipPreviewUpdate(seconds){
+    if(!skip_button || skip_phase !== 'preview') return
+
+    skip_button.find('.player-skip__text').text(skip_text_in + ' ' + seconds)
+}
+
+/**
+ * Активная кнопка пропуска в начале сегмента
+ */
+function skipActive(e){
+    if(!skip_button) return
+
+    clearInterval(skip_timer)
+
+    skip_current = e
+    skip_phase   = 'active'
+
+    skipTexts(e)
+    skip_button.removeClass('player-skip--preview')
+
+    skipButton()
+}
+
+function skipButton(){
+    if(!skip_button) return
+
+    clearInterval(skip_timer)
+
+    skip_button.find('.player-skip__text').text(skip_text_btn)
+    skip_button.removeClass('hide')
+
+    if(Controller.enabled().name == 'player') Controller.toggle('player_skip')
+}
+
+function skipHide(){
+    clearInterval(skip_timer)
+
+    if(skip_button) skip_button.addClass('hide').removeClass('focus player-skip--preview')
+
+    let was = skip_current
+    skip_current = null
+    skip_phase   = ''
+
+    if(was && Controller.enabled().name == 'player_skip') Controller.toggle('player')
+}
+
+function skipDo(){
+    if(skip_phase !== 'active') return
+
+    if(skip_current){
+        skip_current.segment.skiped = true
+
+        if(skip_is_end){
+            skipHide()
+
+            Playlist.next()
+
+            return
+        }
+
+        Video.to(Math.min(Video.video().duration || skip_current.segment.end, skip_current.segment.end))
+    }
+
+    skipHide()
+}
+
 function toggle(){
     Controller.add('player',{
         invisible: true,
@@ -440,7 +573,8 @@ function toggle(){
             Panel.hide()
         },
         up: ()=>{
-            Panel.toggle()
+            if(skip_button && !skip_button.hasClass('hide') && skip_phase === 'active') Controller.toggle('player_skip')
+            else Panel.toggle()
         },
         down: ()=>{
             Panel.toggle()
@@ -486,6 +620,21 @@ function toggle(){
         back: backward
     })
 
+    Controller.add('player_skip',{
+        toggle: ()=>{
+            if(skip_phase !== 'active') return
+
+            Controller.collectionSet(html)
+            Controller.collectionFocus(skip_button[0], html)
+        },
+        up: ()=>{ Panel.toggle() },
+        down: ()=>{ Panel.toggle() },
+        left: ()=>{ Controller.toggle('player') },
+        right: ()=>{ Controller.toggle('player') },
+        gone: ()=>{ if(skip_button) skip_button.removeClass('focus') },
+        back: backward
+    })
+
     Controller.toggle('player')
 }
 
@@ -516,6 +665,8 @@ function backward(){
  */
 function destroy(){
     saveTimeView()
+
+    skipHide()
 
     if(work.viewed) work.viewed(viewing.time)
 
@@ -720,8 +871,8 @@ function externalPlayer(player_need, data, players, infuseCallbacks){
     let url      = encodeURIComponent(data.url.replace('&preload','&play'))
     let _url     = encodeURI(data.url.replace('&preload','&play'))
     let furl     = data.url.replace('&preload','&play')
-    let playlist = InfusePlayer.serializePlaylist(data.playlist)
-    let segments = InfusePlayer.serializeJson(data.segments)
+    let playlist = data.playlist ? encodeURIComponent(JSON.stringify(data.playlist)) : ''
+    let segments = data.segments ? encodeURIComponent(JSON.stringify(data.segments)) : ''
 
     for(let p in players){
         players[p] = players[p].replace('${url}', url).replace('${_url}', _url).replace('${furl}', furl).replace('${playlist}', playlist).replace('${segments}', segments)
@@ -741,7 +892,7 @@ function externalPlayer(player_need, data, players, infuseCallbacks){
 
         if(customUrl) return customUrl
 
-        return InfusePlayer.resolveUrl(data, infuseCallbacks)
+        return InfusePlayer.resolveUrl(data, infuseCallbacks) || players.infuse
     }
 
     return players[player]
@@ -810,6 +961,12 @@ function showInnerPlayerDisclaimer(call){
 
 function prepareInfuseLaunch(data, player_need, callback, onCancel){
     if(Storage.field(player_need) !== 'infuse') return callback()
+
+    // Торрент + Infuse: всегда play? с position
+    if(InfusePlayer.isTorrentStream(data)){
+        data.infuse_mode = 'play'
+        return callback()
+    }
 
     let setting = Storage.field('infuse_launch_mode') || 'play'
 
@@ -882,6 +1039,7 @@ function start(data, need, inner){
         launchExternalPlayer(data, player_need, {
             vlc:        'vlc://${furl}',
             nplayer:    'nplayer-${furl}',
+            infuse:     'infuse://x-callback-url/play?url=${url}',
             senplayer:  'senplayer://x-callback-url/play?url=${url}',
             vidhub:     'open-vidhub://x-callback-url/open?&url=${url}',
             svplayer:   'svplayer://x-callback-url/stream?url=${url}',
@@ -898,12 +1056,16 @@ function start(data, need, inner){
         launchExternalPlayer(data, player_need, {
             mpv:    'mpv://${_url}',
             iina:   'iina://weblink?url=${url}',
-            nplayer:'nplayer-${_url}'
+            nplayer:'nplayer-${_url}',
+            infuse: 'infuse://x-callback-url/play?url=${url}'
         }, null, launchInner)
     }
     else if(Platform.is('apple_tv')){
+        let apple_tv_client = Storage.field('apple_tv_client') ?? 'lampa'
+
         launchExternalPlayer(data, player_need, {
             vlc:        'vlc-x-callback://x-callback-url/stream?url=${url}',
+            infuse:     `infuse://x-callback-url/play?x-success=${apple_tv_client}://infuseDidFinish&x-error=${apple_tv_client}://infuseDidFail&url=\${url}&playlist=\${playlist}`,
             senplayer:  'SenPlayer://x-callback-url/play?url=${url}',
             vidhub:     'open-vidhub://x-callback-url/open?url=${url}',
             svplayer:   'svplayer://x-callback-url/stream?url=${url}',
@@ -1060,6 +1222,8 @@ function play(data){
                 if(work.timeline) work.timeline.continued = false
 
                 Segments.set(data.segments)
+
+                skipHide()
 
                 Playlist.url(data.url)
 

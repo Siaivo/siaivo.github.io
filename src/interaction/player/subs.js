@@ -2,6 +2,9 @@ import Subscribe from '../../utils/subscribe'
 import Reguest from '../../utils/reguest'
 import substr from '../../utils/subsrt/subsrt'
 import Storage from '../../core/storage/storage'
+import detect from './subs/detect'
+import pseudoVtt from './subs/parse-pseudo-vtt'
+import vttCue from './subs/vtt-cue'
 
 /**
  * Поучить время
@@ -111,7 +114,9 @@ function parseVTT(data,ms){
  */
 function CustomSubs(){
     let parsed
-    let network  = new Reguest()
+    let advanced
+    let hasAdvanced = false
+    let network     = new Reguest()
 
     this.listener = Subscribe()
 	
@@ -121,12 +126,38 @@ function CustomSubs(){
      */
 	this.load = function(url){
         network.silent(url,(data)=>{
-            if(data){
-                parsed = parse(data,true)
-            }
+            if(!data) return
+
+            this.applyData(data)
         },false,false,{
             dataType: 'text'
         })
+    }
+
+    /**
+     * @param {string} data
+     */
+    this.applyData = function(data){
+        parsed      = parse(data, true)
+        hasAdvanced = detect.isPseudoVtt(data)
+        advanced    = null
+
+        if(hasAdvanced){
+            advanced = pseudoVtt.parsePseudoVtt(data)
+
+            console.log('Player','pseudo-vtt cues', advanced.cues.filter((c)=> c.pseudo).length, 'of', advanced.cues.length)
+
+            this.listener.send('advanced', advanced)
+        }
+
+        this.listener.send('ready', {hasAdvanced})
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    this.hasAdvanced = function(){
+        return hasAdvanced
     }
 
     /**
@@ -138,20 +169,31 @@ function CustomSubs(){
 
         time_ms -= parseInt(Storage.get('player_subs_shift_time','0')) * 1000
 
+        if(hasAdvanced && advanced){
+            let cue = pseudoVtt.findCue(time_ms, advanced.cues)
+
+            if(pseudoVtt.isPseudoCue(cue)){
+                this.listener.send('advanced-frame', {cue, pseudo: true})
+                return
+            }
+
+            this.listener.send('advanced-frame', {cue: null, pseudo: false})
+        }
+
 		if(parsed){
-			let text = ''
+			let payload = {text: '', style: null}
 
 			for (let i = 0; i < parsed.length; i++) {
 				let sub = parsed[i]
 
-				if(time_ms > sub.startTime &&  time_ms < sub.endTime){
-					text = sub.text.replace("\n",'<br>')
+				if(time_ms > sub.startTime && time_ms < sub.endTime){
+                    payload = vttCue.formatForDisplay(sub.text)
 
 					break
 				}
 			}
 
-            this.listener.send('subtitle',{text:text.trim()})
+            this.listener.send('subtitle', payload)
 		}
 	}
 
@@ -161,7 +203,10 @@ function CustomSubs(){
     this.destroy = function(){
         network.clear()
 
-        network = null
+        network     = null
+        parsed      = null
+        advanced    = null
+        hasAdvanced = false
 
         this.listener = null
     }
