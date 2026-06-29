@@ -147,9 +147,6 @@ function getIntensityMultiplier(daysDiff) {
     var d = daysDiff === 0 ? 0 : daysDiff
     if (d === 0)  return 1.0   // День свята
     if (d === 1)  return 0.6   // За 1 день до свята
-    if (d === 2)  return 0.4   // За 2 дні до свята
-    if (d === 3)  return 0.2   // За 3 дні до свята (преактивація)
-    if (d === -1) return 0.2   // День після свята (затухання)
     return 0                   // Не в діапазоні
 }
 
