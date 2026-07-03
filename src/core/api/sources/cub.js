@@ -542,6 +542,14 @@ function full(params, oncomplite, onerror){
             status.append('discuss', json)
         },status.error.bind(status))
     }
+
+    if(Lang.selected(['ru','uk','be'])){
+        status.need++
+
+        metadataGet(params, (json)=>{
+            status.append('metadata', json)
+        },status.error.bind(status))
+    }
 }
 
 function trailers(type, oncomplite){
@@ -560,6 +568,14 @@ function trailers(type, oncomplite){
     },()=>{
         oncomplite({results: []})
     }, false, {cache:  {life: day * 2}})
+}
+
+function metadataGet(params, oncomplite){
+    if(window.lampa_settings.disable_features.metadata) return oncomplite({})
+    
+    network.silent(Utils.protocol() + Manifest.cub_domain + '/api/ai/metadata/' + params.id + '/' + params.method, oncomplite,()=>{
+        oncomplite({})
+    }, false, {timeout: 1000 * 5})
 }
 
 function reactionsGet(params, oncomplite){
@@ -732,6 +748,7 @@ export default {
     discovery,
     reactionsGet,
     reactionsAdd,
+    metadataGet,
     discussGet,
     extensions
 }

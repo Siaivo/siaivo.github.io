@@ -140,6 +140,11 @@ function general(title) {
         }
     }
 
+    // ─── HDR ─────────────────────────────────────────────────────────────────
+    let hdr = title.match(/\b(HDR|Dolby Vision)\b/i)
+    
+    if(hdr) result.hdr = hdr[1]
+
     // ─── Resolution ───────────────────────────────────────────────────────────
     let resolution_map = {
         '4k':    '4K',

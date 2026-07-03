@@ -743,6 +743,7 @@ trigger('parser_use',false)
 trigger('cloud_use',false)
 trigger('account_use',false)
 trigger('torrserver_auth',false)
+trigger('torrserver_gts', false)
 trigger('mask',true)
 trigger('playlist_next',true)
 trigger('internal_torrclient', true)
@@ -770,7 +771,6 @@ trigger('interface_sound_play', false)
 trigger('menu_always', false)
 trigger('player_external_fullscreen', true)
 trigger('adult_content_view', false)
-
 
 /**
  * Добовляем поля

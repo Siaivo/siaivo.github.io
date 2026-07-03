@@ -1,0 +1,9 @@
+.full-metadata{
+    padding: 0 1em;
+    display: flex;
+    flex-wrap: wrap;
+
+    > * {
+        margin: 0.5em;
+    }
+}

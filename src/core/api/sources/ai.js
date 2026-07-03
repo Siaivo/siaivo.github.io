@@ -3,15 +3,15 @@ import Api from '../../account/api'
 
 
 function facts(card_id, card_type, callback, error){
-    Api.load('ai/generate/facts/' + card_id + '/' + card_type).then(callback).catch(error)
+    Api.load('ai/generate/facts/' + card_id + '/' + card_type, {timeout: 60000}).then(callback).catch(error)
 }
 
 function recommendations(card_id, card_type, callback, error){
-    Api.load('ai/generate/recommend/' + card_id + '/' + card_type).then(callback).catch(error)
+    Api.load('ai/generate/recommend/' + card_id + '/' + card_type, {timeout: 60000}).then(callback).catch(error)
 }
 
 function search(query, callback, error){
-    Api.load('ai/search/' + encodeURIComponent(query)).then(callback).catch(error)
+    Api.load('ai/search/' + encodeURIComponent(query), {timeout: 60000}).then(callback).catch(error)
 }
 
 function discovery(){

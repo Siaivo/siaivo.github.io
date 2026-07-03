@@ -1,5 +1,7 @@
 import Start from '../components/full/start'
 import Description from '../components/full/descr'
+import MetadataChart from './full/metadata/chart'
+import MetadataTags from './full/metadata/tags'
 import Persons from './full/persons'
 import Api from '../core/api/api'
 import Arrays from '../utils/arrays'
@@ -24,6 +26,8 @@ import Keys from '../core/tmdb/keys'
 let components = {
     start: Start,
     description: Description,
+    metadata_chart: MetadataChart,
+    metadata_tags: MetadataTags,
     persons: Persons,
     cards: Cards,
     discuss: Discuss,
@@ -98,6 +102,18 @@ function component(object){
                     data
                 })
 
+                if(data.metadata && data.metadata.metadata){
+                    this.rows.push(['metadata_chart', {
+                        movie: data.movie,
+                        metadata: data.metadata.metadata
+                    }])
+
+                    this.rows.push(['metadata_tags', {
+                        movie: data.movie,
+                        metadata: data.metadata.metadata
+                    }])
+                }
+
                 // Создаем эпизоды
                 if(!adult_block && data.episodes && data.episodes.episodes) {
                     let episodes = data.episodes.episodes
@@ -150,7 +166,7 @@ function component(object){
                 }])
 
                 // Создаем отзывы
-                if(!adult_block && data.discuss) this.rows.push(['discuss', {
+                if(!adult_block && data.discuss) Arrays.insert(this.rows, data.discuss.result.length ? 2 : this.rows.length, ['discuss', {
                     ...data.discuss,
                     movie: data.movie,
                     title: Lang.translate('title_comments'),

@@ -50,6 +50,9 @@ let normalization
 let hls_parser
 let render_trigger
 
+let hls_subs_cues         = {}
+let hls_subs_active_track = -1
+
 let click_nums = 0
 let click_timer
 let pause_timer
@@ -311,6 +314,8 @@ function bind(){
         if(subsAdvanced && subsAdvancedVisible) subsAdvanced.syncLayout()
 
         Segments.update(video.currentTime)
+
+        hlsSubsTimeUpdate(video.currentTime)
     })
 
     // обновляем субтитры
@@ -369,6 +374,26 @@ function hlsBitrate(seconds) {
 
         Lampa.PlayerInfo.set('bitrate', ch + bt + bf)
     }
+}
+
+function hlsSubsTimeUpdate(currentTime) {
+    if(hls_subs_active_track < 0) return
+
+    let cues = hls_subs_cues[hls_subs_active_track]
+    if(!cues) return
+
+    let active = null
+
+    for(let i = 0; i < cues.length; i++){
+        let c = cues[i]
+
+        if(c.startTime <= currentTime && currentTime < c.endTime){
+            active = c
+            break
+        }
+    }
+
+    applySubtitleToDom(active ? (active.text || '') : '')
 }
 
 function hlsLevelName(level){
@@ -1085,6 +1110,7 @@ function loader(status){
                 hls = new Hls({
                     manifestLoadTimeout: Player.playdata().hls_manifest_timeout || 10000,
                     manifestLoadMaxRetryTimeout: Player.playdata().hls_retry_timeout || 30000,
+                    renderTextTracksNatively: false,
                     xhrSetup: function(xhr, url) {
                         xhr.timeout = Player.playdata().hls_manifest_timeout || 10000
                         xhr.ontimeout = function() {
@@ -1114,6 +1140,50 @@ function loader(status){
                 })
                 hls.on(Hls.Events.MANIFEST_PARSED, function(event, data){
                     hls.currentLevel = hlsLevelDefault(hls)
+                })
+                hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function(_event, data){
+                    if(!data.subtitleTracks || !data.subtitleTracks.length) return
+
+                    hls_subs_cues         = {}
+                    hls_subs_active_track = -1
+
+                    let subs = data.subtitleTracks.map(function(track, i){
+                        let sub = {
+                            index:    i,
+                            label:    track.name || track.lang || ('Subtitle ' + (i + 1)),
+                            selected: false
+                        }
+
+                        Object.defineProperty(sub, 'mode', {
+                            set: function(v){
+                                if(v == 'showing'){
+                                    hls_subs_active_track = i
+                                    hls.subtitleTrack     = i
+                                    subsview(true)
+                                }
+                                else{
+                                    if(hls_subs_active_track == i){
+                                        hls_subs_active_track = -1
+                                        hls.subtitleTrack     = -1
+                                        applySubtitleToDom('')
+                                    }
+                                }
+                            },
+                            get: function(){ return hls_subs_active_track == i ? 'showing' : 'disabled' }
+                        })
+
+                        return sub
+                    })
+
+                    listener.send('subs', {subs: subs})
+                })
+                hls.on(Hls.Events.CUES_PARSED, function(_event, data){
+                    let idx = hls.subtitleTrack
+                    if(idx < 0) return
+
+                    if(!hls_subs_cues[idx]) hls_subs_cues[idx] = []
+
+                    data.cues.forEach(function(cue){ hls_subs_cues[idx].push(cue) })
                 })
             }
             else if(!change_quality && !TV.playning()){
@@ -1465,11 +1535,14 @@ function destroy(savemeta){
             hls.destroy()
         }
         catch(e){}
-        
+
         hls = false
 
         hls_destoyed = true
     }
+
+    hls_subs_cues         = {}
+    hls_subs_active_track = -1
 
     if(hls_parser){
         try{

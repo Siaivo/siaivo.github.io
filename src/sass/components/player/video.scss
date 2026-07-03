@@ -10,7 +10,6 @@ video::-webkit-media-controls-panel-container {
         left: 0;
         width: 100%;
         height: 100%;
-        z-index: 1;
     }
 
     &__paused,
@@ -140,7 +139,6 @@ video::-webkit-media-controls-panel-container {
         font-weight: 600;
         line-height: 1.25;
         transition: transform $speed;
-        z-index: 2;
         pointer-events: none;
 
         &.size {
@@ -228,7 +226,6 @@ video::-webkit-media-controls-panel-container {
     &__subs-advanced{
         position: fixed;
         pointer-events: none;
-        z-index: 2;
         overflow: hidden;
 
         &.hide{

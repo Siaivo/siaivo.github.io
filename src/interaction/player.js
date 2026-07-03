@@ -1088,7 +1088,7 @@ function start(data, need, inner){
             listener.send('external',data)
         })
     } 
-    else if(Platform.is('android') && (Storage.field(player_need) == 'android' || launch_player == 'android' || data.torrent_hash)){
+    else if(Platform.is('android') && (Storage.field(player_need) == 'android' || launch_player == 'android' || (data.torrent_hash && !Torserver.gstWork()))){
         data.url   = data.url.replace('&preload','&play')
         data.title = Utils.clearHtmlTags(data.title || '').trim()
         
@@ -1195,6 +1195,8 @@ function play(data){
 
     console.log('Player','url:',data.url)
 
+    if(data.torrent_hash && Torserver.gstWork()) data.hls_manifest_timeout = 60000
+
     if(data.quality){
         if(Arrays.getKeys(data.quality).length == 1) delete data.quality
         else{
@@ -1245,7 +1247,7 @@ function play(data){
 
                 Info.set('name',data.title)
 
-                stat(data.url)
+                stat(data)
 
                 if(!data.iptv){
                     if(data.card) Footer.appendAbout(data.card)
@@ -1325,9 +1327,9 @@ function iptv(data){
  * Статистика для торрсервера
  * @param {String} url 
  */
-function stat(url){
+function stat(data){
     if(work || preloader.wait){
-        if(Torserver.ip() && url.indexOf(Torserver.ip()) > -1) Info.set('stat',url)
+        if(Torserver.ip() && data.url.indexOf(Torserver.ip()) > -1) Info.set('stat', data)
     }
 }
 

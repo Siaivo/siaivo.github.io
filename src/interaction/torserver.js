@@ -8,7 +8,8 @@ import Lang from '../core/lang'
 import EpisodeParser from '../utils/episodes_parser'
 import Arrays from '../utils/arrays'
 
-let network = new Request()
+let network  = new Request()
+let gst_work = false
 
 function url(){
     let u = ip()
@@ -118,16 +119,34 @@ function connected(success, fail){
         else{
             success(json)
         }
+
+        gstCheck()
     },(a,c)=>{
         fail(network.errorDecode(a,c))
     },JSON.stringify({action: 'get'}))
 }
 
+function gstCheck(){
+    network.silent(url()+'/gst/echo',(json)=>{
+        gst_work = true
+    },(a,c)=>{
+        gst_work = false
+    })
+}
+
+function gstWork(){
+    return Storage.field('torrserver_gts') && gst_work
+}
+
 function stream(path, hash, id){
+    if(gstWork()) return url() + '/gst/' + encodeURIComponent(hash) + '/master.m3u8?index=' + id + '&audio=0'
+
     return url() + '/stream/'+ encodeURIComponent(path.split('\\').pop().split('/').pop()) +'?link=' + hash + '&index=' + id + '&' + (Storage.field('torrserver_preload') ? 'preload' : 'play')
 }
 
 function drop(hash, success, fail){
+    if(gstWork()) return network.silent(url()+'/gst/remove?hash=' + encodeURIComponent(hash), success, fail, data, {dataType: 'text'})
+
     let data = JSON.stringify({
         action: 'drop',
         hash: hash
@@ -303,5 +322,6 @@ export default {
     parse,
     error,
     cache,
+    gstWork,
     clearFileName
 }

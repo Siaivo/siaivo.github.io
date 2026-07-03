@@ -49,7 +49,7 @@ function set(need, value){
         },10000)
     }
     else if(need == 'stat') stat(value)
-    else if(need == 'bitrate') elems.stat.html(value)
+    else if(need == 'bitrate' && !stat_timer) elems.stat.html(value)
 }
 
 function pieces(cache){
@@ -88,9 +88,9 @@ function pieces(cache){
 
 /**
  * Показываем статистику по торренту
- * @param {string} url 
+ * @param {object} player_data 
  */
-function stat(url){
+function stat(player_data){
     let wait = 0
 
     elems.stat.text('- / - • - ' + Lang.translate('connected_seeds'))
@@ -108,9 +108,18 @@ function stat(url){
 
         network.timeout(2000)
 
-        network.silent(url.replace('&preload', '&stat').replace('&play', '&stat'), function (data) {
-            elems.stat.text((data.active_peers || 0) + ' / ' + (data.total_peers || 0) + ' • ' + (data.connected_seeders || 0) + ' ' + Lang.translate('connected_seeds'))
-            elems.speed.text(Utils.bytesToSize(data.download_speed ? data.download_speed * 8 : 0, true))
+        let url = ''
+
+        if(Torserver.gstWork()) url = Torserver.url() + '/gst/' + player_data.torrent_hash + '/heartbeat'
+        else                    url = player_data.url.replace('&preload', '&stat').replace('&play', '&stat')
+
+        network.silent(url, function (data) {
+            let torrent = data.Torrent || data
+
+            elems.stat.text((torrent.active_peers || 0) + ' / ' + (torrent.total_peers || 0) + ' • ' + (torrent.connected_seeders || 0) + ' ' + Lang.translate('connected_seeds'))
+            elems.speed.text(Utils.bytesToSize(torrent.download_speed ? torrent.download_speed * 8 : 0, true))
+
+            if(Torserver.gstWork()) return pieces(data)
 
             let hash = url.match(/link=(.*?)\&/)
 
@@ -129,7 +138,7 @@ function stat(url){
         })
     }
 
-    stat_timer = setInterval(update,2000)
+    stat_timer = setInterval(update, 2000)
 
     update()
 }

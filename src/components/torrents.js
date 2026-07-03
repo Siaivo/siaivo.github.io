@@ -814,8 +814,13 @@ function component(object){
                 }
 
                 if(quality) ffprobe_tags.push({media: 'resolution', value: quality})
+
+                if(general.hdr) ffprobe_tags.push({media: 'resolution', value: 'HDR'})
     
                 let video = element.ffprobe.find(a=>a.codec_type == 'video')
+
+                if(!quality && video) ffprobe_tags.push({media: 'resolution',value: Utils.qualityToText(Utils.resolutionToQuality(video.width, video.height, 'p'))})
+
                 let audio = element.ffprobe.filter(a=>a.codec_type == 'audio' && a.tags)
                 let subs  = element.ffprobe.filter(a=>a.codec_type == 'subtitle' && a.tags)
                 let voice = Arrays.clone(element.info && element.info.voices ? element.info.voices : [])
