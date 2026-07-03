@@ -1313,11 +1313,22 @@ export default {
     inner_player_disclaimer_text: 'Je comprends que je lance un lecteur avec une prise en charge incomplète, et je comprends que cela peut provoquer un comportement atypique de l appareil. Il est recommande de passer aux lecteurs de la famille tvOS ou a d autres alternatives.',
 
     inner_player_disclaimer_change_player: 'Changer le lecteur',
-}
+
     remote_configuration_settings_title: 'Configuration à distance',
     remote_configuration_registration_text: "La configuration à distance fournit un accès temporaire à votre application, une autre application pourra installer des extensions et configurer des paramètres.",
     remote_configuration_waite_text: "Vous pouvez maintenant transmettre ce code à une autre application pour lui accorder l'accès aux paramètres.",
     remote_configuration_open_button: "Ouvrir l'accès",
     remote_configuration_code_life: 'Le code est valide',
-    remote_configuration_notice_nocode: "Impossible d'ouvrir l'accès"
+    remote_configuration_notice_nocode: "Impossible d'ouvrir l'accès",
+
+    settings_server_gts: 'Transcodage',
+    settings_server_gts_descr: 'Convertir automatiquement la vidéo dans un format compatible si nécessaire.',
+
+    title_metadata: 'Métadonnées',
+    title_moods: 'Ambiances',
+    title_meta_violence: 'Violence',
+    title_meta_fear: 'Peur',
+    title_meta_profanity: 'Langage',
+    title_meta_sadness: 'Tristesse',
+    title_meta_sex: 'Sexualité'
 }

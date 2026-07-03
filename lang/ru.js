@@ -254,6 +254,9 @@ export default {
     settings_server_password: 'Пароль',
     settings_server_not_specified: 'Не указан',
 
+    settings_server_gts: 'Транскодирование',
+    settings_server_gts_descr: 'Автоматически преобразовывать видео в совместимый формат при необходимости.',
+
     settings_webos_launcher: 'Запуск приложения',
     settings_webos_launcher_add_device: 'Установить как стартовое',
     settings_webos_launcher_remove_device: 'Убрать из стартовых приложений',
@@ -486,6 +489,14 @@ export default {
     title_comedy_of_2000: 'Смех 2000-х',
     title_comedy_of_2010: 'Юмор 2010-х',
     title_comedy_of_2015: 'Современные комедии',
+
+    title_metadata: 'Метаданные',
+    title_moods: 'Настроения',
+    title_meta_violence: 'Насилие',
+    title_meta_fear: 'Страх',
+    title_meta_profanity: 'Лексика',
+    title_meta_sadness: 'Грусть',
+    title_meta_sex: 'Сексуальность',
 
     reactions_none: 'Нет реакций',
     reactions_fire: 'Супер',

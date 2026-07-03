@@ -1304,5 +1304,16 @@ export default {
     remote_configuration_waite_text: 'Agora você pode passar este código para outro aplicativo para conceder acesso às configurações.',
     remote_configuration_open_button: 'Abrir Acesso',
     remote_configuration_code_life: 'O código é válido',
-    remote_configuration_notice_nocode: 'Falha ao abrir o acesso'
+    remote_configuration_notice_nocode: 'Falha ao abrir o acesso',
+
+    settings_server_gts: 'Transcodificação',
+    settings_server_gts_descr: 'Converter automaticamente o vídeo para um formato compatível quando necessário.',
+
+    title_metadata: 'Metadados',
+    title_moods: 'Humores',
+    title_meta_violence: 'Violência',
+    title_meta_fear: 'Medo',
+    title_meta_profanity: 'Linguagem',
+    title_meta_sadness: 'Tristeza',
+    title_meta_sex: 'Sexualidade'
 }
