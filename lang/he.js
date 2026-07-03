@@ -1220,5 +1220,16 @@ export default {
     remote_configuration_waite_text: 'כעת תוכל להעביר קוד זה לאפליקציה אחרת כדי להעניק גישה להגדרות.',
     remote_configuration_open_button: 'פתח גישה',
     remote_configuration_code_life: 'הקוד בתוקף',
-    remote_configuration_notice_nocode: 'נכשל בפתיחת הגישה'
+    remote_configuration_notice_nocode: 'נכשל בפתיחת הגישה',
+
+    settings_server_gts: 'קידוד מחדש',
+    settings_server_gts_descr: 'המרה אוטומטית של וידאו לפורמט תואם בעת הצורך.',
+
+    title_metadata: 'מטא-נתונים',
+    title_moods: 'מצבי רוח',
+    title_meta_violence: 'אלימות',
+    title_meta_fear: 'פחד',
+    title_meta_profanity: 'שפה',
+    title_meta_sadness: 'עצב',
+    title_meta_sex: 'מיניות'
 }

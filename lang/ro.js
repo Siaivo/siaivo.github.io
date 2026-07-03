@@ -1318,5 +1318,16 @@ export default {
     remote_configuration_waite_text: 'Acum puteți transmite acest cod unei alte aplicații pentru a acorda acces la setări.',
     remote_configuration_open_button: 'Deschide accesul',
     remote_configuration_code_life: 'Codul este valabil',
-    remote_configuration_notice_nocode: 'Nu s-a putut deschide accesul'
+    remote_configuration_notice_nocode: 'Nu s-a putut deschide accesul',
+
+    settings_server_gts: 'Transcodare',
+    settings_server_gts_descr: 'Convertiți automat videoclipul într-un format compatibil atunci când este necesar.',
+
+    title_metadata: 'Metadate',
+    title_moods: 'Stări',
+    title_meta_violence: 'Violență',
+    title_meta_fear: 'Frică',
+    title_meta_profanity: 'Limbaj',
+    title_meta_sadness: 'Tristețe',
+    title_meta_sex: 'Sexualitate'
 }

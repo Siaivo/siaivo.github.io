@@ -2355,16 +2355,51 @@ body.settings--open .settings__layer {
      text-overflow: ellipsis;
   max-width: 7em;
   white-space: nowrap;
+  min-width: 3em;
 }
 .register__counter {
   font-size: 2em;
   font-weight: 600;
+  white-space: nowrap;
 }
 .register__limit {
   font-size: 0.6em;
   margin-left: 0.5em;
   opacity: 0.7;
   font-weight: 300;
+}
+.register__chart {
+  float: right;
+  height: 3.9em;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: end;
+  -webkit-align-items: end;
+      -ms-flex-align: end;
+          align-items: end;
+  padding-left: 1em;
+}
+.register__chart > div {
+  width: 0.4em;
+  margin-left: 0.6em;
+  background-color: #fff;
+  -webkit-border-radius: 0.2em;
+          border-radius: 0.2em;
+}
+.register--tag {
+  padding: 0.6em 1em;
+  min-width: auto;
+}
+.register--tag .register__counter {
+  font-size: 1.3em;
+}
+.register--icon .register__name svg {
+  width: 1.7em;
+  height: 1.7em;
+  margin-right: 0.5em;
+  vertical-align: middle;
 }
 .register.focus::after {
   content: "";
@@ -3808,6 +3843,20 @@ body.touch-device.orientation--landscape .full-start__background {
   margin: 0.5em;
 }
 
+.full-metadata {
+  padding: 0 1em;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+      -ms-flex-wrap: wrap;
+          flex-wrap: wrap;
+}
+.full-metadata > * {
+  margin: 0.5em;
+}
+
 .full-person {
   display: -webkit-box;
   display: -webkit-flex;
@@ -4331,7 +4380,6 @@ video::-webkit-media-controls-panel-container {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
 }
 .player-video__paused, .player-video__loader {
   position: fixed;
@@ -4452,7 +4500,6 @@ video::-webkit-media-controls-panel-container {
   -o-transition: transform 0.2s;
   transition: transform 0.2s;
   transition: transform 0.2s, -webkit-transform 0.2s;
-  z-index: 2;
   pointer-events: none;
 }
 .player-video__subtitles.size--large {
@@ -4528,7 +4575,6 @@ video::-webkit-media-controls-panel-container {
 .player-video__subs-advanced {
   position: fixed;
   pointer-events: none;
-  z-index: 2;
   overflow: hidden;
 }
 .player-video__subs-advanced.hide {

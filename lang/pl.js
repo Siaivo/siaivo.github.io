@@ -1326,5 +1326,16 @@ export default {
     remote_configuration_waite_text:  'Przekaż kod do innej aplikacji.',
     remote_configuration_open_button:  'Otwórz dostęp',
     remote_configuration_code_life:  'Kod ważny',
-    remote_configuration_notice_nocode:  'Nie udało się otworzyć dostępu'
+    remote_configuration_notice_nocode:  'Nie udało się otworzyć dostępu',
+
+    settings_server_gts: 'Transkodowanie',
+    settings_server_gts_descr: 'Automatycznie konwertuj filmy do zgodnego formatu, gdy jest to potrzebne.',
+
+    title_metadata: 'Metadane',
+    title_moods: 'Nastroje',
+    title_meta_violence: 'Przemoc',
+    title_meta_fear: 'Strach',
+    title_meta_profanity: 'Słownictwo',
+    title_meta_sadness: 'Smutek',
+    title_meta_sex: 'Seksualność',
 }
