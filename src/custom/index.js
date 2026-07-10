@@ -27,7 +27,8 @@ import './interaction/news-loader'
 import './interaction/profile-window'
 //import './interaction/player-compatibility'
 import './app/torrent-badges'
-
+import './core/favorite'
+import './app/rows'
 
 import './core/socket'
 import './core/tmdb/translation-fallback'

@@ -2,6 +2,7 @@ import Api from '../../../core/api/api'
 import Lang from '../../../core/lang'
 import Template from '../../../interaction/template'
 import LineModule from '../../../interaction/items/line/module/module'
+import ContentRows from '../../../core/content_rows'
 
 function patchAnimeCategory() {
     if (!Api.sources || !Api.sources.tmdb) {
@@ -130,6 +131,8 @@ function animeCategory(params, oncomplite, onerror) {
             }, call, { life: 60 * 24 * 7 })
         })
     })
+
+    ContentRows.call('category', params, parts_data)
 
     function loadPart(partLoaded, partEmpty) {
         Api.partNext(parts_data, parts_limit, partLoaded, partEmpty)
