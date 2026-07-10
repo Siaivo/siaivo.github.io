@@ -48,21 +48,21 @@ function loadBadges() {
 
     fetchPromise = new Promise((resolve) => {
         if (typeof Lampa !== 'undefined' && Lampa.Network) {
-            console.log('[torrent-badges] fetching badges from:', url)
+            console.log('torrent-badges', 'fetching badges from:', url)
             Lampa.Network.silent(url, (data) => {
-                console.log('[torrent-badges] fetch complete, data type:', typeof data, Array.isArray(data) ? 'array' : (data && data.filters ? 'object with filters' : 'unknown'))
+                console.log('torrent-badges', 'fetch complete, data type:', typeof data, Array.isArray(data) ? 'array' : (data && data.filters ? 'object with filters' : 'unknown'))
                 let filters = Array.isArray(data) ? data : (data && Array.isArray(data.filters) ? data.filters : [])
-                console.log('[torrent-badges] filters count:', filters.length)
+                console.log('torrent-badges', 'filters count:', filters.length)
                 badgesCache = filters.map(compileBadge).filter(b => b !== null)
-                console.log('[torrent-badges] valid badges:', badgesCache.length)
+                console.log('torrent-badges', 'valid badges:', badgesCache.length)
                 resolve()
             }, (err) => {
-                console.log('[torrent-badges] fetch error:', err)
+                console.log('torrent-badges', 'fetch error:', err)
                 badgesCache = []
                 resolve()
             })
         } else {
-            console.log('[torrent-badges] Lampa.Network not available')
+            console.log('torrent-badges', 'Lampa.Network not available')
             badgesCache = []
             resolve()
         }
@@ -87,7 +87,7 @@ function compileBadge(badge) {
             regex: new RegExp(pattern, 'i')
         }
     } catch (e) {
-        console.log('[torrent-badges] invalid pattern for', badge.id, badge.name, ':', e.message)
+        console.log('torrent-badges', 'invalid pattern for', badge.id, badge.name, ':', e.message)
         return null
     }
 }

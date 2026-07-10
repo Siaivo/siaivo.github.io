@@ -43,9 +43,9 @@ function init() {
 
     // 4. Реєструємо глобальну функцію перезавантаження (викликається при зміні URL маніфесту)
     window.torrentBadgesReload = function () {
-        console.log('[torrent-badges] reloading badges...')
+        console.log('torrent-badges', 'reloading badges...')
         reload().then(() => {
-            console.log('[torrent-badges] badges reloaded')
+            console.log('torrent-badges', 'badges reloaded')
         })
     }
 

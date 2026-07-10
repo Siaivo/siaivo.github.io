@@ -27,7 +27,7 @@ function todayStr() {
             console.warn('[HolidayLogo] 🧪 TEST DATE OVERRIDE:', override, '(щоб скинути: localStorage.removeItem("' + TEST_DATE_KEY + '"))')
             return override
         }
-    } catch (e) {}
+    } catch (e) { }
 
     var d = new Date()
     var y = d.getFullYear()
@@ -46,7 +46,7 @@ function readCache() {
         if (!raw) return null
         var parsed = JSON.parse(raw)
         if (parsed && parsed.date && Array.isArray(parsed.holidays)) return parsed
-    } catch (e) {}
+    } catch (e) { }
     return null
 }
 
@@ -60,7 +60,7 @@ function writeCache(holidays) {
             date: todayStr(),
             holidays: holidays
         }))
-    } catch (e) {}
+    } catch (e) { }
 }
 
 /**
@@ -72,29 +72,29 @@ function load() {
     var isTestMode = false
     try {
         isTestMode = !!localStorage.getItem(TEST_DATE_KEY)
-    } catch (e) {}
+    } catch (e) { }
 
     var cached = readCache()
 
     // У тест-режимі кеш ігноруємо — щоб тест-дата завжди спрацьовувала свіжо
     if (!isTestMode && cached && cached.holidays && cached.holidays.length) {
-        console.log('[HolidayLogo] Using cached holidays for', today)
+        console.log('HolidayLogo', 'Using cached holidays for', today)
         return Promise.resolve(cached.holidays)
     }
 
     return fetch(API_URL, { method: 'GET' })
-        .then(function(resp) {
+        .then(function (resp) {
             if (!resp.ok) throw new Error('HTTP ' + resp.status)
             return resp.json()
         })
-        .then(function(data) {
+        .then(function (data) {
             if (!Array.isArray(data)) throw new Error('Invalid response')
             if (!isTestMode) writeCache(data)
-            console.log('[HolidayLogo] Fetched', data.length, 'holidays from API')
+            console.log('HolidayLogo', 'Fetched', data.length, 'holidays from API')
             return data
         })
-        .catch(function(e) {
-            console.warn('[HolidayLogo] API error:', e.message, '— trying stale cache')
+        .catch(function (e) {
+            console.warn('HolidayLogo', 'API error:', e.message, '— trying stale cache')
             // Відповідь з протермінованого кешу краща ніж нічого
             if (cached && cached.holidays) return cached.holidays
             return []

@@ -10,13 +10,13 @@ function initNewsAutoload() {
     }
 
     // Чекаємо готовності аплікації
-    Lampa.Listener.follow('app', function(e) {
+    Lampa.Listener.follow('app', function (e) {
         if (e.type !== 'ready') return
         const NEWS_SCRIPT = 'https://siaivo.isroot.in/lampa-ua-pack/feed.js'
 
         // Перевіряємо, чи скрипт вже завантажено (через Plugins.loaded())
         if (window.Lampa && Lampa.Plugins && Lampa.Plugins.loaded().includes(NEWS_SCRIPT)) {
-            console.log('Custom: feed.js вже завантажено')
+            console.log('Custom', 'feed.js вже завантажено')
             return
         }
 
@@ -24,13 +24,13 @@ function initNewsAutoload() {
         Lampa.Utils.putScriptAsync(
             [NEWS_SCRIPT],
             () => {
-                console.log('Custom: feed.js успішно завантажено')
+                console.log('Custom', 'feed.js успішно завантажено')
             },
             (url) => {
-                console.warn('Custom: не вдалося завантажити feed.js:', url)
+                console.warn('Custom', 'не вдалося завантажити feed.js:', url)
             },
             () => {
-                console.log('Custom: feed.js завантажено')
+                console.log('Custom', 'feed.js завантажено')
             },
             false
         )

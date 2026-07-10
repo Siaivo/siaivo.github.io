@@ -25,12 +25,12 @@ var POLL_INTERVAL = 200   // перевірка DOM кожні 200ms
  * @returns {Promise<Element>}
  */
 function waitForElement(selector) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         var el = document.querySelector(selector)
         if (el) return resolve(el)
 
         var elapsed = 0
-        var timer = setInterval(function() {
+        var timer = setInterval(function () {
             el = document.querySelector(selector)
             if (el) {
                 clearInterval(timer)
@@ -54,24 +54,24 @@ function init() {
     Settings.init()
 
     var today = Api.todayStr()
-    console.log('[HolidayLogo] Initializing for date:', today)
+    console.log('HolidayLogo', 'Initializing for date:', today)
 
     // Завантажуємо свята та чекаємо DOM паралельно
     Promise.all([
         Api.load(),
         waitForElement('.head__logo-icon')
-    ]).then(function(results) {
+    ]).then(function (results) {
         var holidays = results[0]
 
         if (!holidays || holidays.length === 0) {
-            console.log('[HolidayLogo] No holidays available')
+            console.log('HolidayLogo', 'No holidays available')
             return
         }
 
         var result = Themes.resolveTheme(holidays, today)
 
         if (!result) {
-            console.log('[HolidayLogo] No active or upcoming holiday found')
+            console.log('HolidayLogo', 'No active or upcoming holiday found')
             return
         }
 
@@ -96,9 +96,9 @@ function init() {
         }
 
         // Невелика затримка для плавності
-        setTimeout(function() {
+        setTimeout(function () {
             applyTheme()
-            
+
             // Якщо логотип ще не в DOM
             if (!Overlay.isActive() && Storage && Storage.get('holiday_style', '3') != 0) {
                 setTimeout(applyTheme, 1000)
@@ -106,11 +106,11 @@ function init() {
         }, 500)
 
         // Слухаємо зміни налаштувань
-        window.addEventListener('holiday_style_changed', function() {
+        window.addEventListener('holiday_style_changed', function () {
             applyTheme()
         })
 
-    }).catch(function(e) {
+    }).catch(function (e) {
         console.warn('[HolidayLogo] Init failed:', e.message)
     })
 }

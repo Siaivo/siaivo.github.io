@@ -10,7 +10,7 @@ let cub = Api.sources && Api.sources.cub
 
 if (cub) {
     cub.reactionsGet = function(params, oncomplite) {
-        resolve(oncomplite, { results: [] })
+        resolve(oncomplite, { result: [] })
     }
 
     cub.discussGet = function(params, oncomplite, onerror) {
@@ -19,7 +19,7 @@ if (cub) {
             return
         }
 
-        resolve(oncomplite, { results: [] })
+        resolve(oncomplite, { result: [] })
     }
 
     cub.discovery = function() {
