@@ -37,21 +37,37 @@ function add(){
 
             return function(call){
                 if(media == 'tv' || media == 'anime' || media == 'all'){
-                    let cub_notices = Notices.get('all').items()
-                        cub_notices = cub_notices.filter(n=>n.card && n.card.imdb_id);
+                    let thrown = Favorite.get({type:'thrown'});
+                    let viewed = Favorite.get({type:'viewed'});
 
-                    let history = Favorite.get({type:'history'}).filter(h=>cub_notices.find(n=>n.card.imdb_id == h.imdb_id))
+                    let history = Favorite.get({type:'history'});
 
-                    let new_episode = history.map(h=>{
-                        let noty = cub_notices.find(n=>n.card.imdb_id == h.imdb_id)
-                        let card = Arrays.clone(h)
+                    if (thrown.length) {
+                        history = history.filter(h => !thrown.find(t => t.imdb_id == h.imdb_id))
+                    }
+                    
+                    if (viewed.length) {
+                        history = history.filter(h => !viewed.find(v => v.imdb_id == h.imdb_id))
+                    }
 
-                        card.viewed = Timeline.watchedEpisode(h, noty.item.season, noty.item.episode)
+                    let ongoing = history
+                        .filter(h => h.next_episode_to_air && h.next_episode_to_air.episode_number > 1)
+                        .map(h => {
+                            let card = Arrays.clone(h)
+                            let next = h.next_episode_to_air
 
-                        return card
-                    })
+                            card.viewed = Timeline.watchedEpisode(h, next.season_number, next.episode_number - 1)
 
-                    new_episode = new_episode.filter(n=>n.viewed < 10)
+                            return card
+                        })
+
+                    let caught_up = ongoing.filter(c => c.viewed >= 90)
+
+                    if(caught_up.length){
+                        results = results.filter(r => !caught_up.find(c => c.id == r.id))
+                    }
+
+                    let new_episode = ongoing.filter(c => c.viewed < 10)
 
                     new_episode = new_episode.filter((e)=>{
                         let jpan  = Utils.containsJapanese(e.original_name || e.name || '') || e.original_language == 'ja'
@@ -62,9 +78,9 @@ function add(){
                     if(new_episode.length){
                         results = results.filter(r=>!new_episode.find(h=>h.id == r.id))
                         results = [].concat(new_episode, results)
-
-                        results = results.slice(0,19)
                     }
+
+                    results = results.slice(0,19)
                 }
 
                 call({
