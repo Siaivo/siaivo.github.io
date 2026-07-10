@@ -38,23 +38,13 @@ function add(){
             return function(call){
                 if(media == 'tv' || media == 'anime' || media == 'all'){
                     let cub_notices = Notices.get('all').items()
+                        cub_notices = cub_notices.filter(n=>n.card && n.card.imdb_id);
 
-                    let history = Favorite.get({type:'history'}).filter(h=>cub_notices.find(n=>n.item.card_id == h.id))
+                    let history = Favorite.get({type:'history'}).filter(h=>cub_notices.find(n=>n.card.imdb_id == h.imdb_id))
 
                     let new_episode = history.map(h=>{
-                        let noty = cub_notices.find(n=>n.item.card_id == h.id)
+                        let noty = cub_notices.find(n=>n.card.imdb_id == h.imdb_id)
                         let card = Arrays.clone(h)
-
-                        card.params = {
-                            module: CardModule.toggle(CardModule.MASK.base, 'Subscribe')
-                        }
-
-                        card.subscribe = {
-                            status: 1,
-                            season: noty.item.season,
-                            episode: noty.item.episode,
-                            voice: noty.data.voice
-                        }
 
                         card.viewed = Timeline.watchedEpisode(h, noty.item.season, noty.item.episode)
 
