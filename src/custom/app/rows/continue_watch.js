@@ -38,7 +38,6 @@ function add(){
             return function(call){
                 if(media == 'tv' || media == 'anime' || media == 'all'){
                     let cub_notices = Notices.get('all').items()
-                        cub_notices = cub_notices.filter(n=>n.item.method == 'tv-voice')
 
                     let history = Favorite.get({type:'history'}).filter(h=>cub_notices.find(n=>n.item.card_id == h.id))
 
