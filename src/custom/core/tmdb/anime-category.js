@@ -132,7 +132,7 @@ function animeCategory(params, oncomplite, onerror) {
         })
     })
 
-    ContentRows.call('category', params, parts_data)
+    ContentRows.call('category_anime', params, parts_data)
 
     function loadPart(partLoaded, partEmpty) {
         Api.partNext(parts_data, parts_limit, partLoaded, partEmpty)

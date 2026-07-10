@@ -15,7 +15,7 @@ function add(){
         name: 'continue_watch',
         title: Lang.translate('title_continue'),
         index: 0,
-        screen: ['main', 'category'],
+        screen: ['main', 'category', 'category_anime'],
         call: (params, screen)=>{
             let media;
             let results = [];
@@ -26,10 +26,7 @@ function add(){
                 results = results.concat(Favorite.continues('anime'))
             }
             else {
-                media = params.url == 'anime_tv' || params.url == 'anime_movie'
-                    ? 'anime'
-                    : params.url;
-
+                media = screen == 'category_anime' ? 'anime' : params.url;
                 results = Favorite.continues(media)
             }
 

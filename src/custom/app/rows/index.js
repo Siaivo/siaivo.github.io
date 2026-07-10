@@ -1,21 +1,34 @@
 import ContinueWatch from './continue_watch'
 
 // Точка реєстрації кастомних стрічок ContentRows.
-let rows = [
+const rows = [
     ContinueWatch
 ]
 
+// Реєструє всі стрічки, у яких є метод `add`.
+function register () {
+    rows.forEach(row => {
+        if (row && typeof row.add == 'function') row.add()
+    })
+}
+
 function init () {
-    if (!window.Lampa
-        || !window.Lampa.Lang
-        || window.Lampa.Lang.translate('title_continue', 'en') != 'Continue browsing') {
+    // Додаток уже готовий — реєструємо одразу.
+    if (window.appready) {
+        register()
+        return
+    }
+
+    // Lampa ще не завантажилась — чекаємо й пробуємо знову.
+    if (!window.Lampa || !Lampa.Listener) {
         setTimeout(init, 50)
         return
     }
 
-    rows.forEach(row => {
-        if(row && typeof row.add == 'function') row.add()
+    // Чекаємо на подію готовності додатка.
+    Lampa.Listener.follow('app', event => {
+        if (event.type === 'ready') register()
     })
 }
 
-init();
+init()
