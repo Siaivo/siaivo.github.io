@@ -107,7 +107,39 @@ function injectBaseCSS() {
     50% { transform: translateY(-2px) scale(1.1); }
 }
 
-/* Modal Styling (Видалено) */
+/* Мобільні стилі для плашки (style-2) */
+body.true--mobile .head__holiday-icon.style-2 {
+    width: 3em !important;
+    height: 3em !important;
+    padding: 0.6em;
+    border-radius: 50%;
+    font-size: 0.85em;
+    margin-left: 1em;
+}
+body.true--mobile .head__holiday-icon.style-2 .holiday-text {
+    display: none !important;
+}
+body.true--mobile .head__holiday-icon.style-2 .holiday-symbol {
+    margin-right: 0;
+    font-size: 1.3em;
+}
+@media screen and (max-width: 576px) {
+    .head__holiday-icon.style-2 {
+        width: 3em !important;
+        height: 3em !important;
+        padding: 0.6em;
+        border-radius: 50%;
+        font-size: 0.85em;
+        margin-left: 1em;
+    }
+    .head__holiday-icon.style-2 .holiday-text {
+        display: none !important;
+    }
+    .head__holiday-icon.style-2 .holiday-symbol {
+        margin-right: 0;
+        font-size: 1.3em;
+    }
+}
 `
     document.head.appendChild(style)
 }

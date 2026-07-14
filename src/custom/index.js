@@ -40,6 +40,9 @@ import './utils/clear-card'
 // Виконується після ініціалізації Lampa, але до відображення меню
 (function fixFeedInMenu() {
     function tryFix() {
+        // One-time migration guard — skip if already applied
+        if (window.localStorage.getItem('menu_hide_feed_fix_applied') === '1') return
+
         if (!window.Lampa || !Lampa.Listener) {
             setTimeout(tryFix, 50)
             return
@@ -82,6 +85,9 @@ import './utils/clear-card'
         } catch (e) {
             console.warn('Custom: помилка фіксу menu_hide', e)
         }
+
+        // Mark migration as complete so it never runs again
+        window.localStorage.setItem('menu_hide_feed_fix_applied', '1')
     }
 
     // Чекаємо, поки Lampa буде доступний
