@@ -29,6 +29,8 @@ import './interaction/profile-window'
 import './app/torrent-badges'
 import './core/favorite'
 import './app/rows'
+import './components/bookmarks'
+import './components/myperson'
 
 import './core/socket'
 import './core/tmdb/translation-fallback'
@@ -93,3 +95,4 @@ import './utils/clear-card'
     // Чекаємо, поки Lampa буде доступний
     tryFix()
 })()
+import './interaction/person/module/line'

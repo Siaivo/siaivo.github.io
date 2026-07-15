@@ -5,6 +5,7 @@ import Select from '../../../../interaction/select'
 import Template from '../../../../interaction/template'
 import BookmarksModule from '../../../../components/full/start/bookmarks'
 import FavoriteModule from '../../../../interaction/card/module/favorite'
+import ModuleMap from '../../../../interaction/card/module/map'
 
 const MARKS = ['look', 'viewed', 'scheduled', 'continued', 'thrown']
 
@@ -93,6 +94,8 @@ BookmarksModule.onCreate = function() {
 }
 
 FavoriteModule.onCreate = function() {
+    let is_person = this.data.profile_path || this.data.known_for_department || typeof this.data.gender !== 'undefined' || (Favorite.full().persons && Favorite.full().persons.indexOf(this.data.id) > -1);
+
     let onCheck = (a) => {
         Favorite.toggle(a.where, this.data)
     }
@@ -104,6 +107,17 @@ FavoriteModule.onCreate = function() {
     }
 
     function drawMenu() {
+        if (is_person) {
+            let status = Favorite.check(this.data)
+            return [{
+                title: status.persons ? Lang.translate('title_unsubscribe') || 'Видалити з обраного' : Lang.translate('title_subscribe') || 'Додати до обраного',
+                where: 'persons',
+                checkbox: true,
+                checked: status.persons,
+                onCheck
+            }]
+        }
+
         let status = Favorite.check(this.data)
         let menu = []
         let items_check = ['book', 'like', 'wath', 'history']
@@ -165,6 +179,16 @@ FavoriteModule.onAddicon = function(name) {
 }
 
 FavoriteModule.onFavorite = function() {
+    let is_person = this.data.profile_path || this.data.known_for_department || typeof this.data.gender !== 'undefined' || (Favorite.full().persons && Favorite.full().persons.indexOf(this.data.id) > -1);
+    if (is_person) {
+        let status = Favorite.check(this.data)
+        let marker = this.html.find('.card__marker')
+        this.html.find('.card__icons-inner').empty()
+        if (status.persons) this.emit('addicon', 'book')
+        if (marker) marker.remove()
+        return
+    }
+
     let status = Favorite.check(this.data)
     let marker = this.html.find('.card__marker')
     let marks = ['look', 'viewed', 'scheduled', 'continued', 'thrown']
@@ -202,4 +226,23 @@ FavoriteModule.onFavorite = function() {
 
 FavoriteModule.onDestroy = function() {
     Lampa.Listener.remove('state:changed', this.listenerFavorite)
+}
+
+// -------------------------------------------------------------------
+// Автоматичне підключення модулів Favorite та Menu для прямокутних
+// карток акторів (у трендах, пошуку, myperson тощо)
+// -------------------------------------------------------------------
+let original_card_onInit = ModuleMap.Card.onInit
+ModuleMap.Card.onInit = function() {
+    original_card_onInit.apply(this, arguments)
+
+    let is_person = this.data.profile_path || this.data.known_for_department || typeof this.data.gender !== 'undefined'
+    if (is_person) {
+        if (!this.listenerFavorite) {
+            this.use(ModuleMap.Favorite)
+        }
+        if (!this.menu_list) {
+            this.use(ModuleMap.Menu)
+        }
+    }
 }
