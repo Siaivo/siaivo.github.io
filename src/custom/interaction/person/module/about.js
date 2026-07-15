@@ -45,7 +45,7 @@ Map.About = {
         let updateSubscribe = () => {
             let status = Favorite.check(this.data)
             let subscribed = status.persons
-            this.html.find('.button--subscribe svg path:nth-of-type(2)').setAttribute('fill', subscribed ? 'currentColor' : 'transparent')
+            this.html.find('.button--subscribe svg path:nth-of-type(2)').attr('fill', subscribed ? 'currentColor' : 'transparent')
             this.html.find('.button--subscribe span').text(Lang.translate(subscribed ? 'title_unsubscribe' : 'title_subscribe'))
         }
 

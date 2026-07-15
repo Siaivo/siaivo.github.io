@@ -198,7 +198,7 @@ FavoriteModule.onFavorite = function() {
     let marker = this.html.find('.card__marker')
     let marks = ['look', 'viewed', 'scheduled', 'continued', 'thrown']
 
-    this.html.find('.card__icons-inner').innerHTML = ''
+    this.html.find('.card__icons-inner').empty()
 
     if (status.book) this.emit('addicon', 'book')
     if (status.like) this.emit('addicon', 'like')
