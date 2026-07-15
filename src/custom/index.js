@@ -29,11 +29,14 @@ import './interaction/profile-window'
 import './app/torrent-badges'
 import './core/favorite'
 import './app/rows'
+import './components/bookmarks'
+import './components/myperson'
 
 import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-category'
 import './category/siavo-anime'
+import './utils/clear-card'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є
 // Виконується після ініціалізації Lampa, але до відображення меню
@@ -92,3 +95,4 @@ import './category/siavo-anime'
     // Чекаємо, поки Lampa буде доступний
     tryFix()
 })()
+import './interaction/person/module/line'

@@ -6,6 +6,7 @@ import Utils from '../../../../utils/utils'
 import Modal from '../../../../interaction/modal'
 import Controller from '../../../../core/controller'
 import Noty from '../../../../interaction/noty'
+import Favorite from '../../../../core/favorite'
 
 Map.About = {
     onCreate: function() {
@@ -40,5 +41,33 @@ Map.About = {
         }).on('hover:focus hover:enter hover:hover', (e) => {
             this.last = e.target
         })
+
+        let updateSubscribe = () => {
+            let status = Favorite.check(this.data)
+            let subscribed = status.persons
+            this.html.find('.button--subscribe svg path:nth-of-type(2)').setAttribute('fill', subscribed ? 'currentColor' : 'transparent')
+            this.html.find('.button--subscribe span').text(Lang.translate(subscribed ? 'title_unsubscribe' : 'title_subscribe'))
+        }
+
+        updateSubscribe()
+
+        this.html.find('.button--subscribe').on('hover:enter', () => {
+            Favorite.toggle('persons', this.data)
+            updateSubscribe()
+        }).on('hover:focus hover:enter hover:hover', (e) => {
+            this.last = e.target
+        })
+
+        this.listenerFavorite = (e) => {
+            if (e.target == 'favorite') {
+                updateSubscribe()
+            }
+        }
+        Lampa.Listener.follow('state:changed', this.listenerFavorite)
+    },
+    onDestroy: function() {
+        if (this.listenerFavorite) {
+            Lampa.Listener.remove('state:changed', this.listenerFavorite)
+        }
     }
 }
