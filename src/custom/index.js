@@ -33,8 +33,7 @@ import './app/rows'
 import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-category'
-import './core/siaivo'
-import './utils/clear-card'
+import './category/siavo-anime'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є
 // Виконується після ініціалізації Lampa, але до відображення меню
