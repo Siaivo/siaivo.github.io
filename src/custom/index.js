@@ -35,7 +35,7 @@ import './components/myperson'
 import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-category'
-import './core/siaivo'
+import './category/siavo-anime'
 import './utils/clear-card'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є

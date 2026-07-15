@@ -2,8 +2,8 @@ import Lang from '../../../core/lang'
 import Router from '../../../core/router'
 import Storage from '../../../core/storage/storage'
 
-function betaAnime() {
-    return Storage.get('beta_anime') == 1
+function siaivoAnimeEnabled() {
+    return Storage.get('beta_anime') == 1 && Lang.selected(['uk'])
 }
 
 function bindMenuPatch() {
@@ -18,79 +18,65 @@ function bindMenuPatch() {
 
             var animeItem = e.body.find('[data-action="anime"]')
 
-            if (betaAnime()) {
+            if (siaivoAnimeEnabled()) {
                 if (animeItem.length) {
-                    var siaivoBtn = $(
+                    var siaivoAnimeBtn = $(
                         '<li class="menu__item selector">' +
-                        '<div class="menu__ico"><img src="./img/icons/menu/anime.svg" /></div>' +
-                        '<div class="menu__text">' + Lang.translate('menu_anime') + '</div>' +
+                            '<div class="menu__ico"><img src="./img/icons/menu/anime.svg" /></div>' +
+                            '<div class="menu__text">' + Lang.translate('menu_anime') + '</div>' +
                         '</li>'
                     ).attr('data-action', 'siaivo')
 
-                    animeItem.replaceWith(siaivoBtn)
+                    siaivoAnimeBtn.on('hover:enter', function () {
+                        Router.call('category', {
+                            url: 'anime',
+                            title: Lang.translate('menu_anime'),
+                            source: 'siaivo'
+                        })
+                    })
+
+                    animeItem.replaceWith(siaivoAnimeBtn)
+
+                    return;
                 }
             }
-            else {
-                animeItem.remove()
 
-                var cartoonItem = e.body.find('[data-action="cartoon"]')
-                if (cartoonItem.length) {
-                    var animeMovieBtn = $(
-                        '<li class="menu__item selector">' +
+            animeItem.remove()
+
+            var cartoonItem = e.body.find('[data-action="cartoon"]')
+            if (cartoonItem.length) {
+                var animeMovieBtn = $(
+                    '<li class="menu__item selector">' +
                         '<div class="menu__ico"><svg><use xlink:href="#sprite-anime"></use></svg></div>' +
-                        //'<div class="menu__text">' + Lang.translate('menu_movies') + '</div>' +
                         '<div class="menu__text">AMV</div>' +
-                        '</li>'
-                    ).attr('data-action', 'anime_movie')
+                    '</li>'
+                ).attr('data-action', 'anime_movie')
 
-                    var animeTvBtn = $(
-                        '<li class="menu__item selector">' +
+                animeMovieBtn.on('hover:enter', function () {
+                    Router.call('category', {
+                        url: 'anime_movie',
+                        title: Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_movies') + ' - ' + Storage.field('source').toUpperCase(),
+                        source: 'tmdb'
+                    })
+                })
+
+                var animeTvBtn = $(
+                    '<li class="menu__item selector">' +
                         '<div class="menu__ico"><svg><use xlink:href="#sprite-anime"></use></svg></div>' +
-                        //'<div class="menu__text">' + Lang.translate('menu_tv') + '</div>' +
                         '<div class="menu__text">TVA</div>' +
-                        '</li>'
-                    ).attr('data-action', 'anime_tv')
+                    '</li>'
+                ).attr('data-action', 'anime_tv')
 
-                    cartoonItem.after(animeMovieBtn)
-                    animeMovieBtn.after(animeTvBtn)
-                }
-            }
-        }
-
-        if (e.type === 'action') {
-            if (e.action === 'anime') {
-                e.abort()
-                return
-            }
-
-            if (e.action === 'siaivo') {
-                e.abort()
-                Router.call('category', {
-                    url: 'anime',
-                    title: Lang.translate('menu_anime'),
-                    source: 'siaivo'
+                animeTvBtn.on('hover:enter', function () {
+                    Router.call('category', {
+                        url: 'anime_tv',
+                        title: Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_tv') + ' - ' + Storage.field('source').toUpperCase(),
+                        source: 'tmdb'
+                    })
                 })
-                return
-            }
 
-            if (e.action === 'anime_movie') {
-                e.abort()
-                Router.call('category', {
-                    url: 'anime_movie',
-                    title: Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_movies') + ' - ' + Storage.field('source').toUpperCase(),
-                    source: 'tmdb'
-                })
-                return
-            }
-
-            if (e.action === 'anime_tv') {
-                e.abort()
-                Router.call('category', {
-                    url: 'anime_tv',
-                    title: Lang.translate('menu_anime') + ' | ' + Lang.translate('menu_tv') + ' - ' + Storage.field('source').toUpperCase(),
-                    source: 'tmdb'
-                })
-                return
+                cartoonItem.after(animeMovieBtn)
+                animeMovieBtn.after(animeTvBtn)
             }
         }
     })
