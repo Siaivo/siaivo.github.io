@@ -238,11 +238,11 @@ ModuleMap.Card.onInit = function() {
 
     let is_person = this.data.profile_path || this.data.known_for_department || typeof this.data.gender !== 'undefined'
     if (is_person) {
-        if (!this.listenerFavorite) {
-            this.use(ModuleMap.Favorite)
-        }
         if (!this.menu_list) {
             this.use(ModuleMap.Menu)
+        }
+        if (!this.listenerFavorite) {
+            this.use(ModuleMap.Favorite)
         }
     }
 }

@@ -11,7 +11,7 @@ import CardModule from '../interaction/card/module/module'
 
 let data = {}
 let listener = Subscribe()
-let category = ['like', 'wath', 'book', 'history', 'look', 'viewed', 'scheduled', 'continued', 'thrown']
+let category = ['like', 'wath', 'book', 'history', 'look', 'viewed', 'scheduled', 'continued', 'thrown', 'persons']
 let marks    = ['look', 'viewed', 'scheduled', 'continued', 'thrown']
 
 
