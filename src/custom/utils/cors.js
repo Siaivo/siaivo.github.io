@@ -1,11 +1,11 @@
 // Спільна логіка CORS-проксі для кастомних джерел (siaivo тощо).
 // У API цих джерел немає CORS-заголовків для браузера, тож JSON-запити йдуть через проксі.
-// Поточний проксі (lme-proxy) віддає СИРУ відповідь; unwrap() лишено як захисний
-// passthrough (і на випадок проксі, що загортає відповідь у конверт).
-//
-// Альтернативний проксі: 'https://cors.io/?url=' — віддає НЕ сиру відповідь, а конверт
+// Поточний проксі (cors.io) віддає НЕ сиру відповідь, а конверт
 // { url, status, headers, body:"<json-рядок>" }, який розгортає unwrap() (JSON.parse(body)).
-var PROXY = 'https://lme-proxy.vercel.app/?url='
+//
+// Альтернативний проксі (lme-proxy) віддає СИРУ відповідь; unwrap() для нього — захисний
+// var PROXY = 'https://lme-proxy.vercel.app/?url='
+var PROXY = 'https://cors.io/?url='
 
 // Обгортає повний URL у проксі.
 function proxied(fullUrl) {

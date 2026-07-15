@@ -5,6 +5,7 @@ import Template from '../../interaction/template'
 import LineModule from '../../interaction/items/line/module/module'
 import ContentRows from '../../core/content_rows'
 import AnimeMap from '../utils/anime-map'
+import Cors from '../utils/cors'
 
 // Категорія Siaivo (каталог аніме на даних hikka.io) — самодостатній модуль. Реєструється як
 // джерело Api.sources['siaivo'] (так category-компонент рендерить екран за source:'siaivo').
@@ -45,14 +46,14 @@ function apiUrl(path) {
 // фільми: «Людина-бензопила: Арка Резе», «Повелитель Фільм 1») не чіпаємо. Порожній
 // результат (назва = самий маркер) -> лишаємо оригінал.
 var TITLE_TAILS = [
-    /[\s\-–—,:]+сезону?\s*\d+\s*$/i,                                     // "..., сезон 3" / "- сезон 2" / "Сезон 2"
-    /[\s\-–—,:]+\d+\s*[-\s]*(?:й|ий)?\s*сезону?\s*$/i,                   // "- 2 сезон" / "2-й сезон" / "3 сезон"
-    /[\s\-–—,:]+(?:перший|другий|третій|четвертий|п['’]ятий|шостий|сьомий|наступний|фінальний|завершальний|останній|остаточний)\s+сезону?\s*$/i, // "другий сезон" / "Наступний/Фінальний сезон"
+    /[\s\-–—,:]+сезон(?:[ауи]|ів)?\s*\d+\s*$/i,                                     // "..., сезон 3" / "- сезон 2" / "Сезон 2"
+    /[\s\-–—,:]+\d+\s*[-\s]*(?:й|ий)?\s*сезон(?:[ауи]|ів)?\s*$/i,                   // "- 2 сезон" / "2-й сезон" / "3 сезон"
+    /[\s\-–—,:]+(?:перший|другий|третій|четвертий|п['’]ятий|шостий|сьомий|наступний|фінальний|завершальний|останній|остаточний)\s+сезон(?:[ауи]|ів)?\s*$/i, // "другий сезон" / "Наступний/Фінальний сезон"
     /[\s\-–—,:]+(?:частина|частину|частини|part)\s*\d+\s*$/i,            // "..., частина 2" / "- part 2"
     /[\s\-–—,:]+\d+(?:\s*[-–—]\s*\d+)?\s*(?:а|га|я|й|ий)?\s*(?:частина|частину|частини|part)\s*$/i, // "..., 2 частина" / "- 3-4 частина" / "2-га частина"
     /[\s\-–—,:]+season\s*\d+\s*$/i,                                      // "... Season 2"
     /[\s\-–—,:]+\d+(?:st|nd|rd|th)\s*season\s*$/i,                       // "... 2nd Season"
-    /[\s\-–—,:]+(?:пів)?фінал(?:ьн(?:ий|а|е|ого))?(?:\s+(?:сезону?|част(?:ина|ину|ини)|розділ[ауи]?|сері[яії]))?\s*$/i, // "Хвіст феї: Фінал" / "Ґінтама: Півфінал" / "Рілайф: Фінальний розділ"
+    /[\s\-–—,:]+(?:пів)?фінал(?:ьн(?:ий|а|е|ого))?(?:\s+(?:сезон(?:[ауи]|ів)?|част(?:ина|ину|ини)|розділ[ауи]?|сері[яії]))?\s*$/i, // "Хвіст феї: Фінал" / "Ґінтама: Півфінал" / "Рілайф: Фінальний розділ"
     /[\s\-–—,:]+(?:спешл(?:и|ів)?|спецвипуск(?:и|ів)?|special(?:s)?|ova|ona)\s*$/i,       // "...урядника Спешл" / "...Богом! OVA" / "... Special"
     /[\s\-–—,:]+(?:the\s+)?(?:second|third|fourth|fifth|sixth|seventh|final)\s+(?:season|series)\s*$/i, // "... Second Season" / "... Final Season/Series"
     /[\s\-–—,:]+season\s+[ivx]+\s*$/i                                    // "... Season I" (римська)
@@ -250,6 +251,103 @@ function processPage(json, seenKey, isReset, done) {
     done()
 }
 
+// ── Ряд «Вийшло сьогодні» (розклад animeon.club) ─────────────────────────────
+//
+// Окреме джерело від Hikka: GET /schedule/by-date/<DD-MM-YYYY> (дата пристрою) через CORS-проксі
+// (utils/cors.js) — у animeon немає CORS-заголовків для браузера. Відповідь — МАСИВ епізодів
+// { id, episode, anime:{...} }; будуємо картку з anime (malId -> tmdb через ту саму AnimeMap,
+// що й каталог). Ряд статичний (1 запит, без пагінації) -> json.url НЕ ставимо (без кнопки "Ще").
+var ANIMEON  = 'https://animeon.club/api'
+var IMG_BASE = ANIMEON + '/uploads/images/'   // постер: /uploads/images/<image.original>
+
+function pad2(n) {
+    return (n < 10 ? '0' : '') + n
+}
+
+// Дата пристрою (+offset днів) у форматі DD-MM-YYYY (як очікує /schedule/by-date) — не хардкодимо.
+function dateStr(offset) {
+    var d = new Date()
+    d.setDate(d.getDate() + (offset || 0))
+    return pad2(d.getDate()) + '-' + pad2(d.getMonth() + 1) + '-' + d.getFullYear()
+}
+
+// Картка з anime-об'єкта розкладу animeon (поля відрізняються від Hikka: titleUa/titleEn,
+// malId, image.original, malScored, type). tmdb-ідентичність — з тієї ж статичної AnimeMap.
+function scheduleCard(anime) {
+    if (!anime) return null
+
+    var display  = normalizeTitle(anime.titleUa || anime.titleEn || anime.slug || '')
+    var original = normalizeTitle(anime.titleEn || anime.titleUa || '') || display
+    var year     = anime.releaseDate ? String(anime.releaseDate) : ''
+    var poster   = anime.image && anime.image.original ? IMG_BASE + anime.image.original : ''
+    var link     = AnimeMap.link(anime.malId)                    // { id, method } | null
+    var method   = link ? link.method : null
+    var isMovie  = method ? method === 'movie' : anime.type === 'movie'
+
+    var c = {
+        id: link ? link.id : null,
+        source: link ? 'tmdb' : SOURCE,
+        method: method,
+        mal_id: anime.malId,
+        slug: anime.slug,
+        _type: anime.type,     // animeon type ('tv'/'movie') — для дедупу сезонів у processPage
+        overview: '',
+        poster: poster,
+        img: poster,
+        vote_average: Number(anime.malScored) || Number(anime.rating) || 0,
+        release_year: year,
+        genres: []
+    }
+
+    if (isMovie) {
+        c.title = display
+        c.original_title = original
+        c.release_date = year ? year + '-01-01' : ''
+    }
+    else {
+        c.name = display
+        c.original_name = original
+        c.first_air_date = year ? year + '-01-01' : ''
+    }
+
+    return c
+}
+
+// GET /schedule/by-date/<дата> через CORS-проксі -> масив anime-карток (нормалізованих).
+function fetchSchedule(offset, oncomplite, onerror) {
+    var url = Cors.apiUrl(ANIMEON, '/schedule/by-date/' + dateStr(offset))
+
+    network.silent(url, function(json) {
+        var arr = Cors.unwrap(json)
+        if (!Array.isArray(arr)) return onerror()
+
+        // Карта mal->tmdb має бути готова ДО scheduleCard() (синхронний AnimeMap.link).
+        AnimeMap.load(function() {
+            oncomplite({
+                results: arr.map(function(e) { return scheduleCard(e && e.anime) }).filter(Boolean),
+                page: 1,
+                total_pages: 1,
+                total_results: arr.length,
+                source: SOURCE
+            })
+        })
+    }, onerror, false, { cache: { life: 60 } })
+}
+
+// Частина ряду розкладу (offset днів від сьогодні): 1 запит + виключення no-tmdb/дедуп. json.url
+// НЕ ставимо -> ряд без кнопки "Ще" (і list() для нього не викликається). seenKey — окремий ключ
+// дедупу на кожен ряд, щоб «сьогодні» й «завтра» не з'їдали картки одне в одного.
+function schedulePart(offset, seenKey, decorate) {
+    return function(call) {
+        fetchSchedule(offset, function(json) {
+            processPage(json, seenKey, true, function() {
+                decorate(json)
+                call(json)
+            })
+        }, call)
+    }
+}
+
 // ── Категорія (сторінка-каталог) ─────────────────────────────────────────────
 
 // Збирає функцію-частину ряду: вантажить першу сторінку (POST /anime) і декорує лінію.
@@ -429,6 +527,19 @@ function category(params, oncomplite, onerror) {
     var parts_limit = 6
 
     var parts_data = [
+        // Вийшло сьогодні — GET animeon /schedule/by-date/<сьогодні> через CORS-проксі.
+        // Статичний ряд (без пагінації/кнопки "Ще").
+        schedulePart(0, 'today', function(json) {
+            json.title = t('Вийшло сьогодні', 'Вышло сегодня', 'Aired today')
+            iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#4caf50')
+        }),
+
+        // Очікується завтра — той самий розклад animeon на завтрашню дату (offset +1).
+        schedulePart(1, 'tomorrow', function(json) {
+            json.title = t('Очікується завтра', 'Ожидается завтра', 'Expected tomorrow')
+            iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#3ea6ff')
+        }),
+
         // З високим рейтингом — POST /anime { sort:['score:desc','scored_by:desc'] } (найкраще оцінене).
         part('rated', { life: day }, function(json) {
             json.title = t('З високим рейтингом', 'С высоким рейтингом', 'Top rated')
