@@ -153,6 +153,11 @@ FavoriteModule.onCreate = function() {
         return menu
     }
 
+    // menu_list is created by Menu.onInit, but when modules are added
+    // dynamically during emit('init') the Menu.onInit may not fire.
+    // Ensure the array exists so push never fails.
+    if (!this.menu_list) this.menu_list = []
+
     this.menu_list.push({
         title: Lang.translate('settings_input_links'),
         menu: drawMenu.bind(this),
@@ -240,6 +245,11 @@ ModuleMap.Card.onInit = function() {
     if (is_person) {
         if (!this.menu_list) {
             this.use(ModuleMap.Menu)
+
+            // use() only adds to components array; onInit won't fire because
+            // emit('init') is already in progress.  Manually init Menu so that
+            // this.menu_list exists when Favorite.onCreate pushes to it.
+            if (ModuleMap.Menu.onInit) ModuleMap.Menu.onInit.call(this)
         }
         if (!this.listenerFavorite) {
             this.use(ModuleMap.Favorite)
