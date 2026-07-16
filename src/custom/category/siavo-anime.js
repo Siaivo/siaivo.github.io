@@ -41,6 +41,14 @@ var ICON_TIME =
     '<path fill="currentColor" d="M256,0C114.833,0,0,114.833,0,256s114.833,256,256,256s256-114.833,256-256S397.167,0,256,0z M256,472.341c-119.275,0-216.341-97.066-216.341-216.341S136.725,39.659,256,39.659c119.295,0,216.341,97.066,216.341,216.341S375.275,472.341,256,472.341z"/>' +
     '</svg>'
 
+// Іконка «кубок» для ряду «Відзначено нагородами» — inline, stroke=currentColor (тонується icon_color).
+var ICON_TROPHY =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M8 21h8M12 17v4"></path>' +
+    '<path d="M7 4h10v6a5 5 0 0 1-10 0V4z"></path>' +
+    '<path d="M7 6H5a2 2 0 0 0-2 2v0a4 4 0 0 0 4 4M17 6h2a2 2 0 0 1 2 2v0a4 4 0 0 1-4 4"></path>' +
+    '</svg>'
+
 var network = new Reguest()
 
 // Повний URL до шлюзу (шлях один-в-один з api.hikka.io).
@@ -571,19 +579,19 @@ function category(params, oncomplite, onerror) {
         // Очікується завтра — той самий розклад Hikka, епізоди з airing_at у межах завтра (offset +1).
         schedulePart(1, 'tomorrow', function(json) {
             json.title = t('Очікується завтра', 'Ожидается завтра', 'Expected tomorrow')
-            iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#3ea6ff')
+            iconLine(json, '<svg><use xlink:href="#sprite-bell"></use></svg>', '#3ea6ff')
         }),
 
         // Зараз виходить — POST /anime { sort:['native_score:desc'], status:['ongoing'], years:[рік,рік] }.
         part('ongoing', { life: day }, function(json) {
             json.title = t('Зараз виходить', 'Сейчас выходит', 'Airing now')
-            iconLine(json, '<svg><use xlink:href="#sprite-feed"></use></svg>', '#3ea6ff')
+            iconLine(json, '<svg><use xlink:href="#sprite-feed"></use></svg>', '#8e24aa')
         }),
 
         // Минулий сезон — POST /anime { season:[<попередній>], years:[рік,рік] }, за оцінкою.
         part('last-season', { life: day }, function(json) {
             json.title = t('Минулий сезон', 'Прошлый сезон', 'Last season')
-            iconLine(json, ICON_TIME, '#9575cd')
+            iconLine(json, ICON_TIME, '#00897b')
         }),
 
         // У топі — POST /anime { sort:['scored_by:desc'], years:[рік-6,рік] } (популярне останніх років).
@@ -597,37 +605,37 @@ function category(params, oncomplite, onerror) {
         // З високим рейтингом — POST /anime { sort:['score:desc','scored_by:desc'] } (найкраще оцінене).
         part('rated', { life: day }, function(json) {
             json.title = t('З високим рейтингом', 'С высоким рейтингом', 'Top rated')
-            iconLine(json, 'icon_star', '#ffb300')
+            iconLine(json, 'icon_star', '#3949ab')
         }),
 
         // Відзначено нагородами — POST /anime { genres:['award-winning'], score:['7','10'],
         part('award', { life: day }, function(json) {
             json.title = t('Відзначено нагородами', 'Отмеченные наградами', 'Award-winning')
-            iconLine(json, '<svg><use xlink:href="#sprite-like"></use></svg>', '#D6BA56')
+            iconLine(json, ICON_TROPHY, '#b8860b')
         }),
 
         // Фільми — POST /anime { media_type:['movie'] }, за оцінкою.
         part('movie', { life: day }, function(json) {
             json.title = t('Фільми', 'Фильмы', 'Movies')
-            iconLine(json, '<svg><use xlink:href="#sprite-movie"></use></svg>', '#b06bff')
+            iconLine(json, '<svg><use xlink:href="#sprite-movie"></use></svg>', '#d81b60')
         }),
 
         // Класика — POST /anime { years:[1990,2009], sort:['scored_by:desc'] } (ретро-хіти).
         part('classic', { life: day }, function(json) {
             json.title = t('Класика', 'Классика', 'Classics')
-            iconLine(json, '<svg><use xlink:href="#sprite-history"></use></svg>', '#c9a227')
+            iconLine(json, '<svg><use xlink:href="#sprite-history"></use></svg>', '#6d4c41')
         }),
 
         // За ранобе — POST /anime { source:['light_novel'] }, за оцінкою (переважно ісекай/фентезі).
         part('novel', { life: day }, function(json) {
             json.title = t('За ранобе', 'По ранобэ', 'From light novels')
-            iconLine(json, '<svg><use xlink:href="#sprite-book"></use></svg>', '#ff6b9d')
+            iconLine(json, '<svg><use xlink:href="#sprite-book"></use></svg>', '#0288d1')
         }),
 
         // Оригінальні — POST /anime { source:['original'] }, за оцінкою (не за мангою/ранобе).
         part('original', { life: day }, function(json) {
             json.title = t('Оригінальні', 'Оригинальные', 'Original works')
-            iconLine(json, '<svg><use xlink:href="#sprite-collection"></use></svg>', '#2ec4b6')
+            iconLine(json, '<svg><use xlink:href="#sprite-collection"></use></svg>', '#689f38')
         })
     ]
 
