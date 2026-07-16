@@ -32,6 +32,15 @@ var PAGE_SIZE = 30
 // Порядок сортування каталогу: спершу за оцінкою, тай-брейк за кількістю голосів (як у Hikka).
 var SORT = ['score:desc', 'scored_by:desc']
 
+// Іконка «годинник» (img/icons/menu/time.svg) для ряду «Минулий сезон» — inline з fill=currentColor,
+// щоб icon_color тонував її на білому колі (у файлі fill=#fff -> як <img> на білому фоні був би
+// невидимий; спрайтові ряди так само покладаються на currentColor).
+var ICON_TIME =
+    '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">' +
+    '<path fill="currentColor" d="M347.216,301.211l-71.387-53.54V138.609c0-10.966-8.864-19.83-19.83-19.83c-10.966,0-19.83,8.864-19.83,19.83v118.978c0,6.246,2.935,12.136,7.932,15.864l79.318,59.489c3.569,2.677,7.734,3.966,11.878,3.966c6.048,0,11.997-2.717,15.884-7.952C357.766,320.208,355.981,307.775,347.216,301.211z"/>' +
+    '<path fill="currentColor" d="M256,0C114.833,0,0,114.833,0,256s114.833,256,256,256s256-114.833,256-256S397.167,0,256,0z M256,472.341c-119.275,0-216.341-97.066-216.341-216.341S136.725,39.659,256,39.659c119.295,0,216.341,97.066,216.341,216.341S375.275,472.341,256,472.341z"/>' +
+    '</svg>'
+
 var network = new Reguest()
 
 // Повний URL до шлюзу (шлях один-в-один з api.hikka.io).
@@ -143,11 +152,25 @@ function currentYear() {
     return new Date().getFullYear()
 }
 
+// Сезони Hikka за місяцем (0-11): 1-3 winter, 4-6 spring, 7-9 summer, 10-12 fall.
+var SEASONS = ['winter', 'spring', 'summer', 'fall']
+
+// Попередній сезон (для ряду «Минулий сезон»): winter -> fall попереднього року, інакше -1 у списку.
+function prevSeason() {
+    var d = new Date()
+    var i = Math.floor(d.getMonth() / 3)   // індекс поточного сезону
+    var y = d.getFullYear()
+    return i === 0 ? { name: 'fall', year: y - 1 } : { name: SEASONS[i - 1], year: y }
+}
+
 // Тіло POST /anime за дескриптором ряду:
 //   'rated'        -> з високим рейтингом: sort=score (тай-брейк scored_by) — найкраще оцінене за весь час
 //   'top'          -> у топі: популярне останніх ~6 років (scored_by у вікні [рік-6, рік]) — «сучасний
 //                     мейнстрім», відповідник cub ?cat=anime&sort=top (trending, а не легенди всіх часів)
 //   'ongoing'      -> що зараз виходить цьогоріч, за нативною оцінкою (status:ongoing + years:[рік,рік])
+//   'last-season'  -> минулий сезон (season:[<попередній>] + years:[рік,рік]), за оцінкою
+//   'award'        -> відзначені нагородами: жанр award-winning, лише перекладені (only_translated),
+//                     оцінка >=7, найновіші (start_date:desc, тай-брейк score:desc)
 //   'translated'   -> «Солов'їною»: лише з укр. локалізацією (only_translated), найновіші (start_date:desc)
 //   'movie'        -> повнометражні аніме (media_type:movie), за оцінкою
 //   'classic'      -> класика 1990–2009, за популярністю (scored_by у вікні тих років)
@@ -163,6 +186,15 @@ function bodyFor(descriptor) {
     if (descriptor === 'ongoing') {
         var y = currentYear()
         return { sort: ['native_score:desc'], status: ['ongoing'], years: [y, y] }
+    }
+
+    if (descriptor === 'last-season') {
+        var ps = prevSeason()
+        return { sort: SORT, season: [ps.name], years: [ps.year, ps.year] }
+    }
+
+    if (descriptor === 'award') {
+        return { sort: ['start_date:desc', 'score:desc'], genres: ['award-winning'], score: ['7', '10'] }
     }
 
     if (descriptor === 'movie')    return { sort: SORT, media_type: ['movie'] }
@@ -557,10 +589,22 @@ function category(params, oncomplite, onerror) {
             //wideLine(json)
         }),
 
+        // Відзначено нагородами — POST /anime { genres:['award-winning'], score:['7','10'],
+        part('award', { life: day }, function(json) {
+            json.title = t('Відзначено нагородами', 'Отмеченные наградами', 'Award-winning')
+            iconLine(json, '<svg><use xlink:href="#sprite-like"></use></svg>', '#D6BA56')
+        }),
+
         // Зараз виходить — POST /anime { sort:['native_score:desc'], status:['ongoing'], years:[рік,рік] }.
         part('ongoing', { life: day }, function(json) {
             json.title = t('Зараз виходить', 'Сейчас выходит', 'Airing now')
             iconLine(json, '<svg><use xlink:href="#sprite-feed"></use></svg>', '#3ea6ff')
+        }),
+
+        // Минулий сезон — POST /anime { season:[<попередній>], years:[рік,рік] }, за оцінкою.
+        part('last-season', { life: day }, function(json) {
+            json.title = t('Минулий сезон', 'Прошлый сезон', 'Last season')
+            iconLine(json, ICON_TIME, '#9575cd')
         }),
 
         // Фільми — POST /anime { media_type:['movie'] }, за оцінкою.
@@ -612,7 +656,7 @@ function category(params, oncomplite, onerror) {
 // тягнемо сирі сторінки (за власним курсором page, per-descriptor), доки не набереться >=1
 // картка або не впремось у кінець.
 // Фіксовані (не жанрові) дескриптори ряду — для валідації в list() (мають збігатися з category()).
-var FIXED_ROWS = ['rated', 'top', 'ongoing', 'translated', 'movie', 'classic', 'novel', 'original']
+var FIXED_ROWS = ['rated', 'top', 'award', 'ongoing', 'last-season', 'translated', 'movie', 'classic', 'novel', 'original']
 
 var ENDS   = {}   // descriptor -> true: сира відповідь порожня / досягнуто pages -> стоп
 var CURSOR = {}   // descriptor -> наступна api-сторінка (скидається на page===1)
