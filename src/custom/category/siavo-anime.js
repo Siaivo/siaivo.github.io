@@ -461,7 +461,7 @@ var GENRES = [
     { slug: 'reverse-harem',     uk: 'Реверсивний гарем',              en: 'Reverse Harem' },
     { slug: 'gag-humor',         uk: 'Жарти',                          en: 'Gag Humor' },
     { slug: 'racing',            uk: 'Гонки',                          en: 'Racing' },
-    { slug: 'award-winning',     uk: 'Відзначений нагородами',         en: 'Award Winning' },
+    // 'award-winning' навмисно НЕ як жанровий ряд — є окремий курируваний ряд «Відзначено нагородами».
     { slug: 'adult-cast',        uk: 'Про дорослих',                   en: 'Adult Cast' },
     { slug: 'team-sports',       uk: 'Командний спорт',                en: 'Team Sports' },
     { slug: 'combat-sports',     uk: 'Бойовий спорт',                  en: 'Combat Sports' },
@@ -517,7 +517,7 @@ var GENRE_WEIGHTS = {
 
     // Нішеві, але впізнавані — легкий підйом над базовою вагою.
     mythology: 3, samurai: 3, parody: 3, gore: 3, josei: 3, 'time-travel': 3, reincarnation: 3,
-    'adult-cast': 2, 'love-polygon': 2, 'gag-humor': 2, 'award-winning': 2
+    'adult-cast': 2, 'love-polygon': 2, 'gag-humor': 2
 }
 
 function genreWeight(slug) {
@@ -575,26 +575,6 @@ function category(params, oncomplite, onerror) {
             iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#3ea6ff')
         }),
 
-        // З високим рейтингом — POST /anime { sort:['score:desc','scored_by:desc'] } (найкраще оцінене).
-        part('rated', { life: day }, function(json) {
-            json.title = t('З високим рейтингом', 'С высоким рейтингом', 'Top rated')
-            iconLine(json, 'icon_star', '#ffb300')
-        }),
-
-        // У топі — POST /anime { sort:['scored_by:desc'], years:[рік-6,рік] } (популярне останніх років).
-        // Широкі картки (wide, як у cub) + іконка-стрічка #sprite-feed.
-        part('top', { life: day }, function(json) {
-            json.title = t('У топі', 'В топе', 'Top')
-            iconLine(json, 'icon_fire', '#fd4518')
-            //wideLine(json)
-        }),
-
-        // Відзначено нагородами — POST /anime { genres:['award-winning'], score:['7','10'],
-        part('award', { life: day }, function(json) {
-            json.title = t('Відзначено нагородами', 'Отмеченные наградами', 'Award-winning')
-            iconLine(json, '<svg><use xlink:href="#sprite-like"></use></svg>', '#D6BA56')
-        }),
-
         // Зараз виходить — POST /anime { sort:['native_score:desc'], status:['ongoing'], years:[рік,рік] }.
         part('ongoing', { life: day }, function(json) {
             json.title = t('Зараз виходить', 'Сейчас выходит', 'Airing now')
@@ -605,6 +585,26 @@ function category(params, oncomplite, onerror) {
         part('last-season', { life: day }, function(json) {
             json.title = t('Минулий сезон', 'Прошлый сезон', 'Last season')
             iconLine(json, ICON_TIME, '#9575cd')
+        }),
+
+        // У топі — POST /anime { sort:['scored_by:desc'], years:[рік-6,рік] } (популярне останніх років).
+        // Широкі картки (wide, як у cub) + іконка-стрічка #sprite-feed.
+        part('top', { life: day }, function(json) {
+            json.title = t('У топі', 'В топе', 'Top')
+            iconLine(json, 'icon_fire', '#fd4518')
+            //wideLine(json)
+        }),
+
+        // З високим рейтингом — POST /anime { sort:['score:desc','scored_by:desc'] } (найкраще оцінене).
+        part('rated', { life: day }, function(json) {
+            json.title = t('З високим рейтингом', 'С высоким рейтингом', 'Top rated')
+            iconLine(json, 'icon_star', '#ffb300')
+        }),
+
+        // Відзначено нагородами — POST /anime { genres:['award-winning'], score:['7','10'],
+        part('award', { life: day }, function(json) {
+            json.title = t('Відзначено нагородами', 'Отмеченные наградами', 'Award-winning')
+            iconLine(json, '<svg><use xlink:href="#sprite-like"></use></svg>', '#D6BA56')
         }),
 
         // Фільми — POST /anime { media_type:['movie'] }, за оцінкою.
