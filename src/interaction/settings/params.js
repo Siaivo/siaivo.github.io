@@ -104,6 +104,7 @@ function init(){
             'infuse': 'Infuse',
             'mpv': 'MPV',
             'nplayer': 'nPlayer',
+            'senplayer': 'SenPlayer',
             'tracyplayer': 'TracyPlayer',		
         },'inner')
 
@@ -113,6 +114,7 @@ function init(){
             'infuse': 'Infuse',
             'mpv': 'MPV',
             'nplayer': 'nPlayer',
+            'senplayer': 'SenPlayer',
             'tracyplayer': 'TracyPlayer',		
         },'inner')
 
@@ -122,6 +124,7 @@ function init(){
             'infuse': 'Infuse',
             'mpv': 'MPV',
             'nplayer': 'nPlayer',
+            'senplayer': 'SenPlayer',
             'tracyplayer': 'TracyPlayer',		
         },'inner')
     }

@@ -1057,7 +1057,8 @@ function start(data, need, inner){
             mpv:    'mpv://${_url}',
             iina:   'iina://weblink?url=${url}',
             nplayer:'nplayer-${_url}',
-            infuse: 'infuse://x-callback-url/play?url=${url}'
+            infuse: 'infuse://x-callback-url/play?url=${url}',
+            senplayer: 'senplayer://x-callback-url/play?url=${url}'
         }, null, launchInner)
     }
     else if(Platform.is('apple_tv')){
