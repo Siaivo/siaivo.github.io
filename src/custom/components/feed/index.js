@@ -172,7 +172,7 @@ function CustomFeed(object) {
                 (itemType === 'serial' || hash) ? 'feed_episode' : 'feed_item'
             )
 
-            item.addClass('feed-item--' + itemType)
+            item.addClass('feed-item--' + (isTv ? 'episode' : 'movie'))
             item.setAttribute('data-feed-index', feedIndex)
 
             let typeLabels = {
@@ -207,7 +207,7 @@ function CustomFeed(object) {
             }
 
             item.find('.feed-item__label')
-                .addClass('feed-item__label--' + itemType)
+                .addClass('feed-item__label--' + (isTv ? 'episode' : 'movie'))
                 .text(typeLabels[itemType] || '')
 
             item.find('.feed-item__title').text(elementData.title || elementData.name)
