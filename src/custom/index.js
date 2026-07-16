@@ -37,7 +37,6 @@ import './components/feed'
 import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-hikka-fallback'
-import './core/tmdb/anime-category'
 import './category/siavo-anime'
 import './utils/clear-card'
 
