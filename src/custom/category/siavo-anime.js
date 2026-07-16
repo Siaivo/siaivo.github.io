@@ -5,7 +5,6 @@ import Template from '../../interaction/template'
 import LineModule from '../../interaction/items/line/module/module'
 import ContentRows from '../../core/content_rows'
 import AnimeMap from '../utils/anime-map'
-import Cors from '../utils/cors'
 
 // Категорія Siaivo (каталог аніме на даних hikka.io) — самодостатній модуль. Реєструється як
 // джерело Api.sources['siaivo'] (так category-компонент рендерить екран за source:'siaivo').
@@ -93,7 +92,8 @@ function card(item) {
         method: method,
         mal_id: item.mal_id,
         slug: item.slug,
-        _type: item.media_type, // Hikka media_type — для дедупу сезонів у processPage
+        _type: item.media_type,      // Hikka media_type — для дедупу сезонів у processPage
+        _scored_by: Number(item.scored_by) || 0,  // к-сть голосів — тай-брейк пост-сортування розкладу
         overview: '',
         poster: poster,
         img: poster,
@@ -251,96 +251,93 @@ function processPage(json, seenKey, isReset, done) {
     done()
 }
 
-// ── Ряд «Вийшло сьогодні» (розклад animeon.club) ─────────────────────────────
+// ── Ряди розкладу «Вийшло сьогодні» / «Очікується завтра» (Hikka /schedule/anime) ──
 //
-// Окреме джерело від Hikka: GET /schedule/by-date/<DD-MM-YYYY> (дата пристрою) через CORS-проксі
-// (utils/cors.js) — у animeon немає CORS-заголовків для браузера. Відповідь — МАСИВ епізодів
-// { id, episode, anime:{...} }; будуємо картку з anime (malId -> tmdb через ту саму AnimeMap,
-// що й каталог). Ряд статичний (1 запит, без пагінації) -> json.url НЕ ставимо (без кнопки "Ще").
-var ANIMEON  = 'https://animeon.club/api'
-var IMG_BASE = ANIMEON + '/uploads/images/'   // постер: /uploads/images/<image.original>
+// Один POST /schedule/anime повертає найближчі епізоди, ВІДСОРТОВАНІ за airing_at (від сьогодні
+// вперед) — тіло { status:['ongoing','announced'] } (announced ловить прем'єри; без airing_season,
+// щоб не губити перехідні кури). Відповідь: { list:[{ anime:{...}, airing_at:<unix сек>, episode }] }.
+// anime-об'єкт має ТІ САМІ поля, що й каталог, тож картку будуємо тим самим card() (без scheduleCard).
+// Обидва ряди читають з ОДНОГО запиту (мемоізація loadSchedule), розбиваючи список за локальною
+// датою пристрою. Ряди статичні (без пагінації) -> json.url НЕ ставимо (без кнопки "Ще").
+var SCHEDULE_SIZE = 50
+var SCHEDULE_BODY = JSON.stringify({ status: ['ongoing', 'announced'] })
 
-function pad2(n) {
-    return (n < 10 ? '0' : '') + n
+// Межі локального дня (unix, сек): offset 0 = сьогодні, 1 = завтра. airing_at — абсолютний unix,
+// тож порівняння з локальною північчю коректно розкладає шоу за календарним днем глядача.
+function dayRange(offset) {
+    var start = new Date()
+    start.setHours(0, 0, 0, 0)
+    start.setDate(start.getDate() + (offset || 0))
+    var from = Math.floor(start.getTime() / 1000)
+    return { from: from, to: from + 24 * 60 * 60 }
 }
 
-// Дата пристрою (+offset днів) у форматі DD-MM-YYYY (як очікує /schedule/by-date) — не хардкодимо.
-function dateStr(offset) {
-    var d = new Date()
-    d.setDate(d.getDate() + (offset || 0))
-    return pad2(d.getDate()) + '-' + pad2(d.getMonth() + 1) + '-' + d.getFullYear()
-}
+// ── Мемоізований розклад: 1 мережевий запит на відкриття категорії (обидва ряди читають з нього) ──
+// Обидва schedulePart() вантажаться конкурентно через Api.partNext; черга дедупить одночасні
+// виклики, тож POST /schedule/anime йде РІВНО один раз. scheduleList скидається на вході в category()
+// (свіжий розклад на кожне відкриття) та в clear().
+var scheduleList     = null   // [{ anime, airing_at, ... }] | null
+var scheduleQueue    = []
+var scheduleFetching = false
 
-// Картка з anime-об'єкта розкладу animeon (поля відрізняються від Hikka: titleUa/titleEn,
-// malId, image.original, malScored, type). tmdb-ідентичність — з тієї ж статичної AnimeMap.
-function scheduleCard(anime) {
-    if (!anime) return null
+function loadSchedule(oncomplite, onerror) {
+    if (scheduleList) return oncomplite(scheduleList)
 
-    var display  = normalizeTitle(anime.titleUa || anime.titleEn || anime.slug || '')
-    var original = normalizeTitle(anime.titleEn || anime.titleUa || '') || display
-    var year     = anime.releaseDate ? String(anime.releaseDate) : ''
-    var poster   = anime.image && anime.image.original ? IMG_BASE + anime.image.original : ''
-    var link     = AnimeMap.link(anime.malId)                    // { id, method } | null
-    var method   = link ? link.method : null
-    var isMovie  = method ? method === 'movie' : anime.type === 'movie'
+    scheduleQueue.push({ ok: oncomplite, err: onerror })
+    if (scheduleFetching) return
+    scheduleFetching = true
 
-    var c = {
-        id: link ? link.id : null,
-        source: link ? 'tmdb' : SOURCE,
-        method: method,
-        mal_id: anime.malId,
-        slug: anime.slug,
-        _type: anime.type,     // animeon type ('tv'/'movie') — для дедупу сезонів у processPage
-        overview: '',
-        poster: poster,
-        img: poster,
-        vote_average: Number(anime.malScored) || Number(anime.rating) || 0,
-        release_year: year,
-        genres: []
-    }
+    network.silent(apiUrl('/schedule/anime?page=1&size=' + SCHEDULE_SIZE), function(json) {
+        var arr = (json && json.list) ? json.list : []
 
-    if (isMovie) {
-        c.title = display
-        c.original_title = original
-        c.release_date = year ? year + '-01-01' : ''
-    }
-    else {
-        c.name = display
-        c.original_name = original
-        c.first_air_date = year ? year + '-01-01' : ''
-    }
-
-    return c
-}
-
-// GET /schedule/by-date/<дата> через CORS-проксі -> масив anime-карток (нормалізованих).
-function fetchSchedule(offset, oncomplite, onerror) {
-    var url = Cors.apiUrl(ANIMEON, '/schedule/by-date/' + dateStr(offset))
-
-    network.silent(url, function(json) {
-        var arr = Cors.unwrap(json)
-        if (!Array.isArray(arr)) return onerror()
-
-        // Карта mal->tmdb має бути готова ДО scheduleCard() (синхронний AnimeMap.link).
+        // Карта mal->tmdb має бути готова ДО card() (синхронний AnimeMap.link у processPage/card).
         AnimeMap.load(function() {
-            oncomplite({
-                results: arr.map(function(e) { return scheduleCard(e && e.anime) }).filter(Boolean),
-                page: 1,
-                total_pages: 1,
-                total_results: arr.length,
-                source: SOURCE
-            })
+            scheduleList = arr
+            scheduleFetching = false
+
+            var q = scheduleQueue
+            scheduleQueue = []
+            q.forEach(function(c) { c.ok(scheduleList) })
         })
-    }, onerror, false, { cache: { life: 60 } })
+    }, function() {
+        scheduleFetching = false
+
+        var q = scheduleQueue
+        scheduleQueue = []
+        q.forEach(function(c) { c.err() })
+    }, SCHEDULE_BODY, { cache: { life: 60 }, headers: { 'Content-Type': 'application/json' } })
 }
 
-// Частина ряду розкладу (offset днів від сьогодні): 1 запит + виключення no-tmdb/дедуп. json.url
-// НЕ ставимо -> ряд без кнопки "Ще" (і list() для нього не викликається). seenKey — окремий ключ
-// дедупу на кожен ряд, щоб «сьогодні» й «завтра» не з'їдали картки одне в одного.
+// Пост-сортування ряду за оцінкою (тай-брейк — к-сть голосів), як каталожний SORT
+// ['score:desc','scored_by:desc']. Розклад приходить за airing_at, тож упорядковуємо картки самі.
+function byScore(a, b) {
+    var d = (b.vote_average || 0) - (a.vote_average || 0)
+    return d !== 0 ? d : (b._scored_by || 0) - (a._scored_by || 0)
+}
+
+// Частина ряду розкладу (offset днів від сьогодні): читає мемоізований список, фільтрує за днем,
+// далі те саме виключення no-tmdb/дедуп сезонів, що й каталог, і пост-сортування за оцінкою.
+// seenKey — окремий ключ дедупу на кожен ряд, щоб «сьогодні» й «завтра» не з'їдали картки одне в одного.
 function schedulePart(offset, seenKey, decorate) {
     return function(call) {
-        fetchSchedule(offset, function(json) {
+        loadSchedule(function(list) {
+            var range = dayRange(offset)
+
+            var entries = list.filter(function(e) {
+                return e && e.anime && e.airing_at >= range.from && e.airing_at < range.to
+            })
+
+            var json = {
+                results: entries.map(function(e) { return card(e.anime) }),
+                page: 1,
+                total_pages: 1,
+                total_results: entries.length,
+                source: SOURCE
+            }
+
+            // Дедуп сезонів (processPage) переупорядковує (фільми -> серіали), тож сортуємо ПІСЛЯ нього.
             processPage(json, seenKey, true, function() {
+                json.results.sort(byScore)
                 decorate(json)
                 call(json)
             })
@@ -524,17 +521,23 @@ function category(params, oncomplite, onerror) {
     // з каталогом; card()/fetchCatalog усе одно чекають на неї через AnimeMap.load).
     AnimeMap.load()
 
+    // Свіжий розклад на кожне відкриття категорії: скидаємо мемо, щоб loadSchedule зробив
+    // рівно один POST /schedule/anime (обидва ряди «сьогодні»/«завтра» читають з нього).
+    scheduleList = null
+    scheduleFetching = false
+    scheduleQueue = []
+
     var parts_limit = 6
 
     var parts_data = [
-        // Вийшло сьогодні — GET animeon /schedule/by-date/<сьогодні> через CORS-проксі.
+        // Вийшло сьогодні — Hikka /schedule/anime, епізоди з airing_at у межах сьогодні (лок. день).
         // Статичний ряд (без пагінації/кнопки "Ще").
         schedulePart(0, 'today', function(json) {
             json.title = t('Вийшло сьогодні', 'Вышло сегодня', 'Aired today')
             iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#4caf50')
         }),
 
-        // Очікується завтра — той самий розклад animeon на завтрашню дату (offset +1).
+        // Очікується завтра — той самий розклад Hikka, епізоди з airing_at у межах завтра (offset +1).
         schedulePart(1, 'tomorrow', function(json) {
             json.title = t('Очікується завтра', 'Ожидается завтра', 'Expected tomorrow')
             iconLine(json, '<svg><use xlink:href="#sprite-calendar"></use></svg>', '#3ea6ff')
@@ -694,6 +697,11 @@ function clear() {
     ENDS   = {}
     CURSOR = {}
     PAGES  = {}
+
+    // Звільняємо мемоізований розклад (обидва ряди «сьогодні»/«завтра»).
+    scheduleList     = null
+    scheduleFetching = false
+    scheduleQueue    = []
 }
 
 var source = {
