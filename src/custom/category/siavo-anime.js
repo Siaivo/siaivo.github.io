@@ -461,7 +461,6 @@ var GENRES = [
     { slug: 'reverse-harem',     uk: 'Реверсивний гарем',              en: 'Reverse Harem' },
     { slug: 'gag-humor',         uk: 'Жарти',                          en: 'Gag Humor' },
     { slug: 'racing',            uk: 'Гонки',                          en: 'Racing' },
-    // 'award-winning' навмисно НЕ як жанровий ряд — є окремий курируваний ряд «Відзначено нагородами».
     { slug: 'adult-cast',        uk: 'Про дорослих',                   en: 'Adult Cast' },
     { slug: 'team-sports',       uk: 'Командний спорт',                en: 'Team Sports' },
     { slug: 'combat-sports',     uk: 'Бойовий спорт',                  en: 'Combat Sports' },
@@ -559,7 +558,7 @@ function category(params, oncomplite, onerror) {
     scheduleFetching = false
     scheduleQueue = []
 
-    var parts_limit = 6
+    var parts_limit = 4
 
     var parts_data = [
         // Вийшло сьогодні — Hikka /schedule/anime, епізоди з airing_at у межах сьогодні (лок. день).
