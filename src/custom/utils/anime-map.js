@@ -127,11 +127,38 @@ function resolve(malId, cb) {
     })
 }
 
+// Зворотний напрям tmdb -> mal. Сирий map.json уже tmdb -> [mal,...], тож читаємо RAW напряму
+// (індекс INV не потрібен). Повертає ВЕСЬ масив mal_id елемента, відсортований за зростанням
+// (тож [0] — найменший ≈ 1-й сезон, та сама конвенція, що й дедуп сезонів у siavo-anime.js).
+// method: 'tv'|'movie'; якщо не передано — пробуємо обидва (об'єднуємо). Тільки після preload()/
+// load() (потрібен RAW). Порожній масив, якщо не аніме / нема мапінгу / RAW не готовий.
+function malsOf(tmdbId, method) {
+    if (!RAW || tmdbId == null) return []
+
+    var methods = method ? [method] : ['tv', 'movie']
+    var out = []
+
+    for (var i = 0; i < methods.length; i++) {
+        var group = RAW[methods[i]] || {}
+        var mals = group[String(tmdbId)]
+        if (!mals || !mals.length) continue
+
+        for (var j = 0; j < mals.length; j++) {
+            var n = Number(mals[j])
+            if (!isNaN(n) && out.indexOf(n) === -1) out.push(n)
+        }
+    }
+
+    out.sort(function(a, b) { return a - b })
+    return out
+}
+
 export default {
     preload: preload,
     preloadWhenReady: preloadWhenReady,
     load: load,
     link: link,
     groupOf: groupOf,
-    resolve: resolve
+    resolve: resolve,
+    malsOf: malsOf
 }
