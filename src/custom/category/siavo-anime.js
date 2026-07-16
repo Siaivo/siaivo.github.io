@@ -469,26 +469,21 @@ var GENRES = [
     { slug: 'reverse-harem',     uk: 'Реверсивний гарем',              en: 'Reverse Harem' },
     { slug: 'gag-humor',         uk: 'Жарти',                          en: 'Gag Humor' },
     { slug: 'racing',            uk: 'Гонки',                          en: 'Racing' },
-    { slug: 'adult-cast',        uk: 'Про дорослих',                   en: 'Adult Cast' },
     { slug: 'team-sports',       uk: 'Командний спорт',                en: 'Team Sports' },
     { slug: 'combat-sports',     uk: 'Бойовий спорт',                  en: 'Combat Sports' },
     { slug: 'organized-crime',   uk: 'Організована злочинність',       en: 'Organized Crime' },
     { slug: 'iyashikei',         uk: 'Іяшікей',                        en: 'Iyashikei' },
     { slug: 'workplace',         uk: 'Робота',                         en: 'Workplace' },
     { slug: 'delinquents',       uk: 'Порушники',                      en: 'Delinquents' },
-    { slug: 'crossdressing',     uk: 'Переодягання',                   en: 'Crossdressing' },
     { slug: 'video-game',        uk: 'Комп\'ютерні ігри',              en: 'Video Game' },
     { slug: 'villainess',        uk: 'Лиходійка',                      en: 'Villainess' },
     { slug: 'mahou-shoujo',      uk: 'Дівчина-чарівниця',              en: 'Mahou Shoujo' },
     { slug: 'boys-love',         uk: 'Хлопчаче кохання',               en: 'Boys Love' },
     { slug: 'girls-love',        uk: 'Дівчаче кохання',                en: 'Girls Love' },
-    { slug: 'avant-garde',       uk: 'Авангард',                       en: 'Avant Garde' },
-    { slug: 'anthropomorphic',   uk: 'Антропоморфізм',                 en: 'Anthropomorphic' },
     { slug: 'cgdct',             uk: 'Милі дівчата',                   en: 'CGDCT' },
     { slug: 'gourmet',           uk: 'Про їжу',                        en: 'Gourmet' },
     { slug: 'pets',              uk: 'Тварини',                        en: 'Pets' },
     { slug: 'survival',          uk: 'Виживання',                      en: 'Survival' },
-    { slug: 'high-stakes-game',  uk: 'Високі ставки',                  en: 'High Stakes Game' },
     { slug: 'strategy-game',     uk: 'Стратегія',                      en: 'Strategy Game' },
     { slug: 'idols-female',      uk: 'Ідоли (дівчата)',                en: 'Idols (Female)' },
     { slug: 'idols-male',        uk: 'Ідоли (чоловіки)',               en: 'Idols (Male)' },
@@ -499,32 +494,45 @@ var GENRES = [
     { slug: 'educational',       uk: 'Освітнє',                        en: 'Educational' },
     { slug: 'performing-arts',   uk: 'Виконавче мистецтво',            en: 'Performing Arts' },
     { slug: 'visual-arts',       uk: 'Візуальне мистецтво',            en: 'Visual Arts' },
-    { slug: 'memoir',            uk: 'Мемуари',                        en: 'Memoir' },
     { slug: 'kids',              uk: 'Для дітей',                      en: 'Kids' },
-    { slug: 'magical-sex-shift', uk: 'Зміна статі',                    en: 'Magical Sex Shift' },
     { slug: 'romantic-subtext',  uk: 'Романтичний підтекст',           en: 'Romantic Subtext' }
 ]
 
-// Вага жанру = наскільки часто ряд спливає у верхні позиції видачі. Задаємо ЯВНО за
-// популярністю (не лінійно за рангом): у Efraimidis–Spirakis P(ряд угорі) ∝ вага, тож
-// щоб мейнстрім реально домінував, топові жанри мають отримати В РАЗИ більшу вагу, а не
-// «на кілька пунктів». Тири: 30-22 мейнстрім (майже завжди вгорі) -> 16-9 дуже популярні
-// -> 6-4 помітні -> 3-2 нішеві-але-впізнавані. Жанр поза мапою -> вага 1 (рідко вгорі).
+// Вага жанру = наскільки часто ряд спливає у верхні позиції видачі. У Efraimidis–Spirakis
+// P(ряд угорі) ∝ вага, тож розриви між тирами великі (мейнстрім реально домінує), а всередині
+// тиру ваги рівні (порядок щоразу трохи інший — «свіжо»). Кожен жанр зі списку GENRES має ЯВНУ
+// вагу (нічого не покладається на дефолт ||1). Орієнтир: P(core > huge)=100/160≈62%,
+// P(core > notable)=100/112≈89% — мейнстрім майже завжди перший, але не жорстко.
 var GENRE_WEIGHTS = {
-    // Мейнстрім — кістяк будь-якого каталогу, майже завжди у верхніх рядах.
-    action: 30, fantasy: 28, adventure: 26, comedy: 26, isekai: 24, romance: 24, drama: 22, shounen: 22,
+    // Core — мейнстрім, майже завжди у верхніх рядах.
+    action: 100, adventure: 100, comedy: 100, fantasy: 100, romance: 100, drama: 100,
 
-    // Дуже популярні — стабільно високо, трохи нижче за мейнстрім.
-    'sci-fi': 16, supernatural: 16, 'slice-of-life': 14, mystery: 14, ecchi: 13, seinen: 12,
-    sports: 11, psychological: 11, horror: 10, school: 10, 'super-power': 9, mecha: 9, harem: 9,
+    // Huge — топові піджанри, стабільно одразу за core.
+    isekai: 60, shounen: 60, 'sci-fi': 60, supernatural: 60,
 
-    // Помітні — з'являються регулярно, але не щоразу вгорі.
-    military: 6, historical: 6, 'martial-arts': 5, detective: 5, suspense: 5, music: 4,
-    space: 4, vampire: 4, shoujo: 4,
+    // Дуже популярні.
+    'slice-of-life': 40, mystery: 40, horror: 40, seinen: 40, sports: 40, mecha: 40,
+    psychological: 40, school: 40, 'super-power': 40, suspense: 40,
 
-    // Нішеві, але впізнавані — легкий підйом над базовою вагою.
-    mythology: 3, samurai: 3, parody: 3, gore: 3, josei: 3, 'time-travel': 3, reincarnation: 3,
-    'adult-cast': 2, 'love-polygon': 2, 'gag-humor': 2
+    // Популярні жанрові стовпи.
+    ecchi: 25, harem: 25, 'martial-arts': 25, historical: 25, military: 25, shoujo: 25,
+
+    // Помітні.
+    detective: 12, space: 12, vampire: 12, music: 12, samurai: 12, mythology: 12,
+    parody: 12, gore: 12, 'time-travel': 12, reincarnation: 12,
+
+    // Впізнавана ніша.
+    josei: 6, survival: 6, gourmet: 6, 'video-game': 6, medical: 6, 'organized-crime': 6,
+    'mahou-shoujo': 6, villainess: 6, iyashikei: 6,
+
+    // Глибша ніша.
+    workplace: 3, delinquents: 3, 'reverse-harem': 3, 'boys-love': 3, 'girls-love': 3,
+    racing: 3, kids: 3, 'team-sports': 3, 'combat-sports': 3, 'strategy-game': 3,
+
+    // Мета / вузьке — рідко вгорі.
+    'idols-female': 2, 'idols-male': 2, pets: 2, 'gag-humor': 2, 'love-polygon': 2, cgdct: 2,
+    'otaku-culture': 2, showbiz: 2, childcare: 2, educational: 2, 'performing-arts': 2,
+    'visual-arts': 2, 'romantic-subtext': 2
 }
 
 function genreWeight(slug) {
