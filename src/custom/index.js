@@ -32,6 +32,8 @@ import './app/rows'
 import './components/bookmarks'
 import './components/myperson'
 
+import './components/feed'
+
 import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-hikka-fallback'
