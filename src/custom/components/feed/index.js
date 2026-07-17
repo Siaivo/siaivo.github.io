@@ -15,6 +15,21 @@ import { detectType, mapItem } from './feed-mapper'
 
 import './feed-templates'
 
+Lang.add({
+    feed_head_title: {
+        ru: 'Кино Сияние',
+        uk: 'Кіно Сяйво',
+        en: 'Cinema Glow',
+        be: 'Кіно Ззянне',
+        fr: 'Cinéma Lumière',
+        pl: 'Kino Światło',
+        de: 'Kino Glanz',
+        es: 'Cine Brillo',
+        pt: 'Cinema Brilho',
+        zh: '电影光芒'
+    }
+})
+
 function CustomFeed(object) {
     if (typeof object.page === 'undefined') object.page = 0
 
@@ -115,8 +130,8 @@ function CustomFeed(object) {
         html.addClass('feed')
 
         let head = Template.js('feed_head')
-        head.find('.feed-head__title').text('Кіно Сяйво')
-        head.find('.feed-head__info').html('Контент з рейтингом 8+')
+        head.find('.feed-head__title').text(Lang.translate('feed_head_title'))
+        head.find('.feed-head__info').html('')
 
         head.on('hover:focus', scroll.update.bind(scroll, head))
 
@@ -140,8 +155,7 @@ function CustomFeed(object) {
         data.forEach((element, i) => {
             const feedIndex = append ? (feed.length - data.length + i) : i
 
-            let isTv = detectType(element) === 'tv'
-            let itemType = isTv ? 'serial' : 'movie'
+            let itemType = detectType(element)
 
             let elementData = {
                 title: element.title || element.name || '',
@@ -164,20 +178,24 @@ function CustomFeed(object) {
                 feed_slug: element.slug
             }
 
-            let hash = isTv && element.season
+            let hash = ['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) && element.season
                 ? 's' + String(element.season).padStart(2, '0') + ';e' + String(element.episode || 0).padStart(2, '0')
                 : ''
 
             let item = Template.js(
-                (itemType === 'serial' || hash) ? 'feed_episode' : 'feed_item'
+                (['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) || hash) ? 'feed_episode' : 'feed_item'
             )
 
-            item.addClass('feed-item--' + (isTv ? 'episode' : 'movie'))
+            item.addClass('feed-item--' + (['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) ? 'episode' : 'movie'))
             item.setAttribute('data-feed-index', feedIndex)
 
             let typeLabels = {
-                serial: 'Серіали',
-                movie: 'Фільми'
+                movie: Lang.translate('menu_movies'),
+                serial: Lang.translate('menu_tv'),
+                'cartoon-movie': Lang.translate('menu_multmovie'),
+                'cartoon-series': Lang.translate('menu_multtv'),
+                'anime-movie': Lang.translate('menu_anime') + ' ' + 'Фільм',
+                anime: Lang.translate('menu_anime') + ' ' + 'Серіал'
             }
 
             let sity = elementData.countries || []
@@ -188,11 +206,11 @@ function CustomFeed(object) {
             info.push(year + (sity.length ? ' - ' + sity.slice(0, 2).join(', ') : ''))
 
             if (elementData.vote_average && parseFloat(elementData.vote_average) > 0) {
-                info.push('TMDB ' + elementData.vote_average)
+                info.push('TMDB ' + (Math.floor(parseFloat(elementData.vote_average) * 10) / 10).toFixed(1))
             }
 
             if (elementData.feed_imdbMark) {
-                info.push('IMDb ' + elementData.feed_imdbMark)
+                info.push('IMDb ' + (Math.floor(parseFloat(elementData.feed_imdbMark) * 10) / 10).toFixed(1))
             }
 
             if (hash) {
@@ -207,7 +225,7 @@ function CustomFeed(object) {
             }
 
             item.find('.feed-item__label')
-                .addClass('feed-item__label--' + (isTv ? 'episode' : 'movie'))
+                .addClass('feed-item__label--' + (['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) ? 'episode' : 'movie'))
                 .text(typeLabels[itemType] || '')
 
             item.find('.feed-item__title').text(elementData.title || elementData.name)
@@ -247,7 +265,7 @@ function CustomFeed(object) {
                         url: '',
                         component: 'full',
                         id: cardId,
-                        method: isTv ? 'tv' : 'movie',
+                        method: ['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) ? 'tv' : 'movie',
                         card: elementData,
                         source: 'tmdb'
                     })
@@ -334,7 +352,7 @@ function CustomFeed(object) {
         if (item.vote_average) {
             const info = el.querySelector('.feed-item__info')
             if (info && info.textContent.indexOf('TMDB') === -1) {
-                info.textContent = info.textContent + ' / TMDB ' + item.vote_average
+                info.textContent = info.textContent + ' / TMDB ' + (Math.floor(parseFloat(item.vote_average) * 10) / 10).toFixed(1)
             }
         }
 

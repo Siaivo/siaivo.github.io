@@ -8,28 +8,32 @@ function getLang() {
 }
 
 export function detectType(item) {
-    if (item.format === 'film') return 'movie'
+    if (item.type === 'cartoon-movie') return 'cartoon-movie'
+    if (item.type === 'cartoon-series') return 'cartoon-series'
 
-    if (item.format === 'serial') {
-        const lastReady = item.lastReadySeason
-        if (lastReady && lastReady.readyEpisodesCount === 0 && lastReady.lastReadyEpisode === null) {
-            return 'movie'
-        }
-        return 'tv'
+    if (item.type === 'anime') {
+        if (item.format === 'film') return 'anime-movie'
+        return 'anime'
     }
 
+    if (item.format === 'film') return 'movie'
+    if (item.format === 'serial') return 'serial'
+
     if (item.type === 'movie') return 'movie'
-    if (item.type === 'cartoon-series') return 'tv'
-    if (item.type === 'serial') return 'tv'
+    if (item.type === 'serial') return 'serial'
 
     return 'movie'
+}
+
+function isTvType(type) {
+    return ['serial', 'cartoon-series', 'anime'].includes(type)
 }
 
 function filterByYear(results, yearStart, type) {
     if (!results || results.length === 0) return null
 
     for (const r of results) {
-        if (type === 'tv') {
+        if (isTvType(type)) {
             if (r.firstAired && r.lastAired) {
                 const first = new Date(r.firstAired).getFullYear()
                 const last = new Date(r.lastAired).getFullYear()
@@ -48,7 +52,7 @@ function filterByYear(results, yearStart, type) {
 }
 
 export async function findTMDB(originalName, type, yearStart) {
-    const config = type === 'tv' ? SONARR : RADARR
+    const config = isTvType(type) ? SONARR : RADARR
 
     try {
         const response = await fetch(config.search(originalName))
@@ -76,7 +80,7 @@ export async function findTMDB(originalName, type, yearStart) {
 }
 
 export async function findTMDBFallback(originalName, type, yearStart) {
-    const endpoint = type === 'tv' ? 'search/tv' : 'search/movie'
+    const endpoint = isTvType(type) ? 'search/tv' : 'search/movie'
 
     try {
         const url = TMDB.api(
@@ -88,7 +92,7 @@ export async function findTMDBFallback(originalName, type, yearStart) {
         if (!data.results || data.results.length === 0) return null
 
         for (const result of data.results) {
-            if (type === 'tv') {
+            if (isTvType(type)) {
                 const resultYear = parseInt((result.first_air_date || '').slice(0, 4))
                 if (resultYear && yearStart && Math.abs(resultYear - yearStart) <= 5) {
                     return {
@@ -149,9 +153,9 @@ export async function mapItem(item) {
         genres: (item.genres || []).map(g => g.name),
         format: item.format,
         type: type,
-        season: type === 'tv' ? (item.lastReadySeason ? item.lastReadySeason.number : null) : null,
-        episode: type === 'tv' ? (item.lastReadySeason ? item.lastReadySeason.lastReadyEpisode : null) : null,
-        totalEpisodes: type === 'tv' ? (item.lastReadySeason ? item.lastReadySeason.readyEpisodesCount : null) : null,
+        season: isTvType(type) ? (item.lastReadySeason ? item.lastReadySeason.number : null) : null,
+        episode: isTvType(type) ? (item.lastReadySeason ? item.lastReadySeason.lastReadyEpisode : null) : null,
+        totalEpisodes: isTvType(type) ? (item.lastReadySeason ? item.lastReadySeason.readyEpisodesCount : null) : null,
         tmdbId: match ? match.tmdbId : null,
         matchConfidence: match ? match.matchConfidence : null,
         poster_path: tmdbData ? tmdbData.poster_path : null,
@@ -166,7 +170,7 @@ export async function mapItem(item) {
 }
 
 async function fetchTMDBDetails(tmdbId, type) {
-    const endpoint = type === 'tv' ? 'tv' : 'movie'
+    const endpoint = isTvType(type) ? 'tv' : 'movie'
 
     try {
         const url = TMDB.api(endpoint + '/' + tmdbId + '?api_key=' + TMDB.key() + '&language=' + getLang())
