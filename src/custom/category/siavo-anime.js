@@ -4,6 +4,7 @@ import Lang from '../../core/lang'
 import Template from '../../interaction/template'
 import LineModule from '../../interaction/items/line/module/module'
 import ContentRows from '../../core/content_rows'
+import Router from '../../core/router'
 import AnimeMap from '../utils/anime-map'
 
 // Категорія Siaivo (каталог аніме на даних hikka.io) — самодостатній модуль. Реєструється як
@@ -783,5 +784,28 @@ register()
 
 // Прелоад карти mal->tmdb при готовності застосунку (сирий файл; індекс будується ліниво).
 AnimeMap.preloadWhenReady()
+
+export function addAnimeMenuButton(body) {
+    var animeItem = body.find('[data-action="anime"]')
+
+    if (!animeItem.length || !Lang.selected(['uk'])) return
+
+    var btn = $(
+        '<li class="menu__item selector">' +
+            '<div class="menu__ico"><img src="./img/icons/menu/anime.svg" /></div>' +
+            '<div class="menu__text">' + Lang.translate('menu_anime') + '</div>' +
+        '</li>'
+    ).attr('data-action', 'siaivo')
+
+    btn.on('hover:enter', function () {
+        Router.call('category', {
+            url: 'anime',
+            title: Lang.translate('menu_anime'),
+            source: 'siaivo'
+        })
+    })
+
+    animeItem.replaceWith(btn)
+}
 
 export default source

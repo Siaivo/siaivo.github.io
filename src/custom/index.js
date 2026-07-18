@@ -38,6 +38,7 @@ import './core/socket'
 import './core/tmdb/translation-fallback'
 import './core/tmdb/anime-hikka-fallback'
 import './category/siavo-anime'
+import './category/mood'
 import './utils/clear-card'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є
