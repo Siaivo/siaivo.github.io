@@ -1,10 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="110" height="104" viewBox="0 0 110 104" fill="none">
   <defs>
     <linearGradient id="uaFlag2" x1="0" y1="0" x2="0" y2="104" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#003f8a"/>
-      <stop offset="45%" stop-color="#0057B7"/>
-      <stop offset="52%" stop-color="#FFD700"/>
-      <stop offset="100%" stop-color="#FFA500"/>
+      <stop offset="0%" stop-color="#1C63C8"/>
+      <stop offset="34%" stop-color="#2E7AD8"/>
+      <stop offset="50%" stop-color="#9AAFC0"/>
+      <stop offset="62%" stop-color="#F0CE72"/>
+      <stop offset="100%" stop-color="#F6B934"/>
     </linearGradient>
   </defs>
   <path d="M81.6744 103.11C98.5682 93.7234 110 75.6967 110 55C110 24.6243 85.3757 0 55 0C24.6243 0 0 24.6243 0 55C0 75.6967 11.4318 93.7234 28.3255 103.11C14.8869 94.3724 6 79.224 6 62C6 34.938 27.938 13 55 13C82.062 13 104 34.938 104 62C104 79.224 95.1131 94.3725 81.6744 103.11Z" fill="url(#uaFlag2)"/>
