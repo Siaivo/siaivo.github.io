@@ -38,7 +38,7 @@ function langKey() {
 }
 
 function card(item) {
-    var isMovie = item.media_type === 'movie' || !!item.original_title
+    var isMovie = item.media_type !== 'tv'
 
     var c = {
         id: item.id,
