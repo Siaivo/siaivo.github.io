@@ -287,26 +287,40 @@ function CustomFeed(object) {
     this.setupLazyLoad = function () {
         const self = this
 
-        if (!observer) {
-            observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const idx = parseInt(entry.target.getAttribute('data-feed-index'))
-                        if (!isNaN(idx) && feed[idx] && !feed[idx]._tmdbLoaded) {
-                            self.loadItemDetails(idx, entry.target)
-                        }
-                        observer.unobserve(entry.target)
-                    }
-                })
-            }, { rootMargin: '400px' })
-        }
+        var hasIntersectionObserver = (typeof IntersectionObserver !== 'undefined')
 
-        html.querySelectorAll('.feed-item[data-feed-index]').forEach(el => {
-            const idx = parseInt(el.getAttribute('data-feed-index'))
-            if (!isNaN(idx) && feed[idx] && !feed[idx]._tmdbLoaded) {
-                observer.observe(el)
+        if (hasIntersectionObserver) {
+            if (!observer) {
+                observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const idx = parseInt(entry.target.getAttribute('data-feed-index'))
+                            if (!isNaN(idx) && feed[idx] && !feed[idx]._tmdbLoaded) {
+                                self.loadItemDetails(idx, entry.target)
+                            }
+                            observer.unobserve(entry.target)
+                        }
+                    })
+                }, { rootMargin: '400px' })
             }
-        })
+
+            html.querySelectorAll('.feed-item[data-feed-index]').forEach(el => {
+                const idx = parseInt(el.getAttribute('data-feed-index'))
+                if (!isNaN(idx) && feed[idx] && !feed[idx]._tmdbLoaded) {
+                    observer.observe(el)
+                }
+            })
+        }
+        else {
+            // Fallback для старих браузерів (Tizen 2.x-4.x, old webOS) без IntersectionObserver.
+            // Завантажуємо всі TMDB деталі одразу без лінивого завантаження.
+            html.querySelectorAll('.feed-item[data-feed-index]').forEach(el => {
+                const idx = parseInt(el.getAttribute('data-feed-index'))
+                if (!isNaN(idx) && feed[idx] && !feed[idx]._tmdbLoaded) {
+                    self.loadItemDetails(idx, el)
+                }
+            })
+        }
     }
 
     this.loadItemDetails = function (index, el) {
