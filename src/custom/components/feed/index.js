@@ -8,6 +8,8 @@ import Lang from '../../../core/lang'
 import Template from '../../../interaction/template'
 import Api from '../../../core/api/api'
 import Storage from '../../../core/storage/storage'
+import Manifest from '../../../core/manifest'
+import Utils from '../../../utils/utils'
 import cors from '../../utils/cors'
 
 import { KINOSTRAIN_API } from './feed-sources'
@@ -66,7 +68,17 @@ function CustomFeed(object) {
     this.create = function () {
         this.activity.loader(true)
         const self = this
+
+        self.tryKinostrain()
+
+        return this.render()
+    }
+
+    this.tryKinostrain = function () {
+        const self = this
         const { url, year } = buildBaseUrl()
+
+        console.log('Feed: trying kinostrain via', cors.proxied(url + '&page=1'))
 
         network.silent(cors.proxied(url + '&page=1'), (response) => {
             const data = cors.unwrap(response)
@@ -87,14 +99,163 @@ function CustomFeed(object) {
                 self.setupLazyLoad()
             }
         }, () => {
-            let empty = new Empty()
-            html.append(empty.render(true))
-            self.start = empty.start.bind(empty)
-            self.activity.loader(false)
-            self.activity.toggle()
+            console.warn('Feed: kinostrain failed, falling back to CUB')
+            self.tryCUB()
         })
+    }
 
-        return this.render()
+    this.tryCUB = function () {
+        const self = this
+
+        var cubUrl = Utils.protocol() + Manifest.cub_domain + '/api/feed/all'
+
+        console.log('Feed: trying CUB via', cubUrl)
+
+        // Використовуємо пряме fetch замість Reguest, 
+        // щоб уникнути проблем з mirror-резолвінгом Reguest системи
+        var xhr = new XMLHttpRequest()
+        xhr.open('GET', cubUrl)
+        xhr.timeout = 15000
+        xhr.onload = function () {
+            try {
+                var response = JSON.parse(xhr.responseText)
+                var list = response.result || []
+
+                if (!list.length) {
+                    console.warn('Feed: CUB returned empty list')
+                    self.showEmpty()
+                    return
+                }
+
+                feed = list
+                currentPage = 1
+                totalPagesKnown = true
+                totalPages = 1
+
+                html.addClass('feed')
+
+                var head = Template.js('feed_head')
+                head.find('.feed-head__title').text(Lang.translate('feed_head_title'))
+                head.find('.feed-head__info').html('')
+                head.on('hover:focus', scroll.update.bind(scroll, head))
+
+                scroll.minus()
+                scroll.onWheel = function (step) {
+                    Navigator.move(step > 0 ? 'down' : 'up')
+                }
+                scroll.append(head)
+
+                // Рендеримо CUB-дані спрощеним способом
+                list.slice(0, 20).forEach(function (element) {
+                    var card = element.data || {}
+                    var itemType = element.card_type || 'movie'
+
+                    var item = Template.js('feed_item')
+                    item.addClass('feed-item--movie')
+
+                    var labelText = element.type
+                        ? Lang.translate('title_' + element.type.replace(/-/g, '_')) || element.type
+                        : Lang.translate('menu_movies')
+
+                    item.find('.feed-item__label')
+                        .addClass('feed-item__label--episode')
+                        .text(labelText)
+
+                    var title = card.title || card.name || ''
+                    var year = ((card.release_date || card.first_air_date) + '').slice(0, 4)
+                    var countries = card.countries || card.origin_country || []
+                    var info = year + (countries.length ? ' - ' + countries.slice(0, 2).join(', ') : '')
+
+                    if (card.imdb_rating) {
+                        info += ' / IMDB ' + card.imdb_rating
+                    }
+                    if (card.kp_rating) {
+                        info += ' / KP ' + card.kp_rating
+                    }
+                    if (card.vote_average) {
+                        info += ' / TMDB ' + card.vote_average
+                    }
+
+                    item.find('.feed-item__title').text(title)
+                    item.find('.feed-item__info').text(info)
+                    item.find('.feed-item__descr').text(card.overview || '')
+
+                    var tags = []
+                    if (card.genres) {
+                        if (Array.isArray(card.genres)) {
+                            tags = card.genres.map(function (g) { return g.name || g }).join(', ')
+                        } else if (typeof card.genres === 'string') {
+                            tags = card.genres
+                        }
+                    } else if (card.genre_ids) {
+                        tags = (card.genre_ids.join(', '))
+                    }
+                    item.find('.feed-item__tags').text(tags)
+
+                    var posterSrc = card.poster_path
+                        ? Api.img(card.poster_path, 'w500')
+                        : './img/img_broken.svg'
+
+                    self.loadImg(item.find('.feed-item__poster-box'), posterSrc)
+
+                    scroll.append(item)
+
+                    var btn_watch = document.createElement('div')
+                    btn_watch.addClass('simple-button selector')
+                    btn_watch.text(Lang.translate('title_watch'))
+
+                    btn_watch.on('hover:focus', function () {
+                        last = btn_watch
+                        scroll.update(item)
+                        if (card.poster_path) {
+                            Background.change(Api.img(card.poster_path, 'w500'))
+                        }
+                    })
+
+                    ;(function (cardId, cardType, cardData) {
+                        btn_watch.on('hover:enter', function () {
+                            if (cardId) {
+                                Activity.push({
+                                    url: '',
+                                    component: 'full',
+                                    id: cardId,
+                                    method: cardType,
+                                    card: cardData,
+                                    source: cardData.source || 'tmdb'
+                                })
+                            }
+                        })
+                    })(element.card_id || card.id, itemType, card)
+
+                    item.find('.feed-item__buttons').append(btn_watch)
+                })
+
+                html.append(scroll.render(true))
+
+                self.activity.loader(false)
+                self.activity.toggle()
+            } catch (e) {
+                console.error('Feed: CUB parse error', e)
+                self.showEmpty()
+            }
+        }
+        xhr.onerror = function () {
+            console.error('Feed: CUB XHR failed')
+            self.showEmpty()
+        }
+        xhr.ontimeout = function () {
+            console.error('Feed: CUB XHR timeout')
+            self.showEmpty()
+        }
+        xhr.send()
+    }
+
+    this.showEmpty = function () {
+        var empty = new Empty()
+        html.append(empty.render(true))
+        this.start = empty.start.bind(empty)
+        this.activity.loader(false)
+        this.activity.toggle()
     }
 
     this.fetchNextPage = function () {
