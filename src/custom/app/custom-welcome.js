@@ -33,10 +33,13 @@
             return
     } catch (_e) {}
 
-    // 1d. CSS animation support detection
+    // 1d. CSS animation support detection (with -webkit- prefix for older WebKit)
     var _probe = document.createElement('div')
     _probe.style.animationName = 'x'
-    if (_probe.style.animationName !== 'x') return
+    if (_probe.style.animationName !== 'x') {
+        _probe.style.webkitAnimationName = 'x'
+        if (_probe.style.webkitAnimationName !== 'x') return
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  LEVEL 2 — State & config
@@ -64,13 +67,21 @@
 /* ── Container ────────────────────────────────────────────────── */
 .netflix-intro {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat — Chrome <87 */
+    display: -webkit-box;
+    display: -webkit-flex;
     display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
     align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
     justify-content: center;
     overflow: hidden;
     background: #08080e;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    -webkit-transform: translate3d(0,0,0);
     transform: translate3d(0,0,0);
     animation: niOut 0.4s ease-in forwards;
     animation-delay: 3.2s;
@@ -79,16 +90,17 @@
 /* ── Vignette (static) ────────────────────────────────────────── */
 .netflix-intro__vig {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat */
     z-index: 0;
     pointer-events: none;
+    background: -webkit-radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.8) 100%);
     background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.8) 100%);
 }
 
 /* ── Beams ────────────────────────────────────────────────────── */
 .netflix-intro__beams {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat */
     z-index: 1;
     pointer-events: none;
 }
@@ -98,26 +110,32 @@
     top: 0;
     height: 100%;
     width: 4px;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    -webkit-transform: translate3d(0,0,0) scaleY(0);
     transform: translate3d(0,0,0) scaleY(0);
     animation: niBIn 0.9s cubic-bezier(0.16,1,0.3,1) forwards;
     opacity: 0;
 }
 .ni-b--l { left: 30%;
+    background: -webkit-linear-gradient(to bottom, transparent, rgba(229,9,20,0.85) 30%, rgba(229,9,20,0.95) 50%, rgba(229,9,20,0.3) 80%, transparent);
     background: linear-gradient(to bottom, transparent, rgba(229,9,20,0.85) 30%, rgba(229,9,20,0.95) 50%, rgba(229,9,20,0.3) 80%, transparent);
     animation-delay: 0.3s; }
 .ni-b--c { left: 50%; width: 3px;
+    -webkit-transform: translate3d(0,0,0) rotate(-16deg) scaleY(0);
     transform: translate3d(0,0,0) rotate(-16deg) scaleY(0);
+    background: -webkit-linear-gradient(to bottom, transparent, rgba(245,166,35,0.7) 25%, rgba(255,255,255,0.6) 50%, rgba(245,166,35,0.6) 75%, transparent);
     background: linear-gradient(to bottom, transparent, rgba(245,166,35,0.7) 25%, rgba(255,255,255,0.6) 50%, rgba(245,166,35,0.6) 75%, transparent);
     animation-delay: 0.55s; }
 .ni-b--r { left: 66%;
+    background: -webkit-linear-gradient(to bottom, transparent, rgba(229,9,20,0.8) 25%, rgba(229,9,20,0.95) 50%, rgba(229,9,20,0.25) 75%, transparent);
     background: linear-gradient(to bottom, transparent, rgba(229,9,20,0.8) 25%, rgba(229,9,20,0.95) 50%, rgba(229,9,20,0.25) 75%, transparent);
     animation-delay: 0.4s; }
 
 @keyframes niBIn {
-    0%   { opacity: 0;   transform: translate3d(0,0,0) scaleY(0); }
+    0%   { opacity: 0;   -webkit-transform: translate3d(0,0,0) scaleY(0); transform: translate3d(0,0,0) scaleY(0); }
     40%  { opacity: 0.7; }
-    100% { opacity: 0.9; transform: translate3d(0,0,0) scaleY(1); }
+    100% { opacity: 0.9; -webkit-transform: translate3d(0,0,0) scaleY(1); transform: translate3d(0,0,0) scaleY(1); }
 }
 
 /* Override rotation for center beam */
@@ -125,9 +143,9 @@
     animation-name: niBInC;
 }
 @keyframes niBInC {
-    0%   { opacity: 0;   transform: translate3d(0,0,0) rotate(-16deg) scaleY(0); }
+    0%   { opacity: 0;   -webkit-transform: translate3d(0,0,0) rotate(-16deg) scaleY(0); transform: translate3d(0,0,0) rotate(-16deg) scaleY(0); }
     40%  { opacity: 0.7; }
-    100% { opacity: 0.85; transform: translate3d(0,0,0) rotate(-16deg) scaleY(1); }
+    100% { opacity: 0.85; -webkit-transform: translate3d(0,0,0) rotate(-16deg) scaleY(1); transform: translate3d(0,0,0) rotate(-16deg) scaleY(1); }
 }
 
 /* ── Title wrapper ────────────────────────────────────────────── */
@@ -135,7 +153,9 @@
     position: relative;
     z-index: 2;
     display: inline-block;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    -webkit-transform: translate3d(0,0,0) scale(0.8);
     transform: translate3d(0,0,0) scale(0.8);
     animation: niTwIn 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
     animation-delay: 1.0s;
@@ -145,6 +165,7 @@
 /* Title text — no text-shadow, just color */
 .netflix-intro__title {
     font-family: 'Helvetica Neue','Arial Black',sans-serif;
+    font-size: 100px; /* px fallback for vw-unsupported browsers */
     font-size: 12vw;
     font-weight: 900;
     letter-spacing: 0.2em;
@@ -152,13 +173,16 @@
     color: #e50914;
     text-align: center;
     pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     user-select: none;
 }
 
 /* Chromatic aberration via layered spans (cheap — just text, no shadow) */
 .netflix-intro__ca {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat */
     pointer-events: none;
     font: inherit;
     font-size: inherit;
@@ -168,29 +192,32 @@
     text-align: inherit;
     color: transparent;
     -webkit-text-stroke: 2px #00d4aa;
+    -webkit-transform: translate(3px, 3px);
     transform: translate(3px, 3px);
     opacity: 0.5;
 }
 .netflix-intro__ca2 {
+    -webkit-transform: translate(-3px, -3px);
     transform: translate(-3px, -3px);
     -webkit-text-stroke: 2px #ff5e3a;
     opacity: 0.4;
 }
 
 @keyframes niTwIn {
-    0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.7); }
+    0%   { opacity: 0; -webkit-transform: translate3d(0,0,0) scale(0.7); transform: translate3d(0,0,0) scale(0.7); }
     40%  { opacity: 0.8; }
-    65%  { opacity: 1; transform: translate3d(0,0,0) scale(1); }
-    100% { opacity: 1; transform: translate3d(0,0,0) scale(1.04); }
+    65%  { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1); transform: translate3d(0,0,0) scale(1); }
+    100% { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1.04); transform: translate3d(0,0,0) scale(1.04); }
 }
 
 /* ── Flash ────────────────────────────────────────────────────── */
 .netflix-intro__flash {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat */
     z-index: 10;
     pointer-events: none;
     background: #fff;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     animation: niFlash 0.25s ease-out forwards;
     animation-delay: 3.2s;
@@ -204,8 +231,8 @@
 
 /* ── Zoom-out (modest scale — avoids huge GPU texture) ────────── */
 @keyframes niOut {
-    0%   { opacity: 1; transform: translate3d(0,0,0) scale(1); }
-    100% { opacity: 0; transform: translate3d(0,0,0) scale(1.25); }
+    0%   { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1); transform: translate3d(0,0,0) scale(1); }
+    100% { opacity: 0; -webkit-transform: translate3d(0,0,0) scale(1.25); transform: translate3d(0,0,0) scale(1.25); }
 }
 
 /* ── Responsive cap ───────────────────────────────────────────── */
@@ -244,8 +271,8 @@
 }
 
 @keyframes niOutLite {
-    0%   { opacity: 1; transform: translate3d(0,0,0) scale(1); }
-    100% { opacity: 0; transform: translate3d(0,0,0) scale(1.1); }
+    0%   { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1); transform: translate3d(0,0,0) scale(1); }
+    100% { opacity: 0; -webkit-transform: translate3d(0,0,0) scale(1.1); transform: translate3d(0,0,0) scale(1.1); }
 }
 `
 
@@ -292,7 +319,10 @@
 
         var intro = w.querySelector('.netflix-intro')
         if (intro) {
-            intro.addEventListener('animationend', function h(e) {
+            var _animEnd = 'animationend'
+            if (!('animationend' in document.createElement('div')))
+                _animEnd = 'webkitAnimationEnd'
+            intro.addEventListener(_animEnd, function h(e) {
                 if (e.animationName === 'niOut' || e.animationName === 'niOutLite') {
                     introDone = true
                     w.setAttribute('data-intro', 'done')
