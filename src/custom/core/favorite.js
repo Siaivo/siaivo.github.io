@@ -26,6 +26,47 @@ function getLocalPersons() {
     return result
 }
 
+// Базовий remove()/clear() чистить data.card через внутрішній check(), який
+// не знає про кастомну категорію 'persons'. Тому видалення будь-якої іншої
+// закладки (напр. фільму) викидало з data.card і картки персон, хоча їх id
+// лишались у data.persons. Знімаємо знімок карток персон до виклику і
+// відновлюємо їх після.
+function snapshotPersonCards() {
+    let data = Favorite.full()
+
+    return (data.persons || []).map(id => {
+        return data.card.find(c => c.id == id)
+    }).filter(Boolean)
+}
+
+function restorePersonCards(saved) {
+    let data     = Favorite.full()
+    let persons  = data.persons || []
+    let restored = false
+
+    saved.forEach(pc => {
+        if(persons.indexOf(pc.id) > -1 && !data.card.find(c => c.id == pc.id)){
+            data.card.push(Arrays.clone(pc))
+
+            restored = true
+        }
+    })
+
+    if(restored){
+        Lampa.Storage.set('favorite', data)
+
+        Lampa.Listener.send('state:changed', {
+            target: 'favorite',
+            reason: 'update',
+            method: 'update',
+            type: 'persons',
+            card: null
+        })
+    }
+
+    return restored
+}
+
 // 1. Override Favorite.all using property definition to prevent other plugins from breaking it
 let original_all = Favorite.all
 Object.defineProperty(Favorite, 'all', {
@@ -109,7 +150,13 @@ Object.defineProperty(Favorite, 'toggle', {
                 })
                 return idx > -1 ? false : true
             }
-            return original_toggle.apply(this, arguments)
+
+            let saved  = snapshotPersonCards()
+            let result = original_toggle.apply(this, arguments)
+
+            restorePersonCards(saved)
+
+            return result
         }
     },
     set: function(val) {
@@ -119,7 +166,47 @@ Object.defineProperty(Favorite, 'toggle', {
     enumerable: true
 })
 
-// 4. Override Favorite.get using property definition
+// 4. Override Favorite.remove — захищаємо картки персон при прямому видаленні
+let original_remove = Favorite.remove
+Object.defineProperty(Favorite, 'remove', {
+    get: function() {
+        return function(where, card){
+            let saved  = snapshotPersonCards()
+            let result = original_remove.apply(this, arguments)
+
+            restorePersonCards(saved)
+
+            return result
+        }
+    },
+    set: function(val) {
+        original_remove = val
+    },
+    configurable: true,
+    enumerable: true
+})
+
+// 4.1. Override Favorite.clear — захищаємо картки персон при очищенні категорії
+let original_clear = Favorite.clear
+Object.defineProperty(Favorite, 'clear', {
+    get: function() {
+        return function(where, card){
+            let saved  = snapshotPersonCards()
+            let result = original_clear.apply(this, arguments)
+
+            restorePersonCards(saved)
+
+            return result
+        }
+    },
+    set: function(val) {
+        original_clear = val
+    },
+    configurable: true,
+    enumerable: true
+})
+
+// 5. Override Favorite.get using property definition
 let original_get = Favorite.get
 Object.defineProperty(Favorite, 'get', {
     get: function() {
