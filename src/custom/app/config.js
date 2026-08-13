@@ -13,5 +13,6 @@ export default {
         ads: true,
         install_proxy: true,
         blacklist: true,
+        metadata: true,
     }
 }
