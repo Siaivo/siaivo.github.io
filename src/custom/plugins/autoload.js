@@ -18,8 +18,8 @@
  *     guarantees it's present).
  *   - If the user disables then clears localStorage → it gets re-installed.
  *
- * A missing autoload.json (404) simply means no autoload — the self-hosted
- * template build has it removed on purpose.
+ * An empty or missing autoload.json simply means no autoload — the
+ * self-hosted template build ships `[]` on purpose (deploy.yml).
  */
 ;(function init() {
     function norm(u) {

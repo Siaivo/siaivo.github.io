@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           rm -rf ./build/github/lampa-main
           cp -R ./build/github/lampa ./build/github/lampa-main
-          rm -f ./build/github/lampa-main/autoload.json
+          echo '[]' > ./build/github/lampa-main/autoload.json
 
       - name: Prepare GitHub Pages build (replace MSX domain placeholders)
         env:
