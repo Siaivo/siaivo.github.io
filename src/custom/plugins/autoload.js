@@ -1,13 +1,14 @@
-import config from './autoload.config'
-
 /**
- * Build-time pre-installed plugins (custom layer, Type 4).
+ * Pre-installed plugins (custom layer, Type 4).
  *
- * Runs after Lampa boots. For each plugin in `config.plugins`:
- *   1. Check if a plugin with the same normalized URL is already installed.
- *   2. Only if the plugin is NOT in the installed list, call
- *      Lampa.Plugins.add() — this persists to localStorage and injects
- *      the plugin script via push().
+ * Source: public/autoload.json — copied next to index.html by gulp
+ * (`sync_github` in gulpfile.js). Format: JSON array of
+ * {url, name, author?} (a {plugins: [...]} wrapper is also accepted).
+ * Omitted `author` falls back to Manifest.author (src/custom/core/manifest.js).
+ *
+ * Runs after Lampa boots. For each plugin in the list (json order preserved,
+ * see install()): re-add it so name/author/order match autoload.json, keeping
+ * the existing `status` so a disabled plugin stays disabled.
  *
  * CRITICAL: We do NOT use a "done" flag. The plugin's presence in Lampa's
  * own plugin list (Lampa.Plugins.get()) is the single source of truth.
@@ -17,12 +18,10 @@ import config from './autoload.config'
  *     guarantees it's present).
  *   - If the user disables then clears localStorage → it gets re-installed.
  *
- * Source: src/custom/plugins/autoload.config.js (overwritten at build
- * time from the LAMPA_AUTOLOAD_PLUGINS GitHub Actions variable).
+ * A missing autoload.json (404) simply means no autoload — the self-hosted
+ * template build has it removed on purpose.
  */
 ;(function init() {
-    if (!config || !Array.isArray(config.plugins) || !config.plugins.length) return
-
     function norm(u) {
         return (u || '')
             .replace(/[?#].*$/, '')
@@ -33,28 +32,50 @@ import config from './autoload.config'
 
     var installed = false
 
+    function install(list) {
+        if (!Array.isArray(list)) list = (list && list.plugins) || []
+
+        // Reversed: the extensions list renders newest-first
+        // (Plugins.get().reverse() in src/interaction/extensions/main.js), so
+        // adding from the bottom up makes autoload.json order show top-down.
+        list.slice().reverse().forEach(function (plugin) {
+            if (!plugin || !plugin.url) return
+
+            var target = norm(plugin.url)
+
+            // Plugins.get() returns a shallow copy of the array, but the same
+            // objects — remove() matches them by identity.
+            var found = Lampa.Plugins.get().filter(function (p) {
+                return norm(p.url) === target
+            })
+
+            // Drop existing entries and re-add one at the tail: this refreshes
+            // name/author (older builds saved neither) and fixes the order.
+            // push() is a no-op for an already-injected script, so re-adding
+            // does not load the plugin twice.
+            found.forEach(function (p) {
+                Lampa.Plugins.remove(p)
+            })
+
+            var data = found[0] || { url: plugin.url, status: 1 }
+
+            data.name   = plugin.name || 'Autoload'
+            data.author = plugin.author || Lampa.Manifest.author
+
+            Lampa.Plugins.add(data)
+        })
+    }
+
     function installAll() {
         if (installed) return
         installed = true
 
-        config.plugins.forEach(function (plugin) {
-            if (!plugin || !plugin.url) return
-
-            var list = Lampa.Plugins.get()
-            var target = norm(plugin.url)
-
-            var found = list.some(function (p) {
-                return norm(p.url) === target
+        fetch('autoload.json', { cache: 'no-cache' })
+            .then(function (r) {
+                return r.ok ? r.json() : []
             })
-
-            if (!found) {
-                Lampa.Plugins.add({
-                    url: plugin.url,
-                    name: plugin.name || 'Autoload',
-                    status: 1
-                })
-            }
-        })
+            .then(install)
+            .catch(function () {})
     }
 
     function tryInstall() {

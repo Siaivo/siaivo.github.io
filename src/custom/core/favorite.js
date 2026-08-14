@@ -1,6 +1,9 @@
 import Favorite from '../../core/favorite'
 import Arrays from '../../utils/arrays'
 import Utils from '../../utils/utils'
+import Storage from '../../core/storage/storage'
+import SettingsApi from '../../interaction/settings/api'
+import Lang from '../../core/lang'
 
 Favorite.init = function() {
     Favorite.read()
@@ -165,6 +168,63 @@ Favorite.clear = function(where, card){
     restorePersonCards(saved)
 
     return result
+}
+
+// 4.2. Override Favorite.add — ліміт історії з налаштувань замість жорстких 100,
+// які передають ядро (interaction/torrent.js) та онлайн-плагіни третім аргументом.
+Lang.add({
+    settings_rest_history_limit: {
+        uk: 'Ліміт історії',
+        en: 'History limit',
+        be: 'Ліміт гісторыі',
+        zh: '历史记录上限',
+        pt: 'Limite do histórico',
+        bg: 'Лимит на историята',
+        he: 'מגבלת היסטוריה',
+        cs: 'Limit historie',
+        ro: 'Limita istoricului',
+        fr: 'Limite de l’historique',
+        pl: 'Limit historii',
+        ru: 'Лимит истории'
+    },
+    settings_rest_history_limit_descr: {
+        uk: 'Скільки карток зберігати в історії перегляду',
+        en: 'How many cards to keep in the watch history',
+        be: 'Колькі картак захоўваць у гісторыі прагляду',
+        zh: '观看历史中保留多少个卡片',
+        pt: 'Quantos cartões manter no histórico de visualização',
+        bg: 'Колко карти да се пазят в историята на гледане',
+        he: 'כמה כרטיסים לשמור בהיסטוריית הצפייה',
+        cs: 'Kolik karet uchovávat v historii sledování',
+        ro: 'Câte carduri să fie păstrate în istoricul vizionărilor',
+        fr: 'Nombre de fiches à conserver dans l’historique',
+        pl: 'Ile kart przechowywać w historii oglądania',
+        ru: 'Сколько карточек хранить в истории просмотра'
+    }
+})
+
+SettingsApi.addParam({
+    component: 'more',
+    param: {
+        name: 'history_limit',
+        type: 'select',
+        values: {'100': '100', '250': '250', '500': '500', '1000': '1000', '0': '#{player_disabled}'},
+        default: '100'
+    },
+    // назву/опис ставимо в onRender: addParams() вставляє їх у DOM без перекладу
+    field: {name: '', description: ' '},
+    onRender: function(item){
+        item.find('.settings-param__name').text(Lang.translate('settings_rest_history_limit'))
+        item.find('.settings-param__descr').text(Lang.translate('settings_rest_history_limit_descr'))
+    }
+})
+
+let original_add = Favorite.add
+Favorite.add = function(where, card, limit){
+    // тільки якщо викликач взагалі передав ліміт — інакше нічого не обрізаємо
+    if(where === 'history' && typeof limit !== 'undefined') limit = parseInt(Storage.field('history_limit')) || 0
+
+    return original_add.call(this, where, card, limit)
 }
 
 // 5. Override Favorite.get
