@@ -210,25 +210,6 @@
     100% { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1.04); transform: translate3d(0,0,0) scale(1.04); }
 }
 
-/* ── Flash ────────────────────────────────────────────────────── */
-.netflix-intro__flash {
-    position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0; /* inset:0 compat */
-    z-index: 10;
-    pointer-events: none;
-    background: #fff;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    animation: niFlash 0.25s ease-out forwards;
-    animation-delay: 3.2s;
-    opacity: 0;
-}
-@keyframes niFlash {
-    0%   { opacity: 0; }
-    20%  { opacity: 0.8; }
-    100% { opacity: 0; }
-}
-
 /* ── Zoom-out (modest scale — avoids huge GPU texture) ────────── */
 @keyframes niOut {
     0%   { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1); transform: translate3d(0,0,0) scale(1); }
@@ -266,10 +247,6 @@
     animation-duration: 0.3s;
 }
 
-.netflix-intro--lite .netflix-intro__flash {
-    animation-delay: 2.0s;
-}
-
 @keyframes niOutLite {
     0%   { opacity: 1; -webkit-transform: translate3d(0,0,0) scale(1); transform: translate3d(0,0,0) scale(1); }
     100% { opacity: 0; -webkit-transform: translate3d(0,0,0) scale(1.1); transform: translate3d(0,0,0) scale(1.1); }
@@ -291,7 +268,6 @@
     <div class="netflix-intro__tw">
         <h1 class="netflix-intro__title">Сяйво</h1>
     </div>
-    <div class="netflix-intro__flash"></div>
 </div>`
 
     var LITE_HTML = `
@@ -303,7 +279,6 @@
     <div class="netflix-intro__tw">
         <h1 class="netflix-intro__title">Сяйво</h1>
     </div>
-    <div class="netflix-intro__flash"></div>
 </div>`
 
     // ═══════════════════════════════════════════════════════════════
