@@ -14,5 +14,6 @@ export default {
         install_proxy: true,
         blacklist: true,
         metadata: true,
+        remote_configuration: true,
     }
 }

@@ -100,3 +100,4 @@ import './core/tmdb/discover-filter'
     tryFix()
 })()
 import './interaction/person/module/line'
+import './interaction/logs'
