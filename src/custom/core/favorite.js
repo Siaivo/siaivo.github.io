@@ -5,9 +5,9 @@ import Storage from '../../core/storage/storage'
 import SettingsApi from '../../interaction/settings/api'
 import Lang from '../../core/lang'
 
-Favorite.init = function() {
-    Favorite.read()
-}
+Favorite.init = Utils.onceInit(function() {
+    Favorite.read(true)
+});
 
 // Помічник для отримання локальних улюблених персон
 function getLocalPersons() {
