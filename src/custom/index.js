@@ -3,6 +3,7 @@ import './app/custom-head'
 import './app/config-apply'
 import './app/markers-visibility'
 import './plugins/autoload'
+//import './plugins/etor-notice' //Алерт про прибирання etor'a
 import './core/manifest'
 import './interaction/settings/siaivo'
 import './interaction/holiday-logo'
