@@ -52,21 +52,19 @@ BookmarksModule.onCreate = function() {
             }
         })
 
-        if (window.lampa_settings.account_use) {
-            items.push({
-                title: Lang.translate('settings_cub_status'),
-                separator: true
-            })
+        items.push({
+            title: Lang.translate('settings_cub_status'),
+            separator: true
+        })
 
-            marks.forEach(m => {
-                items.push({
-                    title: Lang.translate('title_' + m),
-                    type: m,
-                    picked: status[m],
-                    collect: true
-                })
+        marks.forEach(m => {
+            items.push({
+                title: Lang.translate('title_' + m),
+                type: m,
+                picked: status[m],
+                collect: true
             })
-        }
+        })
 
         Select.show({
             title: Lang.translate('settings_input_links'),
@@ -133,22 +131,20 @@ FavoriteModule.onCreate = function() {
             })
         })
 
-        if (window.lampa_settings.account_use) {
-            menu.push({
-                title: Lang.translate('settings_cub_status'),
-                separator: true
-            })
+        menu.push({
+            title: Lang.translate('settings_cub_status'),
+            separator: true
+        })
 
-            items_mark.forEach(m => {
-                menu.push({
-                    title: Lang.translate('title_' + m),
-                    where: m,
-                    picked: status[m],
-                    collect: true,
-                    onSelect
-                })
+        items_mark.forEach(m => {
+            menu.push({
+                title: Lang.translate('title_' + m),
+                where: m,
+                picked: status[m],
+                collect: true,
+                onSelect
             })
-        }
+        })
 
         return menu
     }
