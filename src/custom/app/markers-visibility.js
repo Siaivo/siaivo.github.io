@@ -4,10 +4,7 @@ function updateVisibility() {
     let use = Storage.field('account_use')
     let visible = (use === true || use === 'true')
     
-    let element = document.querySelector('.head__markers')
-    if (element) {
-        element.style.display = visible ? '' : 'none'
-    }
+    $('.head__markers').replaceWith($('<div>').addClass('head__split'));
 }
 
 function init() {

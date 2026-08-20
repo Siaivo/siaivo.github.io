@@ -252,7 +252,12 @@ ModuleMap.Card.onInit = function() {
             if (ModuleMap.Menu.onInit) ModuleMap.Menu.onInit.call(this)
         }
         if (!this.listenerFavorite) {
-            this.use(ModuleMap.Favorite)
+            // Favorite must sit before Menu in components (as in MASK.base):
+            // Menu.onCreate wrappers (plugins) read menu_list right away, and
+            // it is Favorite.onCreate that fills it.
+            let menu_index = this.components.indexOf(ModuleMap.Menu)
+
+            this.use(ModuleMap.Favorite, menu_index === -1 ? null : menu_index)
         }
     }
 }
