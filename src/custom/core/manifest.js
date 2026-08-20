@@ -3,13 +3,13 @@ import Manifest from '../../core/manifest'
 const manifestData = {
     author: 'Siaivo',
     github: 'https://github.com/Siaivo/siaivo.github.io',
-    patch_version: 20,
-    cub_site: 'cub.rip',
+    patch_version: 21,
+    cub_site: 'cub.red',
     apk_link_download: 'https://github.com/lampa-app/LAMPA/releases/download/v1.12.3/app-lite-release.apk'
 }
 
-const manifestMirrors = ['cub.rip', 'durex.monster', 'cubnotrip.top']
-const manifestDomain = 'cub.rip'
+const manifestMirrors = ['cub.best', 'cub.red']
+const manifestDomain = 'cub.best'
 
 function normalizeMirror(value) {
     if (typeof value !== 'string') return ''
