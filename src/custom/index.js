@@ -6,6 +6,7 @@ import './plugins/autoload'
 //import './plugins/etor-notice' //Алерт про прибирання etor'a
 import './core/manifest'
 import './interaction/settings/siaivo'
+import './interaction/settings/store'
 import './interaction/holiday-logo'
 import './core/personal'
 import './interaction/settings/params'
