@@ -33,6 +33,7 @@ import './core/favorite'
 import './app/rows'
 import './components/bookmarks'
 import './components/myperson'
+import './interaction/profile-hide'
 
 import './components/feed'
 

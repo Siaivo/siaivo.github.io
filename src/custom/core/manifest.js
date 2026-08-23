@@ -4,7 +4,7 @@ const manifestData = {
     author: 'Siaivo',
     storeUrl: 'https://raw.githubusercontent.com/Siaivo/Hub/refs/heads/main/data/base.json',
     github: 'https://github.com/Siaivo/siaivo.github.io',
-    patch_version: 22,
+    patch_version: 23,
     cub_site: 'cub.red',
     apk_link_download: 'https://github.com/lampa-app/LAMPA/releases/download/v1.12.3/app-lite-release.apk'
 }
