@@ -20,7 +20,8 @@ import Main from '../../../interaction/extensions/main'
 
 const CATEGORY_LABELS = {
     video: '🎬 Відео', iptv: '📺 IPTV', theme: '🎨 Теми',
-    collections: '📚 Добірки', tracks: '🎵 Доріжки', other: '🔧 Інше'
+    collections: '📚 Добірки', tracks: '🎵 Доріжки',
+    control: '🎮 Керування', other: '🔧 Інше'
 }
 
 function transformBaseJson(plugins) {
@@ -49,36 +50,17 @@ const _origLoad = MainClass.prototype.loadCustomStore
 MainClass.prototype.loadCustomStore = function () {
     let params = this.params
 
-    if (params.store && !params._baseJsonHandled) {
+    // Гілка тільки для НАШОГО стора (Manifest.storeUrl).
+    // Стори інших плагінів (params.store з іншим URL) ідуть штатним шляхом.
+    if (params.store === Manifest.storeUrl && !params._baseJsonHandled) {
         params._baseJsonHandled = true
         this.appendLoader()
 
         let net = new Reguest()
 
-        // Тимчасово патчимо Extension.visible ТІЛЬКИ на час завантаження нашого Hub:
-        // нормалізоване порівняння URL для визначення "встановленого" плагіна.
-        // Після завершення — відновлюємо оригінал.
-        const _origVisible = ExtensionClass.prototype.visible
-
-        ExtensionClass.prototype.visible = function () {
-            _origVisible.call(this)
-
-            let included = this.html.querySelector('.extensions__item-included')
-            if (included && included.classList.contains('hide')) {
-                let url = normalizeUrl(this.data.url || this.data.link)
-                if (url) {
-                    let isInstalled = Plugins.get().some(p => normalizeUrl(p.url) === url)
-                    if (isInstalled) included.classList.remove('hide')
-                }
-            }
-        }
-
         net.silent(params.store, (data) => {
             this.loader.remove()
             net = null
-
-            // Відновлюємо оригінальний visible після завантаження даних
-            ExtensionClass.prototype.visible = _origVisible
 
             // base.json — плоский масив → трансформуємо
             if (Array.isArray(data)) {
@@ -90,18 +72,26 @@ MainClass.prototype.loadCustomStore = function () {
                     this.appendLine(Plugins.get().reverse(), {
                         title: Lang.translate('extensions_from_memory'),
                         type: 'installs',
-                        autocheck: true
+                        autocheck: true,
+                        hubStore: true
                     })
                 }
 
                 data.results.forEach(a => {
                     if (a.results && a.results.length) {
+                        // Товар без status + autocheck => на картці малюється "Вимкнено".
+                        // Для товарів стора "Вимкнено" не має сенсу — дефолимо в 1.
+                        a.results.forEach(it => {
+                            if (it.status === undefined) it.status = 1
+                        })
+
                         this.appendLine(a.results, {
                             title: a.title || 'Невідомо',
                             type: 'extensions',
                             hpu: a.hpu,
                             noedit: true,
-                            autocheck: true
+                            autocheck: true,
+                            hubStore: true
                         })
                     }
                 })
@@ -118,10 +108,6 @@ MainClass.prototype.loadCustomStore = function () {
         }, () => {
             if (this.loader) this.loader.remove()
             net = null
-
-            // Відновлюємо оригінальний visible у випадку помилки
-            ExtensionClass.prototype.visible = _origVisible
-
             this.error()
         })
 
@@ -131,8 +117,29 @@ MainClass.prototype.loadCustomStore = function () {
     _origLoad.call(this)
 }
 
+// Нормалізоване порівняння URL для визначення "встановленого" плагіна.
+// Працює ВИКЛЮЧНО для карток нашого кастомного Hub (params.hubStore) —
+// штатний магазин, CUB-списки та стори інших плагінів не зачіпаються.
+const _origVisible = ExtensionClass.prototype.visible
+
 function normalizeUrl(u) {
     return (u || '').toLowerCase().replace(/[?#].*$/, '').replace(/\/+$/, '').replace(/^https?:\/\//, '')
+}
+
+ExtensionClass.prototype.visible = function () {
+    _origVisible.call(this)
+
+    if (!this.params || !this.params.hubStore) return
+
+    // Якщо штатний included badge не показався — перевіряємо нормалізованим порівнянням
+    let included = this.html.querySelector('.extensions__item-included')
+    if (included && included.classList.contains('hide')) {
+        let url = normalizeUrl(this.data.url || this.data.link)
+        if (url) {
+            let isInstalled = Plugins.get().some(p => normalizeUrl(p.url) === url)
+            if (isInstalled) included.classList.remove('hide')
+        }
+    }
 }
 
 SettingsApi.addComponent({
