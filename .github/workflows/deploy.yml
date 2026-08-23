@@ -61,18 +61,17 @@ jobs:
             echo "Placeholder replacement failed for gh-pages build."
             exit 1
           fi
-          # gh-pages only: disable built-in extensions store (own Hub store is used)
-          # Patch both minified and non-minified bundles — keep main branch untouched.
-          for f in ./build/github/lampa-pages/app.js ./build/github/lampa-pages/app.min.js; do
+          # gh-pages only: disable built-in extensions store (own Hub store is used).
+          # NOTE: `gulp build_github` publishes ONLY app.min.js into build/github/lampa/
+          # (public_github copies just dest/app.min.js), so patch whatever exists.
+          for f in ./build/github/lampa-pages/app.min.js ./build/github/lampa-pages/app.js; do
             [ -f "$f" ] || continue
-            # Flip the default from true → false (only place where plugins_store is defined as true)
             sed -i -e 's/plugins_store:[[:space:]]*true/plugins_store:false/g' "$f"
           done
-          # Verify patch applied only to gh-pages
-          grep -q 'plugins_store:false' ./build/github/lampa-pages/app.min.js || { echo "gh-pages plugins_store patch failed (app.min.js)"; exit 1; }
-          grep -q 'plugins_store:false' ./build/github/lampa-pages/app.js || { echo "gh-pages plugins_store patch failed (app.js)"; exit 1; }
-          # Ensure main branch still has store enabled
-          grep -q 'plugins_store:[[:space:]]*true' ./build/github/lampa-main/app.min.js 2>/dev/null || grep -q 'plugins_store:[[:space:]]*true' ./build/github/lampa/app.js || true
+          # Verify patch applied to gh-pages bundle
+          grep -Eq 'plugins_store:[[:space:]]*false' ./build/github/lampa-pages/app.min.js || { echo "gh-pages plugins_store patch failed (app.min.js)"; exit 1; }
+          # Ensure self-hosted template (main branch) keeps the store enabled
+          grep -Eq 'plugins_store:[[:space:]]*true' ./build/github/lampa-main/app.min.js || { echo "main branch unexpectedly lost plugins_store:true"; exit 1; }
 
       - name: Deploy self-hosted template branch
         uses: peaceiris/actions-gh-pages@v3
