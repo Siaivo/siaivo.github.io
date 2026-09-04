@@ -25,6 +25,10 @@ function saveRegion(code){
     })
 
     responseCode = code
+
+    // Синхронізація з апстрімом: Manifest.cub_site (getter) читає window.vpn_region.
+    // Наш Vpn.task перевизначає базовий, тому виставляємо це тут, інакше cub_site завжди буде 'cub.best'.
+    window.vpn_region = code
 }
 
 function installProxy(country){

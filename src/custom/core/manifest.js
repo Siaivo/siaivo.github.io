@@ -8,6 +8,8 @@ const manifestData = {
     cub_site: 'cub.red',
     apk_link_download: 'https://github.com/lampa-app/LAMPA/releases/download/v1.12.3/app-lite-release.apk'
 }
+// NOTE: апстрім перетворив cub_site на getter без setter (залежить від window.vpn_region).
+// Пряме присвоєння в getter-only властивість кидає TypeError, тому cub_site перевизначаємо через defineProperty.
 
 const manifestMirrors = ['cub.best', 'cub.red']
 const manifestDomain = 'cub.best'
@@ -37,6 +39,18 @@ function writeMirrorStorage(mirrors) {
 function applyManifestData() {
     Object.keys(manifestData).forEach((key) => {
         if (key === 'patch_version') return
+
+        if (key === 'cub_site') {
+            // Апстрім тримає cub_site як getter без setter — перевизначаємо через defineProperty,
+            // інакше пряме присвоєння кине TypeError і обірве весь цикл.
+            Object.defineProperty(Manifest, 'cub_site', {
+                value: manifestData[key],
+                writable: true,
+                configurable: true
+            })
+
+            return
+        }
 
         Manifest[key] = manifestData[key]
     })

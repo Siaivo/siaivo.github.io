@@ -1,8 +1,8 @@
 let object = {
     author: 'Yumata',
     github: 'https://github.com/yumata/lampa-source',
-    css_version: '3.3.1',
-    app_version: '3.3.1',
+    css_version: '3.3.2',
+    app_version: '3.3.2',
     cub_site: 'cub.best',
     apk_link_download: 'https://github.com/lampa-app/LAMPA/releases/download/v1.12.3/app-lite-release.apk'
 }
@@ -12,6 +12,18 @@ let plugins = []
 Object.defineProperty(object, 'app_digital', { get: ()=> parseInt(object.app_version.replace(/\./g,'')) })
 Object.defineProperty(object, 'css_digital', { get: ()=> parseInt(object.css_version.replace(/\./g,'')) })
 
+/**
+ * Ссылка на сайт CUB, которая зависит от региона пользователя
+ */
+Object.defineProperty(object, 'cub_site', { 
+    get: ()=> {
+        return window.vpn_region == 'ru' ? 'cub.black' : 'cub.best'
+    }
+})
+
+/**
+ * Список подключенных плагинов
+ */
 Object.defineProperty(object, 'plugins', { 
     get: ()=> plugins,
     set: (plugin)=> {
@@ -65,7 +77,7 @@ Object.defineProperty(object, 'cub_mirrors', {
  * Список зеркал для сокета, вынесены отдельно, так как могут отличаться от обычных зеркал
  */
 Object.defineProperty(object, 'soc_mirrors', { 
-    get: ()=> ['cub.best', 'cub.black', 'kurwa-bober.ninja', 'nackhui.com'],
+    get: ()=> ['cub.best', 'kurwa-bober.ninja', 'nackhui.com'],
     set: ()=> {}
 })
 

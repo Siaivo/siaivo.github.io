@@ -50,7 +50,7 @@ function connect(){
         console.log('Socket','timeout close')
 
         if(socket) socket.close()
-    },10000)
+    },1000 * 60)
 
     try{
         socket = new WebSocket(socket_url)
@@ -95,8 +95,6 @@ function connect(){
 
     socket.addEventListener('error', (event)=> {
         console.log('Socket','error:','maybe there is no connection to the server')
-
-        socket.close()
     },false)
 
     socket.addEventListener('message', (event)=> {
@@ -243,7 +241,7 @@ function connect(){
 
             send(msg.method, msg)
         }
-    })
+    }, false, true)
 
     Timer.add(1000 * 30,()=>{
         if(socket && socket.readyState == 1){
@@ -253,11 +251,11 @@ function connect(){
                 if(!socket.alive){
                     console.log('Socket','ping timeout, maybe connection lost')
                 }
-            },2000)
+            },15000)
 
             socket.send('ping')
         }
-    })
+    }, false, true)
 }
 
 function send(method, data){
