@@ -1,5 +1,5 @@
 {
-	"name": "Lampa",
+	"name": "Siaivo",
 	"version": "latest",
 	"parameter": "content:http://siaivo.isroot.in/msx/start.json",
 	"action": "link:http://siaivo.isroot.in"
