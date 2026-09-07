@@ -1,3 +1,4 @@
+import './app/default-lang'
 import './app/custom-welcome'
 import './app/custom-head'
 import './app/config-apply'
