@@ -1051,6 +1051,9 @@ body.light--version .wrap__left {
 .head__markers-item.status--live {
   background: rgb(118, 230, 122);
 }
+.head__markers-item.status--bad {
+  background: rgb(248, 209, 131);
+}
 .head__markers-item.status--error {
   background: #ff6868;
 }
@@ -13210,16 +13213,6 @@ body.platform--netcast .menu__ico > svg {
 }
 body.platform--orsay .menu__text,
 body.platform--netcast .menu__text {
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: -ms-flexbox;
-  display: flex;
-}
-body.platform--orsay .player-panel .button > svg,
-body.platform--netcast .player-panel .button > svg {
-  position: absolute;
-  width: 1.2em;
-  height: 1.2em;
   display: -webkit-box;
   display: -webkit-flex;
   display: -ms-flexbox;
