@@ -95,8 +95,13 @@ function viewedSet(hash, file_index, timecode, success, fail){
  */
 function add(object, success, fail){
     let send_data = object.data ? Arrays.clone(object.data) : false
+    let category  = 'movie'
 
-    if(send_data && send_data.movie) send_data.movie = Utils.clearCard(send_data.movie)
+    if(send_data && send_data.movie){
+        category = send_data.movie.name ? 'tv' : 'movie'
+        
+        send_data.movie = Utils.clearCard(send_data.movie)
+    }
 
     let json = {
         action: 'add',
@@ -105,6 +110,7 @@ function add(object, success, fail){
         poster: object.poster,
         data: send_data ? JSON.stringify(send_data) : '',
         save_to_db: true,
+        category
     }
 
     let data = JSON.stringify(json)
@@ -122,8 +128,13 @@ function add(object, success, fail){
  */
 function hash(object, success, fail){
     let send_data = object.data ? Arrays.clone(object.data) : false
+    let category  = 'movie'
 
-    if(send_data && send_data.movie) send_data.movie = Utils.clearCard(send_data.movie)
+    if(send_data && send_data.movie){
+        category = send_data.movie.name ? 'tv' : 'movie'
+
+        send_data.movie = Utils.clearCard(send_data.movie)
+    }
 
     let json = {
         action: 'add',
@@ -132,6 +143,7 @@ function hash(object, success, fail){
         poster: object.poster,
         data: send_data ? JSON.stringify(send_data) : '',
         save_to_db: Storage.get('torrserver_savedb','false'),
+        category
     }
 
     let data = JSON.stringify(json)

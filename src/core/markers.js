@@ -49,7 +49,7 @@ function update(){
 
             markers.forEach(marker=>{
                 let marker_data = markers_object[marker]
-                let status = marker_data.pass_count > 0 ? 'status--pass' : marker_data.live ? 'status--live' : (marker_data.error ? 'status--error' : '')
+                let status = marker_data.pass_count > 0 ? 'status--pass' : marker_data.live ? 'status--live' : marker_data.bad ? 'status--bad' : marker_data.error ? 'status--error' : ''
 
                 if(status !== marker_data.status_now){
                     marker_data.status_prev = marker_data.status_now
@@ -78,22 +78,31 @@ function updateStatus(marker){
 
     if(!marker_data.element) return
 
-    let status = marker_data.pass_count > 0 ? 'status--pass' : marker_data.live ? 'status--live' : (marker_data.error ? 'status--error' : '')
+    let status = marker_data.pass_count > 0 ? 'status--pass' : marker_data.live ? 'status--live' : marker_data.bad ? 'status--bad' : marker_data.error ? 'status--error' : ''
 
-    marker_data.element.classList.remove('status--error', 'status--live', 'status--pass')
+    marker_data.element.classList.remove('status--error', 'status--live', 'status--pass', 'status--bad')
 
     if(status) marker_data.element.classList.add(status)
+}
+
+function bad(who){
+    markers_object[who].error = false;
+    markers_object[who].live = false;
+    markers_object[who].bad = true;
+
+    update()
 }
 
 function error(who){
     markers_object[who].error = true;
     markers_object[who].live = false;
+    markers_object[who].bad = false;
 
     update()
 }
 
-function pass(who){
-    markers_object[who].pass_count = Math.min(markers_object[who].pass_count + 1, 20);
+function pass(who, add = 1){
+    markers_object[who].pass_count = Math.min(markers_object[who].pass_count + add, 20);
 
     update()
 }
@@ -101,6 +110,7 @@ function pass(who){
 function live(who){
     markers_object[who].error = false;
     markers_object[who].live = true;
+    markers_object[who].bad = false;
 
     update()
 }
@@ -108,12 +118,14 @@ function live(who){
 function normal(who){
     markers_object[who].error = false;
     markers_object[who].live = false;
+    markers_object[who].bad = false;
 
     update()
 }
 
 export default {
     init,
+    bad,
     error,
     pass,
     live,

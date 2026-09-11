@@ -176,8 +176,15 @@ function component(object){
                 }])
 
                 // Создаем коллекцию
-                if(!adult_block && data.collection && data.collection.results && data.collection.results.length){
-                    data.collection.title  = Lang.translate('title_collection')
+                if (!adult_block && data.collection && data.collection.results && data.collection.results.length) {
+                    data.collection.title = Lang.translate('title_collection')
+
+                    // Сортируем по году от меньшего к большему
+                    data.collection.results.sort((a, b) => {
+                        let yearA = a.release_date ? a.release_date.split('-')[0] : a.first_air_date ? a.first_air_date.split('-')[0] : '0'
+                        let yearB = b.release_date ? b.release_date.split('-')[0] : b.first_air_date ? b.first_air_date.split('-')[0] : '0'
+                        return parseInt(yearA) - parseInt(yearB)
+                    })
 
                     this.rows.push(['cards', data.collection])
                 }

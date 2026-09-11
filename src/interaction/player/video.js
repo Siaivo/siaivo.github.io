@@ -341,7 +341,8 @@ function scale(){
         var sz = {
             width: Math.round(window.innerWidth) + 'px',
             height: Math.round(window.innerHeight) + 'px',
-            transform: sx == 1.00 && sy == 1.00 ? 'unset' : 'scaleX('+sx+') scaleY('+sy+')'
+            transform: sx == 1.00 && sy == 1.00 || need_scale == 'fill' ? 'unset' : 'scaleX('+sx+') scaleY('+sy+')',
+            objectFit: need_scale == 'fill' ? 'fill' : 'contain'
         }
     }
     

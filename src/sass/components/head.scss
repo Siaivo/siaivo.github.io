@@ -204,6 +204,10 @@
                 background: rgb(118, 230, 122);
             }
 
+            &.status--bad{
+                background: rgb(248, 209, 131);
+            }
+
             &.status--error{
                 background: #ff6868;
             }

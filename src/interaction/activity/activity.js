@@ -15,6 +15,7 @@ import PropsProvider from '../../utils/props'
 import ActivitySlide from './slide'
 import Video from '../player/video'
 import Keypad from '../../core/keypad'
+import Timer from '../../core/timer'
 
 let listener  = Subscribe()
 let activites = []
@@ -182,9 +183,22 @@ function init(){
     document.addEventListener('visibilitychange', () => {
         // Если фокус не был на странице больше часа, то обновляем активность
         if(Date.now() - focustime > (1000 * 60 * 60 * 6)) refresh(true)
-        
-        resetFocusTime()
+
+        console.log('Activity', 'refresh by visibility change', 'visibilityState:', document.visibilityState, 'diff:', (Date.now() - focustime) / 1000)
+
+        focustime = Date.now()
     })
+
+    // Дублирование для Android, где visibilitychange может не сработать
+    Timer.add(1000, () => {
+        if(Date.now() - focustime > (1000 * 60 * 60 * 6)){
+            refresh(true)
+
+            console.log('Activity', 'refresh by focus time')
+
+            focustime = Date.now()
+        }
+    }, false, true)
 
     Video.listener.follow('timeupdate', resetFocusTime)
 
@@ -195,7 +209,9 @@ function init(){
  * Сбросить время фокуса
  */
 function resetFocusTime(){
-    focustime = Date.now()
+    setTimeout(()=>{
+        focustime = Date.now()
+    }, 5000)
 }
 
 /**

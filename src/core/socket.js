@@ -42,7 +42,7 @@ function connect(){
 
     if(window.lampa_settings.socket_url) socket_url = window.lampa_settings.socket_url
     
-    clearInterval(ping)
+    clearTimeout(ping)
 
     clearTimeout(timeout)
 
@@ -101,6 +101,8 @@ function connect(){
         if(event.data == 'pong') {
             socket.alive = true
 
+            Markers.live('socket')
+
             return
         } 
 
@@ -116,7 +118,8 @@ function connect(){
                 Activity.push(result.data)
             }
             else if(result.method == 'timeline'){
-                result.data.received = true //чтоб снова не остправлять и не зациклить
+                //чтоб снова не остправлять и не зациклить
+                result.data.received = true 
 
                 let account = Account.Permit.account
 
@@ -226,7 +229,7 @@ function connect(){
             }
         }
 
-        Markers.pass('socket')
+        Markers.pass('socket', 5)
 
         listener.send('message',result)
     })
@@ -245,15 +248,18 @@ function connect(){
 
     Timer.add(1000 * 30,()=>{
         if(socket && socket.readyState == 1){
-            socket.alive = false
+            clearTimeout(ping)
 
-            setTimeout(()=>{
-                if(!socket.alive){
+            socket.alive = false
+            socket.send('ping')
+
+            ping = setTimeout(()=>{
+                if(!socket.alive && socket.readyState == 1){
                     console.log('Socket','ping timeout, maybe connection lost')
+
+                    Markers.bad('socket')
                 }
             },15000)
-
-            socket.send('ping')
         }
     }, false, true)
 }

@@ -275,48 +275,69 @@ function preload(data, run){
         let checkout
         let network = new Request()
         let first   = true
+        let stopped = false
+        let last_bytes  = 0
+        let last_change = Date.now()
 
-        Loading.start(()=>{
-            clearInterval(checkout)
+        let stop = ()=>{
+            stopped = true
+
+            clearTimeout(checkout)
 
             network.clear()
 
             Loading.stop()
-        }, '', {media: data})
+        }
 
-        let update = ()=>{    
+        Loading.start(stop, '', {media: data})
+
+        let next = ()=>{
+            if(stopped) return
+
+            if(Date.now() - last_change > 30000){
+                stop()
+            }
+            else checkout = setTimeout(update, 1000)
+        }
+
+        let update = ()=>{
             network.timeout(2000)
-    
+
             network.silent(first ? data.url : data.url.replace('&preload', '&stat'), function (res) {
+                if(stopped) return
+
                 let pb = res.preloaded_bytes || 0,
                     ps = res.preload_size || 0,
                     sp = res.download_speed ? Utils.bytesToSize(res.download_speed * 8, true) : '0.0',
                     active_peers = parseInt(res.active_peers || 0),
                     total_peers = parseInt(res.total_peers || 0)
-                
+
                 let progress = Math.min(100,((pb * 100) / ps ))
 
                 if(progress >= 95 || isNaN(progress)){
-                    Loading.stop()
+                    stop()
 
-                    clearInterval(checkout)
-                    
                     run()
                 }
                 else{
+                    if(pb > last_bytes){
+                        last_bytes  = pb
+                        last_change = Date.now()
+                    }
+
                     Loading.setProgress(progress, {
                         speed: sp,
                         active_peers: active_peers,
                         total_peers: total_peers
                     })
+
+                    next()
                 }
-            })
+            }, next)
 
             first = false
         }
-    
-        checkout = setInterval(update,1000)
-    
+
         update()
     }
     else run()
