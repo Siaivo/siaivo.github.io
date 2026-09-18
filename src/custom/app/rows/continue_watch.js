@@ -40,11 +40,11 @@ function add(){
                     let history = Favorite.get({type:'history'});
 
                     if (thrown.length) {
-                        history = history.filter(h => !thrown.find(t => t.imdb_id == h.imdb_id))
+                        history = history.filter(h => !thrown.find(t => Utils.sameCard(t, h)))
                     }
-                    
+
                     if (viewed.length) {
-                        history = history.filter(h => !viewed.find(v => v.imdb_id == h.imdb_id))
+                        history = history.filter(h => !viewed.find(v => Utils.sameCard(v, h)))
                     }
 
                     let ongoing = history

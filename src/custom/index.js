@@ -46,6 +46,7 @@ import './core/tmdb/anime-hikka-fallback'
 import './category/siavo-anime'
 import './category/mood'
 import './utils/clear-card'
+import './utils/same-card'
 import './core/tmdb/discover-filter'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є

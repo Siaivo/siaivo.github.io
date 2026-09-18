@@ -1,12 +1,55 @@
 import Favorite from '../../core/favorite'
+import Account from '../../core/account/account'
 import Arrays from '../../utils/arrays'
 import Utils from '../../utils/utils'
 import Storage from '../../core/storage/storage'
 import SettingsApi from '../../interaction/settings/api'
 import Lang from '../../core/lang'
 
+// core/favorite.js:117 кладе картку в data.card один раз і більше ніколи не оновлює,
+// тому картка, збережена зі списочного ряду, назавжди лишається без полів повної.
+// Освіжаємо збережені копії при відкритті повної картки.
+function rewrite(stored, card){
+    if(!stored) return
+
+    // серіал завершився - TMDB перестає віддавати поле, злиття лишило б фантомний анонс
+    delete stored.next_episode_to_air
+
+    let fresh = Utils.clearCard(Object.assign({}, stored, card))
+
+    Object.keys(stored).forEach(f => delete stored[f])
+    Object.assign(stored, fresh)
+}
+
+// where обмежує оновлення однією категорією, має сенс лише в синку
+Favorite.refresh = function(card, where){
+    let data = Favorite.full()
+
+    // персони лежать у тому ж data.card, а id персон і фільмів у TMDB не пов'язані
+    if((data.persons || []).indexOf(card.id) > -1) return
+
+    if(Account.Permit.sync){
+        let types = where ? [where] : Object.keys(Favorite.check(card))
+
+        // тільки в пам'ять, на CUB поїде при наступній зміні закладки
+        types.forEach(type => rewrite(Account.Bookmarks.find({type, id: card.id}), card))
+    }
+    else {
+        let stored = data.card.find(c => c.id == card.id)
+        let before = JSON.stringify(stored)
+
+        rewrite(stored, card)
+
+        if(stored && JSON.stringify(stored) != before) Storage.set('favorite', data)
+    }
+}
+
 Favorite.init = Utils.onceInit(function() {
     Favorite.read(true)
+
+    Lampa.Listener.follow('full', (e) => {
+        if(e.type == 'complite' && e.data.movie) Favorite.refresh(e.data.movie)
+    })
 });
 
 // Помічник для отримання локальних улюблених персон
