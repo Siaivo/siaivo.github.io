@@ -104,6 +104,11 @@ function load(cb) {
     })
 }
 
+// Чи карта вже в пам'яті. Потрібна, щоб відрізнити «не аніме» від «ще не завантажилось».
+function ready() {
+    return !!RAW
+}
+
 // Синхронний lookup — лише ПІСЛЯ load(). { id:Number, method:'tv'|'movie' } | null.
 // Використовується для рішення «є tmdb?» (виключення no-tmdb) і як база для groupOf.
 function link(malId) {
@@ -160,5 +165,6 @@ export default {
     link: link,
     groupOf: groupOf,
     resolve: resolve,
-    malsOf: malsOf
+    malsOf: malsOf,
+    ready: ready
 }

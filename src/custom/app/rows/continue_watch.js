@@ -66,11 +66,7 @@ function add(){
 
                     let new_episode = ongoing.filter(c => c.viewed < 10)
 
-                    new_episode = new_episode.filter((e)=>{
-                        let jpan  = Utils.containsJapanese(e.original_name || e.name || '') || e.original_language == 'ja'
-
-                        return media == 'anime' ? jpan : !jpan
-                    })
+                    new_episode = new_episode.filter(e => media == 'anime' ? Utils.isAnime(e) : !Utils.isAnime(e))
 
                     if(new_episode.length){
                         results = results.filter(r=>!new_episode.find(h=>h.id == r.id))

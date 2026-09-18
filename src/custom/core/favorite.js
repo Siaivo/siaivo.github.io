@@ -270,6 +270,29 @@ Favorite.add = function(where, card, limit){
     return original_add.call(this, where, card, limit)
 }
 
+// core/favorite.js:388 ділить історію на 'tv'/'anime' інлайновою евристикою за японськими
+// символами. Підміняємо тільки предикат - решта копія оригіналу.
+Favorite.continues = function(type){
+    let viewed = Favorite.get({type:'viewed'})
+    let thrown = Favorite.get({type:'thrown'})
+
+    let result = Favorite.get({type:'history'}).filter(e => {
+        return !viewed.find(v => v.id == e.id) && !thrown.find(t => t.id == e.id)
+    })
+
+    // Три кошики без перетинів: аніме будь-якої форми, решта серіалів, решта фільмів.
+    // В оригіналі аніме-повнометражки падали у фільми, бо 'anime' вимагав is_tv.
+    result = result.filter(e => {
+        let is_tv = e.number_of_seasons || e.first_air_date
+
+        if(type == 'anime') return Utils.isAnime(e)
+        else if(type == 'tv') return is_tv && !Utils.isAnime(e)
+        else return !is_tv && !Utils.isAnime(e)
+    })
+
+    return Arrays.clone(result.slice(0,19))
+}
+
 // 5. Override Favorite.get
 let original_get = Favorite.get
 Favorite.get = function(params) {
