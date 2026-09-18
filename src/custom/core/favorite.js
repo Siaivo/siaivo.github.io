@@ -6,22 +6,49 @@ import Storage from '../../core/storage/storage'
 import SettingsApi from '../../interaction/settings/api'
 import Lang from '../../core/lang'
 
-// core/favorite.js:117 кладе картку в data.card один раз і більше ніколи не оновлює,
-// тому картка, збережена зі списочного ряду, назавжди лишається без полів повної.
-// Освіжаємо збережені копії при відкритті повної картки.
+// Storage.set пише в localStorage весь об'єкт закладок, а подія нижче йде на сервер плагіна
+// синхронізації - тож робимо і те, і інше лише коли оновлення справді щось змінило.
+// popularity і рейтинги TMDB рухає щодня, без цього відсіву зміною вважалось би кожне
+// відкриття картки.
+let volatile_fields = ['popularity', 'vote_average', 'vote_count', 'imdb_rating', 'kp_rating']
+
+function stable(card){
+    let copy = Object.assign({}, card)
+
+    volatile_fields.forEach(f => delete copy[f])
+
+    return JSON.stringify(copy)
+}
+
+// core/favorite.js:117 кладе картку в data.card один раз і більше ніколи не оновлює, тому
+// картка, збережена зі списочного ряду, назавжди лишається без полів повної. Зливаємо свіжу
+// поверх збереженої і лишаємо строго те, що віддав clearCard. Саме поверх, а не начисто:
+// повна відповідь TMDB не містить частини полів картки (genre_ids, imdb_rating,
+// release_quality, mal_id...), і перезапис начисто вибив би їх назавжди. Виняток -
+// next_episode_to_air: коли серіал завершився, TMDB перестає віддавати поле, і без
+// прибирання лишився б фантомний анонс.
+//
+// Повертає true, якщо щось справді змінилось. За false збережена картка не чіпається
+// взагалі - інакше копія в пам'яті розходилась би зі сховищем на самих лише рейтингах.
 function rewrite(stored, card){
-    if(!stored) return
+    if(!stored) return false
 
-    // серіал завершився - TMDB перестає віддавати поле, злиття лишило б фантомний анонс
-    delete stored.next_episode_to_air
+    let base = Object.assign({}, stored)
 
-    let fresh = Utils.clearCard(Object.assign({}, stored, card))
+    delete base.next_episode_to_air
+
+    let fresh = Utils.clearCard(Object.assign(base, card))
+
+    if(stable(fresh) == stable(stored)) return false
 
     Object.keys(stored).forEach(f => delete stored[f])
     Object.assign(stored, fresh)
+
+    return true
 }
 
-// where обмежує оновлення однією категорією, має сенс лише в синку
+// where обмежує оновлення однією категорією, має сенс лише в синку:
+// локально всі категорії ділять одну копію картки.
 Favorite.refresh = function(card, where){
     let data = Favorite.full()
 
@@ -33,15 +60,31 @@ Favorite.refresh = function(card, where){
 
         // тільки в пам'ять, на CUB поїде при наступній зміні закладки
         types.forEach(type => rewrite(Account.Bookmarks.find({type, id: card.id}), card))
-    }
-    else {
-        let stored = data.card.find(c => c.id == card.id)
-        let before = JSON.stringify(stored)
 
-        rewrite(stored, card)
-
-        if(stored && JSON.stringify(stored) != before) Storage.set('favorite', data)
+        return
     }
+
+    let stored = data.card.find(c => c.id == card.id)
+
+    if(!rewrite(stored, card)) return
+
+    Storage.set('favorite', data)
+
+    // Сторонні плагіни синхронізації шлють картку на свій сервер лише за подіями
+    // Favorite.listener, тож без цього наші поля жили б до першого pullFromServer() -
+    // плагін перезаписав би favorite старим знімком з сервера, і так при кожному запуску.
+    // Штатний підписник у цій гілці один (bookmarks.js:75), і він одразу виходить, бо
+    // push() працює тільки в синку (bookmarks.js:125).
+    //
+    // Саме 'add', а не 'added': плагін мапить їх на різні ендпоінти, і 'added' на сервері
+    // додатково викидає картку на початок УСІХ категорій (BookmarkController.cs:210
+    // MoveIdToFrontInAllCategories) - історія перетасовувалась би від самого лише
+    // відкриття картки. 'add' лише оновлює дані.
+    let status = Favorite.check(card)
+
+    Object.keys(status).forEach(type => {
+        if(type != 'any' && status[type]) Favorite.listener.send('add', {where: type, card: stored})
+    })
 }
 
 Favorite.init = Utils.onceInit(function() {
