@@ -5,6 +5,8 @@ import Workers from './workers'
 import Noty from '../../interaction/noty'
 import Lang from '../lang'
 import Cache from '../../utils/cache'
+import Socket from '../socket'
+import Api from '../account/api'
 
 let listener = Subscribe();
 let readed   = {}
@@ -18,6 +20,12 @@ function init(){
     sync('online_last_balanser','object_string')
     sync('user_clarifys','object_object')
     sync('torrents_filter_data','object_object')
+
+    Socket.listener.follow('send',(e)=>{
+        if(e.method == 'storage'){
+            Api.load('storage/update', {}, e.data.params).catch((e)=>{})
+        }
+    })
 }
 
 /**

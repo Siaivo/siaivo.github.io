@@ -33,39 +33,71 @@ class VastManager {
 
     load(){
         let pos = 0
+        let self = this
 
-        let request = ()=>{
+        let request = function(){
             let domain = Manifest.cub_mirrors[pos]
 
-            if(domain){
-                $.ajax({
-                    url: Utils.protocol() + domain + '/api/ad/get/' + this.params.api,
-                    type: 'GET',
-                    dataType: 'json',
-                    timeout: 10000,
-                    success: (data)=>{
-                        if(data.ad && Arrays.isArray(data.ad)){
-                            this.data_loaded.ad = data.ad
+            if(!domain) return
 
-                            console.log('Ad', 'manager ' + this.params.api, 'loaded', this.data_loaded.ad.length)
+            let url = Utils.protocol() + domain + '/api/ad/get/' + self.params.api
+            let xhr = new XMLHttpRequest()
+
+            xhr.open('GET', url, true)
+            xhr.timeout = 10000
+
+            xhr.onload = function(){
+                if(xhr.status >= 200 && xhr.status < 300){
+                    try{
+                        let data = JSON.parse(xhr.responseText)
+
+                        if(data.ad && Arrays.isArray(data.ad)){
+                            self.data_loaded.ad = data.ad
+
+                            console.log('Ad', 'manager ' + self.params.api, 'loaded', self.data_loaded.ad.length)
                         }
                         else{
-                            console.log('Ad', 'manager ' + this.params.api, 'wrong format from', domain)
+                            console.log('Ad', 'manager ' + self.params.api, 'wrong format from', domain)
 
                             pos++
 
                             request()
                         }
-                    },
-                    error: ()=>{
-                        console.log('Ad', 'manager ' + this.params.api, 'no load from', domain)
+                    }
+                    catch(e){
+                        console.log('Ad', 'manager ' + self.params.api, 'parse error from', domain)
 
                         pos++
 
                         request()
                     }
-                })
+                }
+                else{
+                    console.log('Ad', 'manager ' + self.params.api, 'no load from', domain)
+
+                    pos++
+
+                    request()
+                }
             }
+
+            xhr.onerror = function(){
+                console.log('Ad', 'manager ' + self.params.api, 'no load from', domain)
+
+                pos++
+
+                request()
+            }
+
+            xhr.ontimeout = function(){
+                console.log('Ad', 'manager ' + self.params.api, 'timeout from', domain)
+
+                pos++
+
+                request()
+            }
+
+            xhr.send()
         }
 
         request()

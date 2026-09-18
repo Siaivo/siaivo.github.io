@@ -267,10 +267,12 @@ function connect(){
 function send(method, data){
     let name_devise = Platform.get() ? Platform.get() : navigator.userAgent.toLowerCase().indexOf('mobile') > - 1 ? 'mobile' : navigator.userAgent.toLowerCase().indexOf('x11') > - 1 ? 'chrome' : 'other';
 
+    listener.send('send',{method, data})
+
     data.device_id = uid
     data.name      = Utils.capitalizeFirstLetter(name_devise) + ' - ' + Storage.field('device_name')
     data.method    = method
-    data.version   = 1
+    data.version   = 2
     data.account   = Storage.get('account','{}')
     data.premium   = Account.hasPremium()
     data.terminal  = Storage.get('terminal_access', '')

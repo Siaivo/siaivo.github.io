@@ -83,6 +83,10 @@ function update(params){
     if(typeof params.duration !== 'undefined') road.duration = params.duration
     if(typeof params.profile !== 'undefined')  road.profile  = params.profile
     if(typeof params.updated !== 'undefined')  road.updated  = params.updated
+    
+    // округляем время и длительность до целых секунд
+    road.time     = Math.round(road.time)
+    road.duration = Math.round(road.duration)
 
     Storage.set(filename(), viewed)
 

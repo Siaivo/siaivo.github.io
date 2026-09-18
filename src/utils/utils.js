@@ -440,6 +440,67 @@ function putScriptAsync(items, complite, error, success, show_logs){
     for(let i = 0; i < items.length; i++) put(items[i])
 }
 
+function putScriptOfMirrors(items, complite, error, success, show_logs){
+    let mirrors = (Lampa.Manifest && Lampa.Manifest.cub_mirrors) || []
+    let l = typeof show_logs !== 'undefined' ? show_logs : true
+    let p = 0
+
+    function nextItem(){
+        if(p >= items.length){
+            if(complite) complite()
+            return
+        }
+
+        let url = items[p++]
+
+        if(!url){ nextItem(); return }
+
+        let current = mirrors.find(m => url.includes(m))
+
+        if(!current || !mirrors.length){
+            putScriptAsync([url], nextItem,
+                (u) => { if(error) error(u) },
+                (u) => { if(success) success(u) },
+                show_logs
+            )
+            return
+        }
+
+        let idx = mirrors.indexOf(current)
+        let ordered = mirrors.slice(idx).concat(mirrors.slice(0, idx))
+        let i = 0
+        let loaded = false
+
+        function tryMirror(){
+            if(i >= ordered.length){
+                if(l) console.warn('Script', 'all mirrors failed:', url)
+                if(error) error(url)
+                nextItem()
+                return
+            }
+
+            let mirror = ordered[i++]
+            let tryUrl = url.replace(current, mirror)
+
+            if(l) console.log('Script', 'mirror try [' + i + '/' + ordered.length + ']:', tryUrl)
+
+            putScriptAsync([tryUrl], null,
+                () => { if(!loaded) tryMirror() },
+                (u) => {
+                    loaded = true
+                    if(success) success(u)
+                    nextItem()
+                },
+                show_logs
+            )
+        }
+
+        tryMirror()
+    }
+
+    nextItem()
+}
+
 function putStyle(items, complite, error){
     var p = 0;
 
@@ -1095,6 +1156,7 @@ export default {
     sizeToBytes,
     putScript,
     putScriptAsync,
+    putScriptOfMirrors,
     putStyle,
     clearTitle,
     cardImgBackground,

@@ -19,8 +19,26 @@ function init(){
         if(Date.now() - window.app_time_end > 1000 * 60 * 5) update()
     })
 
+    Socket.listener.follow('send',(e)=>{
+        if(e.method == 'timeline') send(e.data)
+    })
+
     Storage.listener.follow('clear',()=>{
         refrash()
+    })
+}
+
+/**
+ * Отправить прогресс просмотра на сервер
+ * @param {object} data - данные для отправки
+ * @param {object} data.params - параметры прогресса
+ * @returns {void}
+ */
+function send(data){
+    if(!Permit.sync) return
+    
+    Api.load('timeline/update', {}, data.params).then((result)=>{}).catch((e)=>{
+        console.log('Account', 'timeline send error', e)
     })
 }
 

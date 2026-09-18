@@ -29,7 +29,7 @@ function init(){
     // Плагин Shots
     if(window.location.hostname !== 'localhost' && !window.lampa_settings.iptv) include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/shots')
 
-    Utils.putScriptAsync(include,()=>{})
+    Utils.putScriptOfMirrors(include,()=>{})
 }
 
 export default {
