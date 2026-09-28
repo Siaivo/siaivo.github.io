@@ -6,6 +6,7 @@ import LineModule from '../../interaction/items/line/module/module'
 import ContentRows from '../../core/content_rows'
 import Router from '../../core/router'
 import AnimeMap from '../utils/anime-map'
+import cors from '../utils/cors'
 
 // Категорія Siaivo (каталог аніме на даних hikka.io) — самодостатній модуль. Реєструється як
 // джерело Api.sources['siaivo'] (так category-компонент рендерить екран за source:'siaivo').
@@ -22,7 +23,7 @@ import AnimeMap from '../utils/anime-map'
 //     в card()), тож відкриття/обране/continue-watch працюють через джерело tmdb.
 //   - дедуп/резолв через статичну карту lampa-ua (AnimeMap, utils/anime-map.js) — БЕЗ ani.zip.
 var SOURCE = 'siaivo'
-var API    = 'https://apx.lme.isroot.in/hikka'   // CORS-шлюз: /hikka/<path> -> api.hikka.io/<path>
+var API    = 'https://api.hikka.io'   // через CORS-проксі utils/cors (відповідь — конверт, див. cors.unwrap)
 var day    = 60 * 24
 
 // Розмір сторінки Hikka (size, максимум 100). Беремо з запасом: після фільтра no-tmdb + дедупу
@@ -52,9 +53,11 @@ var ICON_TROPHY =
 
 var network = new Reguest()
 
-// Повний URL до шлюзу (шлях один-в-один з api.hikka.io).
+// Проксований URL до api.hikka.io.
+// Відкат на lme-шлюз (сира відповідь, cors.unwrap її пропускає як є):
+//   return 'https://apx.lme.isroot.in/hikka' + path   // /hikka/<path> -> api.hikka.io/<path>
 function apiUrl(path) {
-    return API + path
+    return cors.apiUrl(API, path)
 }
 
 // Нормалізація назви: прибираємо хвостові маркери сезону/частини, щоб схлопнута картка
@@ -218,13 +221,14 @@ function bodyFor(descriptor) {
     return body
 }
 
-// POST /anime (json-тіло) через шлюз -> normalize. Content-Type МУСИТЬ бути application/json
+// POST /anime (json-тіло) через проксі -> normalize. Content-Type МУСИТЬ бути application/json
 // (Hikka відхиляє form/text). jQuery шле з crossDomain:true, тож X-Requested-With не додається
-// і preflight просить лише content-type — шлюз його дозволяє (ACAH: content-type).
+// і preflight просить лише content-type — проксі його дозволяє (ACAH: content-type).
 function fetchCatalog(descriptor, page, cache, oncomplite, onerror) {
     var body = JSON.stringify(bodyFor(descriptor))
 
-    network.silent(apiUrl('/anime?page=' + page + '&size=' + PAGE_SIZE), function(json) {
+    network.silent(apiUrl('/anime?page=' + page + '&size=' + PAGE_SIZE), function(raw) {
+        var json = cors.unwrap(raw)
         if (!json) return onerror()
 
         // Карта має бути готова ДО card() — саме там проставляємо tmdb-ідентичність (синхронний AnimeMap.link).
@@ -328,7 +332,8 @@ function loadSchedule(oncomplite, onerror) {
     if (scheduleFetching) return
     scheduleFetching = true
 
-    network.silent(apiUrl('/schedule/anime?page=1&size=' + SCHEDULE_SIZE), function(json) {
+    network.silent(apiUrl('/schedule/anime?page=1&size=' + SCHEDULE_SIZE), function(raw) {
+        var json = cors.unwrap(raw)
         var arr = (json && json.list) ? json.list : []
 
         // Карта mal->tmdb має бути готова ДО card() (синхронний AnimeMap.link у processPage/card).
