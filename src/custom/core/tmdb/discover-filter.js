@@ -181,8 +181,20 @@ export function filterDiscoverResults(results, type, floors = vote_floor, keep_m
     return keep.concat(drop.slice(0, keep_min - keep.length))
 }
 
+// Поза discover (тренди, «зараз у кіно», популярне, рекомендації) голоси й жанри не
+// чіпаємо — це добірка самого TMDB, — але нечитабельна назва там так само нечитабельна:
+// свіжий китайський реліз зі 7 голосами і popularity 545 лізе в тренди.
+// Пошук не фільтруємо: там користувач сам набрав назву.
+export function filterTitles(results) {
+    return results.filter(item => item && !foreign_title.test(item.title || item.name || ''))
+}
+
 function isDiscover(url) {
     return typeof url === 'string' && url.indexOf('discover/') === 0
+}
+
+function isSearch(url) {
+    return typeof url === 'string' && url.indexOf('search/') === 0
 }
 
 // Лінії на сторінках TMDB збираються всередині src/core/api/sources/tmdb.js
@@ -194,6 +206,9 @@ let addSource = Utils.addSource
 Utils.addSource = function(data, source) {
     if (source == 'tmdb' && data && isDiscover(data.url)) {
         data.results = filterDiscoverResults(data.results, mediaType(data.url))
+    }
+    else if (source == 'tmdb' && data && typeof data.url === 'string' && !isSearch(data.url) && Array.isArray(data.results)) {
+        data.results = filterTitles(data.results)
     }
 
     return addSource.call(this, data, source)
@@ -213,7 +228,12 @@ function patchList() {
     let list = tmdb.list.bind(tmdb)
 
     tmdb.list = function(params, oncomplite, onerror) {
-        if (!isDiscover(params && params.url)) return list(params, oncomplite, onerror)
+        if (isSearch(params && params.url)) return list(params, oncomplite, onerror)
+
+        // Не-discover категорія: лише фільтр назви. Копія, бо reguest тримає відповідь у кеші.
+        if (!isDiscover(params && params.url)) return list(params, function(data) {
+            oncomplite(data && Array.isArray(data.results) ? Object.assign({}, data, {results: filterTitles(data.results)}) : data)
+        }, onerror)
 
         let view_page = parseInt(params.page) || 1
         let first     = (view_page - 1) * pages_per_view + 1
