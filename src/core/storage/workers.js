@@ -21,6 +21,8 @@ class WorkerArray{
         this.limit  = 3000
         this.loaded = false
         this.update_time = 0
+        this.send_timers = {}
+        this.send_rate   = { count: 0, reset: 0 }
     }
 
     init(class_type){
@@ -162,19 +164,39 @@ class WorkerArray{
     send(id,value){
         if(!Account.hasPremium()) return
 
-        console.log('StorageWorker','save:',this.field, id,value)
+        clearTimeout(this.send_timers[id])
 
-        let str = JSON.stringify(value)
+        this.send_timers[id] = setTimeout(()=>{
+            delete this.send_timers[id]
 
-        if(str.length < 10000){
-            Socket.send('storage',{
-                params: {
-                    id: id,
-                    name: this.field,
-                    value: value
-                }
-            })
-        }
+            let now = Date.now()
+
+            if(now > this.send_rate.reset){
+                this.send_rate.count = 0
+                this.send_rate.reset = now + 2000
+            }
+
+            if(this.send_rate.count >= 5){
+                console.log('StorageWorker','rate limit:',this.field, id)
+                return
+            }
+
+            this.send_rate.count++
+
+            console.log('StorageWorker','save:',this.field, id, value)
+
+            let str = JSON.stringify(value)
+
+            if(str.length < 10000){
+                Socket.send('storage',{
+                    params: {
+                        id: id,
+                        name: this.field,
+                        value: value
+                    }
+                })
+            }
+        }, 2000)
     }
 
     sendRemove(id,value){

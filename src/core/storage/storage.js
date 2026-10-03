@@ -23,7 +23,9 @@ function init(){
 
     Socket.listener.follow('send',(e)=>{
         if(e.method == 'storage'){
-            Api.load('storage/update', {}, e.data.params).catch((e)=>{})
+            Api.load('storage/update', {}, {
+                json: JSON.stringify(e.data.params)
+            }).catch((e)=>{})
         }
     })
 }
