@@ -17,6 +17,9 @@ import { detectType, mapItem } from './feed-mapper'
 
 import './feed-templates'
 
+// Список стрічки: година кешу — нові серії з'являться із затримкою до 1 год.
+const KINOSTRAIN_CACHE = { cache: { life: 60 } }
+
 Lang.add({
     feed_head_title: {
         ru: 'Кино Сияние',
@@ -101,7 +104,7 @@ function CustomFeed(object) {
         }, () => {
             console.warn('Feed: kinostrain failed, falling back to CUB')
             self.tryCUB()
-        })
+        }, false, KINOSTRAIN_CACHE)
     }
 
     this.tryCUB = function () {
@@ -284,7 +287,7 @@ function CustomFeed(object) {
             self.setupLazyLoad()
         }, () => {
             loadingPage = false
-        })
+        }, false, KINOSTRAIN_CACHE)
     }
 
     this.buildFeed = function () {
@@ -462,7 +465,7 @@ function CustomFeed(object) {
                             observer.unobserve(entry.target)
                         }
                     })
-                }, { rootMargin: '400px' })
+                }, { rootMargin: '1200px' })
             }
 
             html.querySelectorAll('.feed-item[data-feed-index]').forEach(el => {
@@ -501,7 +504,7 @@ function CustomFeed(object) {
                 : null
         }
 
-        mapItem(rawItem).then(result => {
+        mapItem(rawItem, network).then(result => {
             if (!result) return
 
             item.tmdbId = result.tmdbId
