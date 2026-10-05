@@ -51,6 +51,8 @@ import './category/mood'
 import './utils/clear-card'
 import './utils/same-card'
 import './utils/is-anime'
+import './utils/db-get-many'
+import './core/timetable'
 import './core/tmdb/discover-filter'
 
 // Фікс для старих користувачів: видаляємо стрічку з menu_hide, якщо вона там є
