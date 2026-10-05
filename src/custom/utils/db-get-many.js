@@ -3,7 +3,8 @@ import IndexedDB from '../../utils/db'
 // Кілька записів за одну readonly-транзакцію: getData() відкриває транзакцію на кожен ключ, а
 // getData() без ключа читає всю таблицю. Повертає {key: value}, відсутні ключі пропускає.
 // Не падає, як getDataAnyCase(): на помилці віддає те, що встигло прочитатись.
-IndexedDB.prototype.getMany = function(store_name, keys){
+// return_meta - як у getData(): цілий запис {key, value, time} замість value.
+IndexedDB.prototype.getMany = function(store_name, keys, return_meta = false){
     return new Promise((resolve) => {
         let result = {}
 
@@ -30,7 +31,7 @@ IndexedDB.prototype.getMany = function(store_name, keys){
 
             request.onsuccess = () => {
                 if (request.result) {
-                    result[key] = request.result.value
+                    result[key] = return_meta ? request.result : request.result.value
                 }
             }
         })
