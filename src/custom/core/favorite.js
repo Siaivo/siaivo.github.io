@@ -5,6 +5,7 @@ import Utils from '../../utils/utils'
 import Storage from '../../core/storage/storage'
 import SettingsApi from '../../interaction/settings/api'
 import Lang from '../../core/lang'
+import Timeline from '../../interaction/timeline'
 
 // Storage.set пише в localStorage весь об'єкт закладок, а подія нижче йде на сервер плагіна
 // синхронізації - тож робимо і те, і інше лише коли оновлення справді щось змінило.
@@ -24,7 +25,7 @@ function stable(card){
 // картка, збережена зі списочного ряду, назавжди лишається без полів повної. Зливаємо свіжу
 // поверх збереженої і лишаємо строго те, що віддав clearCard. Саме поверх, а не начисто:
 // повна відповідь TMDB не містить частини полів картки (genre_ids, imdb_rating,
-// release_quality, mal_id...), і перезапис начисто вибив би їх назавжди. Виняток -
+// release_quality...), і перезапис начисто вибив би їх назавжди. Виняток -
 // next_episode_to_air: коли серіал завершився, TMDB перестає віддавати поле, і без
 // прибирання лишився б фантомний анонс.
 //
@@ -313,8 +314,32 @@ Favorite.add = function(where, card, limit){
     return original_add.call(this, where, card, limit)
 }
 
+// Остання серія, що вже вийшла, якщо її можна вивести з картки. Дані - знімок на момент
+// останнього відкриття повної картки, тож свіжіший анонс тут не видно.
+function lastAired(card){
+    let next = card.next_episode_to_air
+
+    if (next) {
+        return next.episode_number > 1 ? {season: next.season_number, episode: next.episode_number - 1} : null
+    }
+
+    // для завершеного багатосезонного не знаємо, скільки серій в останньому сезоні
+    if (card.status == 'Ended' && card.number_of_seasons == 1 && card.number_of_episodes) {
+        return {season: 1, episode: card.number_of_episodes}
+    }
+
+    return null
+}
+
+function caughtUp(card){
+    let last = lastAired(card)
+
+    return last ? Timeline.watchedEpisode(card, last.season, last.episode) >= 90 : false
+}
+
 // core/favorite.js:388 ділить історію на 'tv'/'anime' інлайновою евристикою за японськими
-// символами. Підміняємо тільки предикат - решта копія оригіналу.
+// символами. Підміняємо предикат, додаємо 'all' (серіали й аніме одним хронологічним списком)
+// і відсіюємо додивлене до slice, щоб воно не з'їдало місця в стрічці.
 Favorite.continues = function(type){
     let viewed = Favorite.get({type:'viewed'})
     let thrown = Favorite.get({type:'thrown'})
@@ -328,10 +353,19 @@ Favorite.continues = function(type){
     result = result.filter(e => {
         let is_tv = e.number_of_seasons || e.first_air_date
 
-        if(type == 'anime') return Utils.isAnime(e)
-        else if(type == 'tv') return is_tv && !Utils.isAnime(e)
-        else return !is_tv && !Utils.isAnime(e)
-    })
+        if (type == 'all') {
+            return is_tv || Utils.isAnime(e)
+        }
+        else if (type == 'anime') {
+            return Utils.isAnime(e)
+        }
+        else if (type == 'tv') {
+            return is_tv && !Utils.isAnime(e)
+        }
+        else {
+            return !is_tv && !Utils.isAnime(e)
+        }
+    }).filter(e => !caughtUp(e))
 
     return Arrays.clone(result.slice(0,19))
 }

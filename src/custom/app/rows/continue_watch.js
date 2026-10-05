@@ -17,23 +17,14 @@ function add(){
         index: 0,
         screen: ['main', 'category', 'category_anime'],
         call: (params, screen)=>{
-            let media;
-            let results = [];
-
-            if (screen == 'main') {
-                media = 'all';
-                results = Favorite.continues('tv')
-                results = results.concat(Favorite.continues('anime'))
-            }
-            else {
-                media = screen == 'category_anime' ? 'anime' : params.url;
-                results = Favorite.continues(media)
-            }
+            let media   = screen == 'main' ? 'all' : screen == 'category_anime' ? 'anime' : params.url
+            let series  = media == 'tv' || media == 'anime' || media == 'all'
+            let results = Favorite.continues(media)
 
             if(!results.length) return
 
             return function(call){
-                if(media == 'tv' || media == 'anime' || media == 'all'){
+                if (series) {
                     let thrown = Favorite.get({type:'thrown'});
                     let viewed = Favorite.get({type:'viewed'});
 
@@ -58,15 +49,12 @@ function add(){
                             return card
                         })
 
-                    let caught_up = ongoing.filter(c => c.viewed >= 90)
-
-                    if(caught_up.length){
-                        results = results.filter(r => !caught_up.find(c => c.id == r.id))
-                    }
-
+                    // додивлене вже відсіяв Favorite.continues
                     let new_episode = ongoing.filter(c => c.viewed < 10)
 
-                    new_episode = new_episode.filter(e => media == 'anime' ? Utils.isAnime(e) : !Utils.isAnime(e))
+                    if (media != 'all') {
+                        new_episode = new_episode.filter(e => media == 'anime' ? Utils.isAnime(e) : !Utils.isAnime(e))
+                    }
 
                     if(new_episode.length){
                         results = results.filter(r=>!new_episode.find(h=>h.id == r.id))
@@ -78,7 +66,7 @@ function add(){
 
                 call({
                     results,
-                    title: media == 'tv' || media == 'anime' ? Lang.translate('title_continue') : Lang.translate('title_watched')
+                    title: series ? Lang.translate('title_continue') : Lang.translate('title_watched')
                 })
             }
         }

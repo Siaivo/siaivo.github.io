@@ -4,8 +4,6 @@ let clearCard = Utils.clearCard
 Utils.clearCard = function(card) {
     let cleared = clearCard.call(this, card)
 
-    if (card && typeof card.mal_id !== 'undefined') cleared.mal_id = card.mal_id
-
     // Зберігаємо додаткові поля для персон (акторів)
     if (card && (card.profile_path || card.known_for_department || typeof card.gender !== 'undefined')) {
         if (typeof card.profile_path !== 'undefined') cleared.profile_path = card.profile_path
