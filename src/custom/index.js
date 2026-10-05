@@ -39,6 +39,7 @@ import './app/rows'
 import './components/bookmarks'
 import './components/myperson'
 import './core/account/profile-visibility'
+import './core/account/bookmarks-cache-guard'
 
 import './components/feed'
 
