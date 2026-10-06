@@ -181,12 +181,31 @@ export function filterDiscoverResults(results, type, floors = vote_floor, keep_m
     return keep.concat(drop.slice(0, keep_min - keep.length))
 }
 
-// Поза discover (тренди, «зараз у кіно», популярне, рекомендації) голоси й жанри не
+// trending/tv/week, tv/popular, movie/123/recommendations -> тип; trending/all,
+// person/... -> null (у trending/all тип є в кожній картці як media_type).
+function urlType(url) {
+    let match = (url || '').match(/^(?:trending\/)?(tv|movie)\//)
+
+    return match ? match[1] : null
+}
+
+// Поза discover (тренди, «зараз у кіно», популярне, рекомендації) голоси не
 // чіпаємо — це добірка самого TMDB, — але нечитабельна назва там так само нечитабельна:
-// свіжий китайський реліз зі 7 голосами і popularity 545 лізе в тренди.
+// свіжий китайський реліз зі 7 голосами і popularity 545 лізе в тренди. Аніме й
+// exclude_genres ріжемо і тут: вони викидаються назовсім, а не за популярністю.
 // Пошук не фільтруємо: там користувач сам набрав назву.
-export function filterTitles(results) {
-    return results.filter(item => item && !foreign_title.test(item.title || item.name || ''))
+export function filterTitles(results, url) {
+    let url_type = urlType(url)
+
+    return results.filter(item => {
+        if (!item || foreign_title.test(item.title || item.name || '')) {
+            return false
+        }
+
+        let type = item.media_type || url_type
+
+        return !type || !(excludedGenre(item, type) || isAnime(item, type))
+    })
 }
 
 function isDiscover(url) {
@@ -208,7 +227,7 @@ Utils.addSource = function(data, source) {
         data.results = filterDiscoverResults(data.results, mediaType(data.url))
     }
     else if (source == 'tmdb' && data && typeof data.url === 'string' && !isSearch(data.url) && Array.isArray(data.results)) {
-        data.results = filterTitles(data.results)
+        data.results = filterTitles(data.results, data.url)
     }
 
     return addSource.call(this, data, source)
@@ -232,7 +251,7 @@ function patchList() {
 
         // Не-discover категорія: лише фільтр назви. Копія, бо reguest тримає відповідь у кеші.
         if (!isDiscover(params && params.url)) return list(params, function(data) {
-            oncomplite(data && Array.isArray(data.results) ? Object.assign({}, data, {results: filterTitles(data.results)}) : data)
+            oncomplite(data && Array.isArray(data.results) ? Object.assign({}, data, {results: filterTitles(data.results, params.url)}) : data)
         }, onerror)
 
         let view_page = parseInt(params.page) || 1
