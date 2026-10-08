@@ -4,6 +4,7 @@ import TMDB from '../../core/api/sources/tmdb'
 import Timer from '../../core/timer'
 import Cache from '../../utils/cache'
 import Utils from '../../utils/utils'
+import Storage from '../../core/storage/storage'
 import '../utils/db-get-many'
 
 let pool_size   = 100
@@ -48,6 +49,41 @@ Timetable.getMany = function(cards){
 
         return result
     })
+}
+
+// Скільки серій у кожному сезоні: без цього не перевірити, чи додивився фінал попереднього.
+// Окремим ключем, бо запис серіалу в timetable core перезаписує цілком (parse()).
+let seasons_name = 'timetable_seasons'
+let seasons_max  = 500
+
+// {id: {номер сезону: серій}}
+Timetable.seasons = function(){
+    return Storage.get(seasons_name, '{}')
+}
+
+function rememberSeasons(id, json){
+    let counts = {}
+    let list   = json.seasons || []
+
+    list.forEach(s => {
+        if (s.season_number > 0 && s.episode_count > 0) {
+            counts[s.season_number] = s.episode_count
+        }
+    })
+
+    if (!Object.keys(counts).length) {
+        return
+    }
+
+    let all = Storage.cache(seasons_name, seasons_max, {})
+
+    if (JSON.stringify(all[id]) == JSON.stringify(counts)) {
+        return
+    }
+
+    all[id] = counts
+
+    Storage.set(seasons_name, all)
 }
 
 // Фонове оновлення серіалів з історії. Timetable сам оновлює лише закладки, а картки лише з
@@ -142,6 +178,8 @@ function refresh(card, done){
 
         Favorite.refresh(fresh)
 
+        rememberSeasons(card.id, json)
+
         let season = lastSeason(json)
 
         TMDB.get('tv/' + card.id + '/season/' + season, {}, (data) => {
@@ -215,6 +253,13 @@ Timetable.init = function(){
 
         if (e.target == 'favorite') {
             pool_at = 0
+        }
+    })
+
+    // закладки фон не оновлює, тож сезони для них беремо з повної картки
+    Lampa.Listener.follow('full', (e) => {
+        if (e.type == 'complite' && e.data.movie && e.data.movie.original_name) {
+            rememberSeasons(e.data.movie.id, e.data.movie)
         }
     })
 
