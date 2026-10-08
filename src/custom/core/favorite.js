@@ -332,15 +332,21 @@ function lastAired(card){
 }
 
 function caughtUp(card){
+    if (!card.original_name) {
+        return Timeline.watched(card) >= 90
+    }
+
     let last = lastAired(card)
 
     return last ? Timeline.watchedEpisode(card, last.season, last.episode) >= 90 : false
 }
 
+Favorite.caughtUp = caughtUp
+
 // core/favorite.js:388 ділить історію на 'tv'/'anime' інлайновою евристикою за японськими
-// символами. Підміняємо предикат, додаємо 'all' (серіали й аніме одним хронологічним списком)
-// і відсіюємо додивлене до slice, щоб воно не з'їдало місця в стрічці.
-Favorite.continues = function(type){
+// символами. Підміняємо предикат і додаємо 'all' (уся історія одним хронологічним списком, для головної).
+// Уся історія без додивленого й обрізки: стрічка серіалів сама вирішує за серіями з Timetable.
+Favorite.candidates = function(type){
     let viewed = Favorite.get({type:'viewed'})
     let thrown = Favorite.get({type:'thrown'})
 
@@ -354,7 +360,7 @@ Favorite.continues = function(type){
         let is_tv = e.number_of_seasons || e.first_air_date
 
         if (type == 'all') {
-            return is_tv || Utils.isAnime(e)
+            return true
         }
         else if (type == 'anime') {
             return Utils.isAnime(e)
@@ -365,9 +371,14 @@ Favorite.continues = function(type){
         else {
             return !is_tv && !Utils.isAnime(e)
         }
-    }).filter(e => !caughtUp(e))
+    })
 
-    return Arrays.clone(result.slice(0,19))
+    return Arrays.clone(result)
+}
+
+// Додивлене відсіюємо до slice, щоб воно не з'їдало місця в стрічці.
+Favorite.continues = function(type){
+    return Favorite.candidates(type).filter(e => !caughtUp(e)).slice(0,20)
 }
 
 // 5. Override Favorite.get
