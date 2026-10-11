@@ -1,6 +1,6 @@
-import SettingsApi from '../../../interaction/settings/api'
 import Settings from '../../../interaction/settings/settings'
 import Extensions from '../../../interaction/extensions/extensions'
+import Template from '../../../interaction/template'
 import ExtensionClass from '../../../interaction/extensions/extension'
 import Manifest from '../../core/manifest'
 import Plugins from '../../../core/plugins'
@@ -142,11 +142,27 @@ ExtensionClass.prototype.visible = function () {
     }
 }
 
-SettingsApi.addComponent({
-    component: 'hub',
-    name: 'Hub',
-    icon: '<svg width="37" height="37" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="33" height="33" rx="4" stroke="white" stroke-width="2.5"/><circle cx="12" cy="12" r="3" fill="white"/><circle cx="25" cy="12" r="3" fill="white"/><circle cx="12" cy="25" r="3" fill="white"/><circle cx="25" cy="25" r="3" fill="white"/><line x1="15" y1="12" x2="22" y2="12" stroke="white" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="22" stroke="white" stroke-width="2"/><line x1="25" y1="15" x2="25" y2="22" stroke="white" stroke-width="2"/><line x1="15" y1="25" x2="22" y2="25" stroke="white" stroke-width="2"/></svg>'
-})
+// Патчимо шаблон settings_main — додаємо статичний пункт Hub після «Плагіни».
+// Ядро не чіпаємо; пункт з data-static="true", тож Main.update() не переприв'язує
+// його hover:enter і плагіни (pogua1/modss/int) не можуть стерти наш бінд.
+const settingsMainHtml = Template.string('settings_main')
+
+if (settingsMainHtml && settingsMainHtml.indexOf('data-component="hub"') === -1) {
+    Template.add(
+        'settings_main',
+        settingsMainHtml.replace(
+            '        <div class="settings-folder__name">#{settings_main_plugins}</div>\n    </div>',
+            `        <div class="settings-folder__name">#{settings_main_plugins}</div>
+    </div>
+    <div class="settings-folder selector" data-component="hub" data-static="true">
+        <div class="settings-folder__icon">
+            <svg width="37" height="37" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="33" height="33" rx="4" stroke="white" stroke-width="2.5"/><circle cx="12" cy="12" r="3" fill="white"/><circle cx="25" cy="12" r="3" fill="white"/><circle cx="12" cy="25" r="3" fill="white"/><circle cx="25" cy="25" r="3" fill="white"/><line x1="15" y1="12" x2="22" y2="12" stroke="white" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="22" stroke="white" stroke-width="2"/><line x1="25" y1="15" x2="25" y2="22" stroke="white" stroke-width="2"/><line x1="15" y1="25" x2="22" y2="25" stroke="white" stroke-width="2"/></svg>
+        </div>
+        <div class="settings-folder__name">Hub</div>
+    </div>`
+        )
+    )
+}
 
 Settings.listener.follow('open', function (e) {
     if (e.name !== 'main') return
@@ -160,9 +176,4 @@ Settings.listener.follow('open', function (e) {
             with_installed: false
         })
     })
-
-    let plugins = e.body.find('[data-component="plugins"]')
-    if (plugins.length) {
-        plugins.after(el.detach())
-    }
 })
