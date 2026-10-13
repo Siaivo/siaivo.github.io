@@ -5,6 +5,7 @@ import Timer from '../../core/timer'
 import Cache from '../../utils/cache'
 import Utils from '../../utils/utils'
 import Storage from '../../core/storage/storage'
+import Arrays from '../../utils/arrays'
 import '../utils/db-get-many'
 
 let pool_size   = 100
@@ -240,10 +241,191 @@ function tick(){
     })
 }
 
+// Заміна core update(). Колбеки core parse() пишуть у спільний object, який міняє і extract() по
+// таймеру, і update() при відкритті картки чи додаванні в закладки. Відповідь TMDB, що прийшла
+// після перемикання, записувала сезони й епізоди одного серіалу в інший. Тож update() тримає свій
+// запис. extract() сам із собою майже не перетинається: поки запис не scaned, він бере той самий.
+// Лишається випадок, коли запис прибрали з data посеред запиту (видалили із закладок) - тоді
+// наступний тік візьме інший, і запізніла відповідь запишеться в нього. Без заміни приватного
+// extract() звідси не виправити, а ймовірність мала: час відповіді до 30 с тіку.
+let time_season = 1000 * 60 * 60 * 24 * 7 // як у core
+
+function nextEpisode(episodes){
+    let now_date = new Date()
+
+    now_date.setHours(0, 0, 0)
+
+    let now_time = now_date.getTime()
+    let now_year = now_date.getFullYear()
+
+    return episodes.find(ep => {
+        if (!ep.air_date || (ep.air_date.indexOf(now_year) !== 0 && ep.air_date.indexOf(now_year + 1) !== 0)) {
+            return false
+        }
+
+        return Utils.parseToDate(ep.air_date).getTime() >= now_time
+    }) || false
+}
+
+function parseOwn(item, to_database){
+    let cache = {life: 60 * 24 * 3}
+
+    if (!to_database && !Favorite.checkAnyNotHistory(Favorite.check(item))) {
+        Arrays.remove(Timetable.all(), item)
+
+        Storage.remove('timetable', item.id)
+
+        return
+    }
+
+    if (!item.season || Date.now() - item.ssn > time_season) {
+        TMDB.get('tv/' + item.id, {}, (json) => {
+            item.season = Utils.countSeasons(json) || 1
+            item.ssn    = Date.now()
+
+            parseOwn(item, to_database)
+        }, () => {}, cache)
+
+        return
+    }
+
+    TMDB.get('tv/' + item.id + '/season/' + item.season, {}, (ep) => {
+        if (!ep.episodes) {
+            return
+        }
+
+        item.episodes = filter(ep.episodes_original || ep.episodes)
+        item.next     = nextEpisode(item.episodes)
+
+        Cache.getData('timetable', item.id).then(obj => {
+            if (obj) {
+                // core лишає season від першого запису - оновлюємо, щоб не розходився з episodes
+                obj.episodes = item.episodes
+                obj.season   = item.season
+            }
+            else {
+                obj = Arrays.clone(item)
+            }
+
+            return Cache.rewriteData('timetable', item.id, obj)
+        }).then(() => {
+            Lampa.Listener.send('state:changed', {
+                target: 'timetable',
+                reason: 'parse',
+                id: item.id
+            })
+        }).catch(() => {})
+    }, () => {}, cache)
+}
+
+Timetable.update = function(elem){
+    if (!elem.original_name || typeof elem.id !== 'number' || (elem.source !== 'tmdb' && elem.source !== 'cub')) {
+        return
+    }
+
+    let season = elem.number_of_seasons ? Utils.countSeasons(elem) : 0
+
+    if (Favorite.checkAnyNotHistory(Favorite.check(elem))) {
+        // додасть запис, якщо його нема, і збереже список; next/ssn core допише при наступному extract()
+        Timetable.add([elem], 'update')
+
+        let item = Timetable.all().find(a => a.id == elem.id)
+
+        if (season) {
+            item.season = season
+        }
+
+        parseOwn(item)
+    }
+    else {
+        parseOwn({id: elem.id, season, episodes: [], ssn: Date.now()}, true)
+    }
+}
+
+// Одноразово чистимо сліди тієї гонки. Чужі епізоди видно за номером сезону, що не збігається
+// із сезоном запису; хибний збіг лише змусить перечитати серіал зайвий раз.
+let race_fix_name = 'timetable_race_fixed'
+
+function raceFix(){
+    if (Storage.get(race_fix_name, 'false')) {
+        return
+    }
+
+    let memory = Timetable.all()
+
+    // кількість сезонів могла теж прийти чужа і застигнути на тиждень - перечитуємо всім
+    memory.forEach(item => {
+        item.ssn    = 0
+        item.scaned = 0
+
+        delete item.next
+    })
+
+    // add() завжди зберігає список - не чекаємо extract(), бо ТВ можуть вимкнути раніше
+    Timetable.add([], 'race-fix')
+
+    if (!Cache.db) {
+        return Storage.set(race_fix_name, true)
+    }
+
+    let bad = []
+
+    Cache.getData('timetable').then(records => {
+        bad = (records || []).filter(record => {
+            return record && record.id && record.season && (record.episodes || []).some(e => e.season_number != record.season)
+        }).map(record => record.id)
+
+        console.log('Timetable', 'race fix, broken:', bad.length)
+
+        return Promise.all(bad.map(id => Cache.deleteData('timetable', id)))
+    }).then(() => {
+        // після видалення: core loadEpisodes() міг дочитати базу пізніше за нас і повернути старе
+        memory.forEach(item => {
+            if (bad.indexOf(item.id) >= 0) {
+                item.episodes = []
+            }
+        })
+
+        Storage.set(race_fix_name, true)
+    }).catch(() => {})
+}
+
 let original_init = Timetable.init
 
 Timetable.init = function(){
-    original_init.apply(this, arguments)
+    // core init() вішає на state:changed виклик свого приватного update() - підміняємо його нашим
+    let follow  = Lampa.Listener.follow
+    let skipped = false
+
+    // впізнаємо за рядком 'added' - рядки мініфікатор не чіпає, на відміну від імен
+    Lampa.Listener.follow = function(name, listener){
+        if (name == 'state:changed' && !skipped && String(listener).indexOf('added') >= 0) {
+            skipped = true
+
+            return
+        }
+
+        return follow.apply(this, arguments)
+    }
+
+    try {
+        original_init.apply(this, arguments)
+    }
+    finally {
+        Lampa.Listener.follow = follow
+    }
+
+    if (!skipped) {
+        console.log('Timetable', 'core favorite listener not found - core changed, check update() override')
+    }
+
+    Lampa.Listener.follow('state:changed', (e) => {
+        if (e.target == 'favorite' && e.reason == 'update' && (e.method == 'add' || e.method == 'added') && e.type !== 'history') {
+            Timetable.update(e.card)
+        }
+    })
+
+    raceFix()
 
     Lampa.Listener.follow('state:changed', (e) => {
         // і Timetable, і ми після parse шлемо цю подію - запис щойно оновлено
