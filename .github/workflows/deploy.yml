@@ -86,3 +86,24 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/github/lampa-pages/
           publish_branch: gh-pages
+
+      - name: Prepare Cloudflare build (siaivo.tv, http only)
+        env:
+          CF_DOMAIN: siaivo.tv
+        run: |
+          set -euo pipefail
+          rm -rf ./build/github/lampa-cf
+          cp -R ./build/github/lampa ./build/github/lampa-cf
+          cp ./build/github/lampa-pages/app.min.js ./build/github/lampa-cf/app.min.js
+          sed -i \
+            -e "s|{domain}|$CF_DOMAIN|g" \
+            -e "s|{PREFIX}|http://|g" \
+            ./build/github/lampa-cf/msx/start.json
+          rm -f ./build/github/lampa-cf/CNAME
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name siaivo --assets ./build/github/lampa-cf --compatibility-date 2026-10-01
