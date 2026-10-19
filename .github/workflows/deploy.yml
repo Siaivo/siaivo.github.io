@@ -100,10 +100,21 @@ jobs:
             -e "s|{PREFIX}|http://|g" \
             ./build/github/lampa-cf/msx/start.json
           rm -f ./build/github/lampa-cf/CNAME
+          # workers.dev off: the token is scoped to this Worker and can't read the account subdomain
+          cat > ./build/github/wrangler-cf.json <<'JSON'
+          {
+            "name": "siaivo",
+            "compatibility_date": "2026-10-01",
+            "assets": { "directory": "./lampa-cf" },
+            "workers_dev": false,
+            "preview_urls": false
+          }
+          JSON
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --name siaivo --assets ./build/github/lampa-cf --compatibility-date 2026-10-01
+          wranglerVersion: "4"
+          command: deploy --config ./build/github/wrangler-cf.json
