@@ -23,6 +23,9 @@ const DRAG_THRESHOLD = 8
 let drag = null
 let drag_frame = 0
 let suppress_click = 0
+let settle_timer = 0
+let settle_el = null
+let settle_final = 0
 
 Lang.add({
     settings_param_navigation_mouse_pc: {
@@ -210,7 +213,6 @@ function wheel(e){
 function move(el, delta, horizontal){
     let params  = el.Scroll.params()
     let by_item = params.scroll_by_item
-    let before  = el.Scroll.position()
 
     params.scroll_by_item = false
 
@@ -222,15 +224,7 @@ function move(el, delta, horizontal){
         touchVisible(el)
     }
 
-    // Уперлися в край домальованого: startScroll ядра мовчки виходить і не кличе
-    // ні scrollEnded, ні onAnimateEnd, тож нові ряди й картки не з'являються
-    if(el.Scroll.position() == before) {
-        scrolled(el)
-
-        if(el.Scroll.onAnimateEnd) {
-            el.Scroll.onAnimateEnd()
-        }
-    }
+    settle(el)
 
     // Ряд домальовує картки лише після анімації (scrollEnded -> onScroll), тож одразу
     // правій стрілці вірити не можна: біля краю домальованого вона б зникла й знов з'явилась
@@ -245,6 +239,49 @@ function move(el, delta, horizontal){
 
         setTimeout(later, 400)
         setTimeout(later, 900)
+    }
+}
+
+// Ядро показує ряди (Layer.visible) і домальовує нові (onAnimateEnd) лише після
+// transitionend. Колесо перезапускає анімацію на кожній події, тож при швидкій прокрутці
+// вона не закінчується, і сторінка їде в ще приховані ряди. А біля краю домальованого
+// startScroll і зовсім мовчки виходить. Тому кличемо це самі — одразу й далі не частіше
+// ніж раз на 100 мс, і ще раз, коли анімація (0.3 с) точно доїхала.
+function settle(el){
+    clearTimeout(settle_final)
+
+    settle_final = setTimeout(() => settleRun(el), 350)
+
+    if(settle_timer) {
+        settle_el = el
+
+        return
+    }
+
+    settleRun(el)
+
+    settle_timer = setTimeout(() => {
+        settle_timer = 0
+
+        if(settle_el) {
+            let last = settle_el
+
+            settle_el = null
+
+            settle(last)
+        }
+    }, 100)
+}
+
+function settleRun(el){
+    if(!el.isConnected) {
+        return
+    }
+
+    scrolled(el)
+
+    if(el.Scroll.onAnimateEnd) {
+        el.Scroll.onAnimateEnd()
     }
 }
 
