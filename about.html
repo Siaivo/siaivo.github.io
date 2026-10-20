@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1d1f20">
+    <title>Сяйво — про проєкт</title>
+    <meta name="description" content="Сяйво — Лампа, що говорить українською: інтерфейс, назви й описи, аніме з Hikka. Без реклами й метрик.">
+    <meta property="og:title" content="Сяйво — Лампа, що говорить українською">
+    <meta property="og:description" content="Інтерфейс, назви й описи, аніме з Hikka — українською за замовчуванням. Без реклами й метрик.">
+    <meta property="og:image" content="https://siaivo.isroot.in/og-siaivo.png">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="img/logo-icon.svg" type="image/svg+xml">
+    <style>
+        @font-face {
+            font-family: "SegoeUI";
+            font-display: swap;
+            src: url("fonts/SegoeUI/SegoeUI-Light.woff") format("woff");
+            font-weight: 300;
+        }
+        @font-face {
+            font-family: "SegoeUI";
+            font-display: swap;
+            src: url("fonts/SegoeUI/SegoeUI.woff") format("woff");
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: "SegoeUI";
+            font-display: swap;
+            src: url("fonts/SegoeUI/SegoeUI-SemiBold.woff") format("woff");
+            font-weight: 600;
+        }
+
+        /* Значення з src/sass/app.scss Лампи */
+        :root {
+            --bg: #1d1f20;
+            --bg-primary: #262829;
+            --focus: #353535;
+            --dim: rgba(255, 255, 255, 0.6);
+            --faint: rgba(255, 255, 255, 0.4);
+            --ua-blue: #2f6fe0;
+            --ua-yellow: #ffd02b;
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 15px;
+            scrollbar-color: #4a4c4d var(--bg);
+        }
+
+        body {
+            margin: 0;
+            font-family: "SegoeUI", sans-serif;
+            background: var(--bg);
+            color: #fff;
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+            padding: 0 max(1.15em, env(safe-area-inset-right)) 4em max(1.15em, env(safe-area-inset-left));
+        }
+
+        ::selection {
+            background: #fff;
+            color: #000;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        :focus-visible {
+            outline: 0.15em solid #fff;
+            outline-offset: 0.2em;
+        }
+
+        /* ---------- перший екран ---------- */
+
+        .stripe {
+            height: 0.35em;
+            margin: 0 calc(-1 * max(1.15em, env(safe-area-inset-right)));
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .stripe span:first-child {
+            background: var(--ua-blue);
+        }
+
+        .stripe span:last-child {
+            background: var(--ua-yellow);
+        }
+
+        .hero {
+            max-width: 58em;
+            margin: 0 auto;
+            padding: 3.5em 0 4.5em;
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+            gap: 2.5em 4em;
+            align-items: end;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.9em;
+            margin-bottom: 2.4em;
+        }
+
+        .brand__icon {
+            width: 2.6em;
+            height: auto;
+        }
+
+        .brand__word {
+            width: 7.5em;
+            height: auto;
+        }
+
+        .hero__title {
+            font-size: 3.2em;
+            font-weight: 300;
+            line-height: 1.05;
+            letter-spacing: -0.01em;
+            margin: 0 0 0.9em;
+            text-wrap: balance;
+        }
+
+        .hero__title b {
+            font-weight: 600;
+        }
+
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6em;
+        }
+
+        .link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6em;
+            padding: 0.4em 0.5em 0.4em 1em;
+            border-radius: 1em;
+            background: rgba(255, 255, 255, 0.08);
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        .link__label {
+            font-size: 0.7em;
+            font-weight: 600;
+            border-radius: 0.4em;
+            padding: 0.25em 0.5em;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .link--main {
+            background: #fff;
+            color: #000;
+        }
+
+        .link--main .link__label {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .link:hover,
+        .link:focus-visible {
+            background: #fff;
+            color: #000;
+            outline: none;
+        }
+
+        .link:not(.link--main):hover .link__label,
+        .link:not(.link--main):focus-visible .link__label {
+            background: #000;
+            color: #fff;
+        }
+
+        .link--main:hover,
+        .link--main:focus-visible {
+            background: #dcdcdc;
+        }
+
+        .langs {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .langs li {
+            padding: 1em 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .langs li:first-child {
+            padding-top: 0;
+        }
+
+        .langs__name {
+            font-size: 1.2em;
+        }
+
+        .langs__descr {
+            color: var(--dim);
+            margin-top: 0.25em;
+            line-height: 1.5;
+        }
+
+        /* ---------- розділи ---------- */
+
+        main {
+            max-width: 58em;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 3.5em;
+        }
+
+        .block__title {
+            font-size: 1.4em;
+            font-weight: 400;
+            margin: 0 0 1em;
+        }
+
+        .grid {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.4em 2.5em;
+        }
+
+        .faq {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.5em;
+        }
+
+        .q {
+            border-radius: 1em;
+            background: rgba(255, 255, 255, 0.04);
+            transition: background-color 0.15s;
+        }
+
+        .q[open] {
+            background: var(--bg-primary);
+        }
+
+        .q__head {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1em;
+            padding: 0.9em 1.2em;
+            border-radius: 1em;
+            cursor: pointer;
+            font-size: 1.15em;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        .q__head::-webkit-details-marker {
+            display: none;
+        }
+
+        .q__head:hover,
+        .q__head:focus-visible {
+            background: #fff;
+            color: #000;
+            outline: none;
+        }
+
+        .q__sign {
+            position: relative;
+            width: 0.8em;
+            height: 0.8em;
+            flex-shrink: 0;
+        }
+
+        .q__sign::before,
+        .q__sign::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 0.1em;
+            margin-top: -0.05em;
+            background: currentColor;
+            border-radius: 1em;
+            transition: transform 0.2s;
+        }
+
+        .q__sign::after {
+            transform: rotate(90deg);
+        }
+
+        .q[open] .q__sign::after {
+            transform: rotate(0deg);
+        }
+
+        .q__body {
+            padding: 0.2em 1.38em 1.3em;
+        }
+
+        .q__body p {
+            color: var(--dim);
+            font-size: 1.05em;
+            line-height: 1.55;
+            margin: 0 0 1em;
+        }
+
+        .q__body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .q__body b {
+            color: #fff;
+            font-weight: 400;
+        }
+
+        .item__name {
+            font-size: 1.05em;
+            margin-bottom: 0.25em;
+        }
+
+        .text-link {
+            color: #fff;
+            text-decoration: underline;
+            text-decoration-color: var(--faint);
+            text-underline-offset: 0.2em;
+        }
+
+        .text-link:hover {
+            text-decoration-color: #fff;
+        }
+
+        .item__descr {
+            color: var(--dim);
+            line-height: 1.5;
+        }
+
+        .version {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.7em 1.5em;
+            align-items: center;
+            margin-top: 1.2em;
+        }
+
+        .version__name {
+            color: var(--dim);
+        }
+
+        .version__num {
+            display: flex;
+            align-items: center;
+            gap: 0.2em;
+            font-size: 1.4em;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .version__num span {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 0.2em;
+            min-width: 1.4em;
+            text-align: center;
+        }
+
+        .version__num i {
+            font-style: normal;
+            color: var(--faint);
+        }
+
+        .version__num .is-new {
+            background: #fff;
+            color: #232425;
+        }
+
+        .code {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 0.8em;
+            margin-top: 1em;
+        }
+
+        .code pre {
+            margin: 0;
+            padding: 1.2em 1.4em;
+            overflow-x: auto;
+            font-family: Consolas, "Cascadia Mono", monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+            color: var(--dim);
+        }
+
+        .code .s {
+            color: #fff;
+        }
+
+        .code .k {
+            color: var(--faint);
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            font-family: inherit;
+            font-size: 1em;
+            padding: 0.4em 1em;
+            border: 0;
+            border-radius: 1em;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        .button:hover,
+        .button:focus-visible {
+            background: #fff;
+            color: #000;
+            outline: none;
+        }
+
+        .code .button {
+            position: absolute;
+            top: 0.6em;
+            right: 0.6em;
+        }
+
+        @media screen and (max-width: 600px) {
+            html {
+                font-size: 15px;
+            }
+
+            .hero {
+                grid-template-columns: minmax(0, 1fr);
+                padding-top: 2em;
+                padding-bottom: 3em;
+            }
+
+            .brand {
+                margin-bottom: 1.6em;
+            }
+
+            .hero__title {
+                font-size: 2.3em;
+            }
+
+            .links {
+                flex-direction: column;
+            }
+
+            .link {
+                justify-content: space-between;
+            }
+
+            .grid {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 1.2em;
+            }
+
+            main {
+                gap: 2.8em;
+            }
+
+            .q__head {
+                padding: 0.9em 1em;
+            }
+
+            .q__body {
+                padding: 0.2em 1.15em 1.2em;
+            }
+
+            .code .button {
+                position: static;
+                margin: 0 0 1em 1.4em;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stripe" aria-hidden="true"><span></span><span></span></div>
+
+    <header class="hero">
+        <div>
+            <div class="brand">
+                <img class="brand__icon" src="img/logo-icon.svg" alt="" width="110" height="104">
+                <img class="brand__word" src="img/logo.svg" alt="Сяйво" width="265" height="68">
+            </div>
+            <h1 class="hero__title">Лампа, що говорить <b>українською</b></h1>
+
+            <nav class="links" aria-label="Адреси Сяйва">
+                <a class="link link--main" href="http://siaivo.tv">siaivo.tv <span class="link__label">HTTP</span></a>
+                <a class="link" href="https://siaivo.github.io">siaivo.github.io <span class="link__label">HTTPS</span></a>
+                <a class="link" href="https://siaivo.isroot.in">siaivo.isroot.in <span class="link__label">HTTPS</span></a>
+                <a class="link" href="http://siaivo.isroot.in">siaivo.isroot.in <span class="link__label">HTTP</span></a>
+            </nav>
+        </div>
+
+        <ul class="langs">
+            <li>
+                <div class="langs__name">Інтерфейс</div>
+                <div class="langs__descr">Українська з першого ж екрана, без пошуку в налаштуваннях.</div>
+            </li>
+            <li>
+                <div class="langs__name">Назви й описи</div>
+                <div class="langs__descr">Немає українського — підставляється наявний переклад або англійська.</div>
+            </li>
+            <li>
+                <div class="langs__name">Аніме</div>
+                <div class="langs__descr">Українські назви й описи з Hikka.</div>
+            </li>
+        </ul>
+    </header>
+
+    <main>
+        <section class="block">
+            <h2 class="block__title">Що ви отримуєте</h2>
+            <ul class="grid">
+                <li>
+                    <div class="item__name">Легко продовжити, де зупинились</div>
+                    <div class="item__descr">На головній один ряд «Продовжити перегляд» — фільми, серіали й аніме разом, найсвіжіше спереду. Досмотрене зникає саме.</div>
+                </li>
+                <li>
+                    <div class="item__name">Видно, що вийшла нова серія</div>
+                    <div class="item__descr">Серіал піднімається, коли з'явилась серія, яку ви ще не бачили, а не тому, що ви колись його відкривали.</div>
+                </li>
+                <li>
+                    <div class="item__name">Аніме, в якому зручно шукати</div>
+                    <div class="item__descr">Окремий розділ за даними Hikka: «Минулий сезон», «Відзначено нагородами», розклад виходу серій, рекомендації. Назви й описи українською, де вони є.</div>
+                </li>
+                <li>
+                    <div class="item__name">Менше сміття в добірках</div>
+                    <div class="item__descr">Немає карток з незрозумілими назвами, а аніме не забиває тренди фільмів.</div>
+                </li>
+                <li>
+                    <div class="item__name">Hub — наш каталог плагінів</div>
+                    <div class="item__descr">Добірка плагінів за категоріями: відео, IPTV, теми, добірки, доріжки, керування. Встановлення в один клік: налаштування → Hub. Список відкритий на <a class="text-link" href="https://github.com/Siaivo/Hub" target="_blank" rel="noopener">GitHub</a>.</div>
+                </li>
+                <li>
+                    <div class="item__name">Захист від небезпечних плагінів</div>
+                    <div class="item__descr">Якщо плагін у списку небезпечних — побачите попередження, і він не завантажиться, поки ви не вирішите, що з ним робити.</div>
+                </li>
+                <li>
+                    <div class="item__name">Якість роздачі видно одразу</div>
+                    <div class="item__descr">Бейджі якості, аудіо й відео біля кожного торрента. Вмикається в налаштуваннях → Siaivo → «Торренти v2».</div>
+                </li>
+                <li>
+                    <div class="item__name">Голосовий пошук на телефоні</div>
+                    <div class="item__descr">В оригіналі мікрофон є лише на ТВ. Вмикається в налаштуваннях → Інше.</div>
+                </li>
+            </ul>
+        </section>
+
+        <section class="block">
+            <h2 class="block__title">Питання</h2>
+            <div class="faq">
+                <details class="q">
+                    <summary class="q__head">Чим відрізняється від Лампи?<span class="q__sign" aria-hidden="true"></span></summary>
+                    <div class="q__body">
+                        <ul class="grid">
+                            <li>
+                                <div class="item__name">Менше CUB</div>
+                                <div class="item__descr">Прибрані сповіщення CUB, пошук через CUB, реакції, обговорення, AI-функції. Синхронізація не працює у фоні без увімкненого акаунта.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Без реклами</div>
+                                <div class="item__descr">Немає реклами, метрик і зайвих фонових запитів.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Простіше меню</div>
+                                <div class="item__descr">Прибрано пункт «Релізи» та опції CUB у налаштуваннях. Додано окремий розділ «Siaivo» в налаштуваннях.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Ширша видача</div>
+                                <div class="item__descr">Вимкнено приховування LGBT-контенту та частину DMCA-обмежень.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Чистіший каталог</div>
+                                <div class="item__descr">Приховано мильні опери, картки без оцінок і картки без читабельної назви.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Нові розділи</div>
+                                <div class="item__descr">«Аніме» — каталог за даними Hikka; «Настрій» — добірки за настроєм; «Стрічка» / «Кіно Сяйво» — стрічка новинок з фільтром за рейтингом і роком.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Українська за замовчуванням</div>
+                                <div class="item__descr">Якщо немає українського опису чи назви — підставляється наявний переклад або англійська. Перший екран вибору мови — українською.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Закладки для персон</div>
+                                <div class="item__descr">Акторів можна додавати в обране.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">Торренти</div>
+                                <div class="item__descr">Увімкнено за замовчуванням.</div>
+                            </li>
+                            <li>
+                                <div class="item__name">І багато інших приємних дрібниць</div>
+                                <div class="item__descr">Усі зміни — в історії проєкту на <a class="text-link" href="https://github.com/siaivo/siaivo.github.io/commits/rework" target="_blank" rel="noopener">GitHub</a>.</div>
+                            </li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="q">
+                    <summary class="q__head">Як читати версію?<span class="q__sign" aria-hidden="true"></span></summary>
+                    <div class="q__body">
+                        <p>Лампа має три числа, ми додаємо четверте — номер наших змін поверх неї.</p>
+                        <div class="version">
+                            <div class="version__name">Лампа</div>
+                            <div class="version__num"><span>3</span><i>.</i><span>1</span><i>.</i><span>1</span></div>
+                            <div class="version__name">Сяйво</div>
+                            <div class="version__num"><span>3</span><i>.</i><span>1</span><i>.</i><span>1</span><i>.</i><span class="is-new">2</span></div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="q">
+                    <summary class="q__head">У мене Lampac NextGen<span class="q__sign" aria-hidden="true"></span></summary>
+                    <div class="q__body">
+                        <p>Додайте в конфіг, щоб Lampac підтягував Сяйво замість оригінальної Лампи.</p>
+                        <div class="code">
+<pre id="lampac-config"><span class="s">"LampaWeb"</span>: {
+    <span class="s">"git"</span>: <span class="s">"Siaivo/siaivo.github.io"</span>,
+    <span class="s">"tree"</span>: <span class="k">null</span>
+}</pre>
+                            <button class="button js-copy" type="button" data-target="lampac-config">Скопіювати</button>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="q">
+                    <summary class="q__head">Хочу долучитися до розвитку<span class="q__sign" aria-hidden="true"></span></summary>
+                    <div class="q__body">
+                        <p>Код відкритий. Пишіть issue, надсилайте pull request.</p>
+                        <a class="button" href="https://github.com/siaivo/siaivo.github.io" target="_blank" rel="noopener">siaivo/siaivo.github.io на GitHub</a>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.querySelectorAll('.js-copy').forEach(function(button){
+            button.addEventListener('click', function(){
+                var text = document.getElementById(button.dataset.target).textContent
+
+                function done(ok){
+                    button.textContent = ok ? 'Скопійовано' : 'Не вдалося — виділіть вручну'
+
+                    setTimeout(function(){
+                        button.textContent = 'Скопіювати'
+                    }, 2000)
+                }
+
+                if(navigator.clipboard && window.isSecureContext){
+                    navigator.clipboard.writeText(text).then(function(){ done(true) }, function(){ done(false) })
+                }
+                else{
+                    var area = document.createElement('textarea')
+                    area.value = text
+                    document.body.appendChild(area)
+                    area.select()
+
+                    try{
+                        done(document.execCommand('copy'))
+                    }
+                    catch(e){
+                        done(false)
+                    }
+
+                    area.remove()
+                }
+            })
+        })
+    </script>
+</body>
+</html>
