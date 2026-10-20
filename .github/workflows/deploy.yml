@@ -27,12 +27,13 @@ jobs:
       - name: Build Lampa
         run: npx gulp build_github
 
-      - name: Prepare self-hosted template (no pre-installed plugins)
+      - name: Prepare self-hosted template (no pre-installed plugins, no about page)
         run: |
           set -euo pipefail
           rm -rf ./build/github/lampa-main
           cp -R ./build/github/lampa ./build/github/lampa-main
           echo '[]' > ./build/github/lampa-main/autoload.json
+          rm -f ./build/github/lampa-main/about.html
 
       - name: Prepare GitHub Pages build (replace MSX domain placeholders)
         env:
