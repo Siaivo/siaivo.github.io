@@ -44,7 +44,7 @@ Lang.add({
 function mode(){
     let value = Storage.field('navigation_type')
 
-    return value == 'mouse' && Storage.get(FLAG, false) === true ? MODE : value
+    return value == 'mouse' && Storage.get(FLAG) === true ? MODE : value
 }
 
 function showMode(el){
@@ -112,11 +112,19 @@ function find(target, horizontal){
     let selector = horizontal ? '.scroll--horizontal' : '.scroll:not(.scroll--horizontal)'
     let el = target.closest(selector)
 
-    while(el && !el.Scroll){
+    while(el && !el.Scroll) {
         el = el.parentElement && el.parentElement.closest(selector)
     }
 
     return el
+}
+
+// Тягнемо й показуємо стрілки лише в рядах стрічки: у фільтрах, історії пошуку
+// чи консолі горизонтальний скрол — це кнопки й текст, а не картки
+function row(target){
+    let el = find(target, true)
+
+    return el && el.closest('.items-line') ? el : null
 }
 
 // На ТВ-екрані ряд домальовує картки лише до активної (line/module/items.js:69),
@@ -131,7 +139,7 @@ function touchVisible(el){
     let items = body.children
 
     for(let i = items.length - 1; i >= 0; i--){
-        if(items[i].getBoundingClientRect().left - left < right && !items[i].classList.contains('card-more')){
+        if(items[i].getBoundingClientRect().left - left < right && !items[i].classList.contains('card-more')) {
             Utils.trigger(items[i], 'hover:touch')
 
             break
@@ -160,9 +168,12 @@ function wheel(e){
         return
     }
 
+    // Стрілки лежать на body, поза скролами — колесо над ними належить їхньому ряду
+    let target = e.target.closest('.mouse-pc-arrow') && arrows.el ? arrows.el : e.target
+
     // mousewheel ядра слухає теж — просто глушимо його, рахуємо лише по wheel
-    if(e.type == 'mousewheel'){
-        if(find(e.target, false) || find(e.target, true)) {
+    if(e.type == 'mousewheel') {
+        if(find(target, false) || find(target, true)) {
             e.stopPropagation()
         }
 
@@ -172,17 +183,12 @@ function wheel(e){
     let dx = e.deltaX
     let dy = e.deltaY
 
-    if(e.shiftKey && !dx){
-        dx = dy
-        dy = 0
-    }
-
     let horizontal = Math.abs(dx) > Math.abs(dy)
-    let el = find(e.target, horizontal)
+    let el = find(target, horizontal)
 
     if(!el) {
         // Бічний свайп повз ряд: не віддаємо ядру, бо воно рушить фокус вгору/вниз
-        if(horizontal && find(e.target, false)){
+        if(horizontal && find(target, false)) {
             e.stopPropagation()
             e.preventDefault()
         }
@@ -195,11 +201,6 @@ function wheel(e){
 
     e.stopPropagation()
     e.preventDefault()
-
-    // сторінка поїде, а стрілки стоять fixed — сховаємо до наступного руху миші
-    if(!horizontal) {
-        arrowsHide()
-    }
 
     move(el, delta, horizontal)
 }
@@ -223,7 +224,7 @@ function move(el, delta, horizontal){
 
     // Уперлися в край домальованого: startScroll ядра мовчки виходить і не кличе
     // ні scrollEnded, ні onAnimateEnd, тож нові ряди й картки не з'являються
-    if(el.Scroll.position() == before){
+    if(el.Scroll.position() == before) {
         scrolled(el)
 
         if(el.Scroll.onAnimateEnd) {
@@ -249,7 +250,8 @@ function move(el, delta, horizontal){
 
 // Стрілки по краях ряду під курсором. Один fixed-шар на всю сторінку, а не в кожному ряду:
 // розмітку рядів не чіпаємо, і стрілки не їдуть разом з карткою, на яку навели.
-let arrows = {el: null, left: null, right: null}
+let arrows = {el: null, left: null, right: null, frame: 0}
+let pointer = {x: 0, y: 0}
 
 let chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
 
@@ -258,12 +260,13 @@ function arrowsCreate(){
 
     // Кольори як у фокусу Лампи: темна підкладка, при наведенні — білий з чорним
     style.textContent = `
-        .mouse-pc .scroll--horizontal,
-        .mouse-pc .scroll--horizontal *{cursor:grab}
+        .mouse-pc .items-line .scroll--horizontal,
+        .mouse-pc .items-line .scroll--horizontal *{cursor:grab}
         .mouse-pc--drag,
         .mouse-pc--drag *{cursor:grabbing !important}
-        .mouse-pc-arrow{position:fixed;z-index:30;width:3em;height:3em;margin-top:-1.5em;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;visibility:hidden;box-shadow:0 .3em 1em rgba(0,0,0,.4);transition:opacity .15s ease-out,visibility .15s,background-color .15s ease-out,color .15s ease-out}
+        .mouse-pc-arrow{position:fixed;z-index:12;width:3em;height:3em;margin-top:-1.5em;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;visibility:hidden;box-shadow:0 .3em 1em rgba(0,0,0,.4);transition:opacity .15s ease-out,visibility .15s,background-color .15s ease-out,color .15s ease-out}
         .mouse-pc-arrow--visible{opacity:1;visibility:visible}
+        .mouse-pc-arrow--instant{transition:none}
         .mouse-pc-arrow:hover{background:#fff;color:#000}
         .mouse-pc-arrow svg{width:1.4em;height:1.4em;transform:translateX(.05em)}
         .mouse-pc-arrow--left svg{transform:scaleX(-1) translateX(.05em)}
@@ -276,6 +279,15 @@ function arrowsCreate(){
     // Нова активність прибирає ряд з-під курсору, а миша могла й не ворухнутись
     Lampa.Listener.follow('activity', arrowsHide)
 
+    // Пульт/клавіатура пішли в шапку, меню, налаштування, Hub: ряд лишається під
+    // прозорим шаром, і стрілки інакше малювались би й клікались крізь нього.
+    // z-index 12 — над .wrap і .navigation-bar, під .head і оверлеями (від 20).
+    Controller.listener.follow('toggle', (e) => {
+        if(e.name != 'content' && e.name != 'items_line') {
+            arrowsHide()
+        }
+    })
+
     let sides = ['left', 'right']
 
     sides.forEach(side => {
@@ -283,9 +295,6 @@ function arrowsCreate(){
 
         arrow.className = 'mouse-pc-arrow mouse-pc-arrow--' + side
         arrow.innerHTML = chevron
-
-        // mousedown ядро ловить для фокусу, а наш dragStart — для перетягування
-        arrow.addEventListener('mousedown', e => e.stopPropagation())
 
         arrow.addEventListener('click', e => {
             e.stopPropagation()
@@ -312,7 +321,42 @@ function canRight(el){
     let content = el.querySelector('.scroll__content') || el
     let padding = parseInt(window.getComputedStyle(content).paddingLeft) || 0
 
-    return scroll.body(true).scrollWidth + padding * 2 - el.offsetWidth + scroll.position() > 1
+    if(scroll.body(true).scrollWidth + padding * 2 - el.offsetWidth + scroll.position() <= 1) {
+        return false
+    }
+
+    // Залишок за краєм буває кілька пікселів (padding, тінь) — останню картку вже видно цілком,
+    // і стрілка лише смикнула б ряд. Рахуємо від цільової позиції, як у touchVisible.
+    let body = scroll.body(true)
+    let last = body.lastElementChild
+
+    if(!last) {
+        return false
+    }
+
+    let hidden = last.getBoundingClientRect().right - body.getBoundingClientRect().left - (el.offsetWidth - scroll.position())
+
+    return hidden > 16
+}
+
+let placed = ''
+
+function arrowsPlace(rect){
+    let key = rect.top + ':' + rect.left + ':' + rect.right
+
+    // arrowsFollow кличе щокадру — без змін не чіпаємо стилі, щоб не смикати перерахунок
+    if(key == placed) {
+        return
+    }
+
+    placed = key
+
+    let top = rect.top + rect.height / 2
+
+    arrows.left.style.top   = top + 'px'
+    arrows.left.style.left  = (rect.left + 12) + 'px'
+    arrows.right.style.top  = top + 'px'
+    arrows.right.style.left = (rect.right - arrows.right.offsetWidth - 12) + 'px'
 }
 
 function arrowsUpdate(keep_right){
@@ -324,13 +368,7 @@ function arrowsUpdate(keep_right){
         return
     }
 
-    let rect = el.getBoundingClientRect()
-    let top  = rect.top + rect.height / 2
-
-    arrows.left.style.top   = top + 'px'
-    arrows.left.style.left  = (rect.left + 12) + 'px'
-    arrows.right.style.top  = top + 'px'
-    arrows.right.style.left = (rect.right - arrows.right.offsetWidth - 12) + 'px'
+    arrowsPlace(el.getBoundingClientRect())
 
     arrows.left.classList.toggle('mouse-pc-arrow--visible', el.Scroll.position() < 0)
     if(!keep_right) {
@@ -338,8 +376,84 @@ function arrowsUpdate(keep_right){
     }
 }
 
+// Інший ряд: гасимо без анімації й ставимо на нове місце, інакше видима стрілка
+// перелітала б туди за 0.15 с згасання
+function arrowsAttach(el){
+    if(arrows.el != el) {
+        let sides = [arrows.left, arrows.right]
+
+        sides.forEach(arrow => {
+            arrow.classList.add('mouse-pc-arrow--instant')
+            arrow.classList.remove('mouse-pc-arrow--visible')
+        })
+
+        arrows.el = el
+
+        arrowsPlace(el.getBoundingClientRect())
+
+        // примусовий reflow, щоб transition:none спрацював до повернення анімації
+        arrows.left.offsetWidth
+
+        sides.forEach(arrow => arrow.classList.remove('mouse-pc-arrow--instant'))
+    }
+
+    arrowsUpdate()
+
+    // Той самий ряд теж: висота скролу — за першою карткою, а довгі назви сусідніх
+    // звисають нижче, тож arrowsFollow бачить курсор «поза рядом» і знаходить його ж
+    if(!arrows.frame) {
+        arrows.frame = requestAnimationFrame(arrowsFollow)
+    }
+}
+
+// Ряд їде й без руху миші: вертикальна прокрутка, домальовування рядів, пульт.
+// Поки стрілки на ряду, щокадру тримаємо їх на ньому, а коли ряд пішов з-під
+// курсору — перескакуємо на той, що тепер під ним.
+function arrowsFollow(){
+    arrows.frame = 0
+
+    let el = arrows.el
+
+    if(!el) {
+        return
+    }
+
+    // Вікно звузилось до не-ТВ екрана — режим вимкнувся, а цикл ще живий
+    if(!enabled()) {
+        arrowsHide()
+
+        return
+    }
+
+    let rect = el.getBoundingClientRect()
+
+    if(!el.isConnected || pointer.y < rect.top || pointer.y > rect.bottom) {
+        let under = document.elementFromPoint(pointer.x, pointer.y)
+        let next  = under && under.closest && !under.closest('.endless') ? row(under) : null
+
+        if(next) {
+            arrowsAttach(next)
+        }
+        else {
+            arrowsHide()
+        }
+
+        return
+    }
+
+    arrowsPlace(rect)
+
+    arrows.frame = requestAnimationFrame(arrowsFollow)
+}
+
 function arrowsHide(){
     arrows.el = null
+
+    if(arrows.frame) {
+        cancelAnimationFrame(arrows.frame)
+
+        arrows.frame = 0
+    }
 
     if(arrows.left) {
         arrows.left.classList.remove('mouse-pc-arrow--visible')
@@ -348,6 +462,9 @@ function arrowsHide(){
 }
 
 function hover(e){
+    pointer.x = e.clientX
+    pointer.y = e.clientY
+
     if(!enabled() || drag || !e.target.closest) {
         return
     }
@@ -361,7 +478,7 @@ function hover(e){
         return
     }
 
-    let el = find(e.target, true)
+    let el = row(e.target)
 
     if(!el || e.target.closest('.endless')) {
         if(arrows.el) {
@@ -371,9 +488,7 @@ function hover(e){
         return
     }
 
-    arrows.el = el
-
-    arrowsUpdate()
+    arrowsAttach(el)
 }
 
 function dragStart(e){
@@ -381,7 +496,7 @@ function dragStart(e){
         return
     }
 
-    let el = find(e.target, true)
+    let el = row(e.target)
 
     if(el) {
         // Без цього браузер виділяє назви карток і тягне постери як картинки
@@ -446,7 +561,7 @@ function dragEnd(){
 
 function click(e){
     // повторні кліки по самій стрілці — це гортання далі, їх не глушимо
-    if(Date.now() < suppress_click && !(e.target.closest && e.target.closest('.mouse-pc-arrow'))){
+    if(Date.now() < suppress_click && !(e.target.closest && e.target.closest('.mouse-pc-arrow'))) {
         e.stopPropagation()
         e.preventDefault()
     }
@@ -463,6 +578,10 @@ window.addEventListener('mouseup', dragEnd)
 // Клас для курсору grab: режим міняється лише з перезапуском, а екран — з розміром вікна
 function bodyMode(){
     document.body.classList.toggle('mouse-pc', enabled())
+
+    if(!enabled()) {
+        arrowsHide()
+    }
 }
 
 window.addEventListener('resize', bodyMode)
