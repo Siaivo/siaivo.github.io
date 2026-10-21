@@ -50,6 +50,29 @@ function mode(){
     return value == 'mouse' && Storage.get(FLAG) === true ? MODE : value
 }
 
+// Новим користувачам на ПК вмикаємо режим одразу. Ядро пише 'platform' на кожному
+// старті (Platform.init), а наш модуль виконується раніше, тож порожнє місце означає
+// перший запуск. Тим, хто вже користувався, нічого не міняємо.
+let first_launch = false
+
+try {
+    first_launch = window.localStorage.getItem('platform') === null
+}
+catch(e) {}
+
+let params_init = Params.init.bind(Params)
+
+// Після Params.init платформа вже визначена, а інтерфейс ще не будувався.
+// nolisten: інакше device_input.js:24 перезавантажив би застосунок на старті.
+Params.init = function(){
+    params_init()
+
+    if(first_launch && Platform.pc()) {
+        Storage.set(FLAG, true, true)
+        Storage.set('navigation_type', 'mouse', true)
+    }
+}
+
 function showMode(el){
     let labels = Params.values.navigation_type
     let value  = mode()
