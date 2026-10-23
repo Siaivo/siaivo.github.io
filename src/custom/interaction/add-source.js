@@ -1,42 +1,21 @@
 import Select from '../../interaction/select'
-import Extensions from '../../interaction/extensions/extensions'
-import ParentalControl from '../../interaction/parental_control'
-import Controller from '../../core/controller'
 import Lang from '../../core/lang'
-import Manifest from '../core/manifest'
 
-// Список джерел на картці: ядро додає «Додати джерело» лише на Android і веде у штатні Розширення.
-// Показуємо пункт на всіх платформах і відкриваємо наш Hub.
+// Список джерел на картці: ядро на Android додає в кінець «Додати джерело», що веде в штатні
+// Розширення, і заради нього показує список навіть з одним джерелом (buttons.js:56). Пункт
+// прибираємо, а одне джерело, що лишилось, запускаємо одразу - як ядро без плагінів.
 let select_show = Select.show
 
 Select.show = function(params){
-    let is_sources = params && params.title === Lang.translate('settings_rest_source') && window.lampa_settings.plugins_use
+    let is_sources = params && params.title === Lang.translate('settings_rest_source') && Array.isArray(params.items)
 
-    if(is_sources) {
-        if(!params.items.some(item=> item.add_source)) {
-            params.items.push({
-                title: Lang.translate('full_add_source'),
-                template: 'selectbox_icon',
-                icon: '<svg><use xlink:href="#sprite-plus"></use></svg>',
-                add_source: true
-            })
-        }
+    if (is_sources) {
+        params.items = params.items.filter(item => !item.add_source)
 
-        let on_select = params.onSelect
+        if (params.items.length == 1 && params.items[0].btn) {
+            params.items[0].btn.trigger('hover:enter')
 
-        params.onSelect = function(item){
-            if(!item.add_source) {
-                return on_select.apply(this, arguments)
-            }
-
-            Controller.toggle('content')
-
-            ParentalControl.personal('extensions', ()=>{
-                Extensions.show({
-                    store: Manifest.storeUrl,
-                    with_installed: false
-                })
-            }, false, true)
+            return
         }
     }
 
