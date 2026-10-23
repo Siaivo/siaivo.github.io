@@ -8,6 +8,7 @@ import Lang from '../../../core/lang'
 import Reguest from '../../../utils/reguest'
 import Layer from '../../../core/layer'
 import Main from '../../../interaction/extensions/main'
+import Select from '../../../interaction/select'
 
 /**
  * Компонент «Hub» — відкриває штатний Extensions overlay
@@ -21,7 +22,7 @@ import Main from '../../../interaction/extensions/main'
 const CATEGORY_LABELS = {
     video: '🎬 Відео', iptv: '📺 IPTV', theme: '🎨 Теми',
     collections: '📚 Добірки', tracks: '🎵 Доріжки',
-    control: '🎮 Керування', other: '🔧 Інше'
+    control: '🎮 Керування', radio: '📻 Радіо', other: '🔧 Інше'
 }
 
 function transformBaseJson(plugins) {
@@ -115,6 +116,39 @@ MainClass.prototype.loadCustomStore = function () {
     }
 
     _origLoad.call(this)
+}
+
+// Апстрім (71733ed8) лишив «Перевірити» в меню картки лише для type plugins/installs, а картки
+// Hub - type extensions. Обробник (a.status -> check()) у ядрі є для всіх, тож повертаємо сам
+// пункт першим, як було, - перехопивши Select.show лише на час побудови меню картки Hub.
+const _origMenu = ExtensionClass.prototype.menu
+
+ExtensionClass.prototype.menu = function () {
+    if (!this.params || !this.params.hubStore) {
+        return _origMenu.apply(this, arguments)
+    }
+
+    let show = Select.show
+
+    Select.show = function (params) {
+        Select.show = show
+
+        if (params && Array.isArray(params.items) && !params.items.some(item => item.status)) {
+            params.items.unshift({
+                title: Lang.translate('extensions_check'),
+                status: true
+            })
+        }
+
+        return show.apply(this, arguments)
+    }
+
+    try {
+        return _origMenu.apply(this, arguments)
+    }
+    finally {
+        Select.show = show
+    }
 }
 
 // Штатний магазин CUB після встановлення плагіна шле на CUB лічильник установок
