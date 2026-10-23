@@ -7,6 +7,7 @@ import Bell from '../../interaction/bell'
 import Controller from '../../core/controller'
 import Lang from '../../core/lang'
 import Utils from '../../utils/utils'
+import Template from '../../interaction/template'
 
 // termbin.com слухає лише сирий TCP (nc termbin.com 9999) — з WebView недоступний,
 // тому беремо найближчий HTTP-пастбін з CORS і коротким посиланням під QR.
@@ -175,7 +176,7 @@ function patch(){
     remove.forEach(param=> params.splice(params.indexOf(param), 1))
 }
 
-// "Надіслати розробникам" у консолі вантажить лог на CUB — підміняємо на той самий пастбін з QR, що й експорт
+// «Надіслати розробникам» (у нас «Поділитися логами», custom/lang/overrides.js) у консолі вантажить лог на CUB — підміняємо на той самий пастбін з QR, що й експорт
 Controller.listener.follow('toggle', (e)=>{
     if(e.name !== 'console') {
         return
@@ -194,6 +195,22 @@ Controller.listener.follow('toggle', (e)=>{
         })
     })
 })
+
+// Підзаголовок консолі ядро збирає як 'Lampa <версія> · <платформа>' (console.js:408) -
+// у звітах користувачів має бути видно, що це Сяйво
+let template_get = Template.get
+
+Template.get = function(name, vars){
+    if (name == 'console' && vars && typeof vars.app == 'string') {
+        let args = Array.prototype.slice.call(arguments)
+
+        args[1] = Object.assign({}, vars, {app: vars.app.replace(/^Lampa /, 'Siaivo ')})
+
+        return template_get.apply(this, args)
+    }
+
+    return template_get.apply(this, arguments)
+}
 
 let logs_init = Logs.init
 
