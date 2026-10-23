@@ -3,6 +3,7 @@ import Logs from '../../interaction/logs'
 import Console from '../../interaction/console'
 import Modal from '../../interaction/modal'
 import Noty from '../../interaction/noty'
+import Bell from '../../interaction/bell'
 import Controller from '../../core/controller'
 import Lang from '../../core/lang'
 import Utils from '../../utils/utils'
@@ -13,7 +14,6 @@ const PASTE_URL   = 'https://dpaste.com/api/v2/'
 const EXPIRY_DAYS = 30
 const MAX_CHARS   = 200000
 
-let loader
 let waite
 
 Lang.add({
@@ -93,12 +93,6 @@ function push(content){
     })
 }
 
-function closeModal(){
-    Modal.close()
-
-    Controller.toggle('settings_component')
-}
-
 function showQr(url){
     let html = $('<div class="about" style="text-align: center">'
         + '<div class="logs-qr" style="display: inline-block; background: #fff; padding: 0.6em; border-radius: 0.6em; line-height: 0"></div>'
@@ -117,14 +111,27 @@ function showQr(url){
         buttons: [
             {
                 name: Lang.translate('copy_link_buffer'),
-                onSelect: ()=> Utils.copyTextToClipboard(url, ()=> Noty.show(Lang.translate('copy_secuses')))
+                onSelect: ()=>{
+                    Utils.copyTextToClipboard(url,
+                        ()=> Bell.push({text: Lang.translate('copy_secuses')}),
+                        ()=> Bell.push({text: Lang.translate('copy_error')})
+                    )
+                }
             }
         ],
-        onBack: closeModal
+        zIndex: 200,
+        onBack: ()=>{
+            Modal.close()
+
+            Controller.toggle('console-body')
+        }
     })
 }
 
-function open(){
+/**
+ * @param {function(boolean)} busy показати/сховати індикатор завантаження
+ */
+function open(busy){
     if(waite) return
 
     let content = buildText(Console.export())
@@ -133,7 +140,7 @@ function open(){
 
     waite = true
 
-    if(loader) loader.removeClass('hide')
+    busy(true)
 
     push(content).then((response)=>{
         let url = (response || '').trim()
@@ -146,28 +153,47 @@ function open(){
     }).always(()=>{
         waite = false
 
-        if(loader) loader.addClass('hide')
+        busy(false)
     })
 }
 
 function patch(){
     let params = Settings.allParams()['more'] || []
-    let item   = params.filter(param=> param.param && param.param.name == 'export')[0]
 
-    // кнопка "Термінал" (віддалений eval через сокет) нам не потрібна
-    let terminal = params.filter(param=> param.param && param.param.name == 'terminal')[0]
+    // Блок "Консоль" у налаштуваннях прибираємо цілком: експорт логів є в самій консолі,
+    // а "Термінал" (віддалений eval через сокет) нам не потрібен
+    let remove = params.filter(param=>{
+        let name = param.param && param.param.name
 
-    if(terminal) params.splice(params.indexOf(terminal), 1)
+        if(name == 'export' || name == 'terminal') {
+            return true
+        }
 
-    if(!item) return console.warn('CustomLogs','export param not found')
+        return param.param && param.param.type == 'title' && param.field && param.field.name == Lang.translate('menu_console')
+    })
 
-    item.onChange = open
-    item.onRender = (elem)=>{
-        loader = $('<div class="broadcast__scan hide" style="margin: 1em 0 0 0"><div></div></div>')
-
-        elem.append(loader)
-    }
+    remove.forEach(param=> params.splice(params.indexOf(param), 1))
 }
+
+// "Надіслати розробникам" у консолі вантажить лог на CUB — підміняємо на той самий пастбін з QR, що й експорт
+Controller.listener.follow('toggle', (e)=>{
+    if(e.name !== 'console') {
+        return
+    }
+
+    let button = $('.console__button[data-action="send"]')
+    let loader = $('<div class="broadcast__scan hide" style="width: 100%; margin: 0.5em 0 0 0"><div></div></div>')
+
+    button.parent().append(loader)
+
+    button.off('hover:enter').on('hover:enter', ()=>{
+        open((show)=>{
+            button.toggleClass('console__button--loading', show)
+
+            loader.toggleClass('hide', !show)
+        })
+    })
+})
 
 let logs_init = Logs.init
 
