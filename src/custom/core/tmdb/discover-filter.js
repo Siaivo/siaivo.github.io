@@ -43,7 +43,7 @@ export const fresh_days = 60
 // Дозволено: ASCII + латиниця з розширеннями й діакритикою, кирилиця, латиниця
 // Extended Additional, пунктуація/символи, CJK-пунктуація та сурогатні
 // пари емодзі — самі по собі вони картку не ріжуть.
-const foreign_title = /[^\u0000-\u036f\u0400-\u052f\u1e00-\u1eff\u2000-\u2bff\u3000-\u303f\ud800-\udfff\ufe0f]/
+export const foreign_title = /[^\u0000-\u036f\u0400-\u052f\u1e00-\u1eff\u2000-\u2bff\u3000-\u303f\ud800-\udfff\ufe0f]/
 
 // Жанри, які викидаємо назовсім, за типом контенту.
 // 10766 Soap — теленовели. Порогом голосів їх не взяти: у «Corazón Indomable»

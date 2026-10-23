@@ -13,5 +13,11 @@ Utils.clearCard = function(card) {
         if (typeof card.img !== 'undefined') cleared.img = card.img
     }
 
+    // Повна картка TMDB несе жанри як genres: [{id, name}], а не genre_ids - без цього в історії
+    // жанри лишались лише в тих картках, що прийшли зі списочного ряду (профіль смаку рекомендацій).
+    if (card && !(cleared.genre_ids && cleared.genre_ids.length) && Array.isArray(card.genres)) {
+        cleared.genre_ids = card.genres.filter(g => g && g.id).map(g => g.id)
+    }
+
     return cleared
 }
