@@ -14,15 +14,38 @@ function host(url) {
     return match ? match[1].toLowerCase() : ''
 }
 
-// Шлях без домену й параметрів: дзеркало може бути інше, а ядро дописує до адреси email тощо.
-function path(url) {
+// Проксі CUB у Lampac (/cub/<дзеркало>/...): сервер ще й переписує в app.js
+// «protocol + cub_domain» на свою адресу, тож скрипти ядра йдуть уже з його хоста.
+// Lampac віддає і застосунок, і проксі, тож такий шлях рахуємо лише на нашому ж хості:
+// /cub/... на чужому сайті — звичайний скрипт.
+const PROXY = /^\/cub\/[^/]+(?=\/)/
+
+function stripHost(url) {
     return url.replace(/^(?:[a-z]+:)?\/\/[^/?#]*/i, '').replace(/[?#].*$/, '')
+}
+
+function proxied(url) {
+    let name = host(url)
+
+    return (!name || name == window.location.host.toLowerCase()) && PROXY.test(stripHost(url))
+}
+
+// Шлях без домену, параметрів і префікса проксі: дзеркало може бути інше,
+// а ядро дописує до адреси email тощо.
+function path(url) {
+    let clean = stripHost(url)
+
+    return proxied(url) ? clean.replace(PROXY, '') : clean
 }
 
 function isCub(url) {
     let name = host(url)
 
-    return Boolean(name) && Manifest.cub_mirrors.some(mirror => name == mirror || name.endsWith('.' + mirror))
+    if (name && Manifest.cub_mirrors.some(mirror => name == mirror || name.endsWith('.' + mirror))) {
+        return true
+    }
+
+    return proxied(url)
 }
 
 function allowed() {
