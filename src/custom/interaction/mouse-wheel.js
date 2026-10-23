@@ -145,13 +145,13 @@ function find(target, horizontal){
     return el
 }
 
-// Тягнемо й показуємо стрілки лише в рядах стрічки: у фільтрах, історії пошуку
-// чи консолі горизонтальний скрол — це кнопки й текст, а не картки
+// Тягнемо й показуємо стрілки лише в рядах стрічки й розширень (плагіни, Hub):
+// у фільтрах, історії пошуку чи консолі горизонтальний скрол — це кнопки й текст, а не картки
 function row(target){
     let el = find(target, true)
 
     if(el) {
-        return el.closest('.items-line') ? el : null
+        return el.closest('.items-line, .extensions__block') ? el : null
     }
 
     return plugRow(target)
@@ -163,6 +163,35 @@ function row(target){
 // дає на одиницю deltaX) міряємо пробою по зсуву transform.
 let ratios = new WeakMap()
 
+// Ряди зі звичайною прокруткою (overflow-x: auto) гортаємо через scrollLeft — тут
+// плагін ні до чого, і проба не потрібна. Рамка такого ряду — він сам.
+let natives = new WeakSet()
+
+// overflow-y: auto робить і overflow-x з visible на auto, тож текстова панель з довгим
+// посиланням теж «гортається вбік». Ряд — лише без вертикальної прокрутки і з кнопками.
+function scrollable(el){
+    let style = window.getComputedStyle(el)
+    let x     = style.overflowX == 'auto' || style.overflowX == 'scroll'
+    let y     = (style.overflowY == 'auto' || style.overflowY == 'scroll') && el.scrollHeight > el.clientHeight + 1
+
+    return x && !y && el.scrollWidth > el.clientWidth + 1 && Boolean(el.querySelector('.selector'))
+}
+
+// Браузер гортає такий ряд і сам (тачпад, смуга прокрутки) — стрілки мають це бачити
+function nativeAdd(el){
+    if(natives.has(el)) {
+        return
+    }
+
+    natives.add(el)
+
+    el.addEventListener('scroll', () => {
+        if(arrows.el == el) {
+            arrowsUpdate()
+        }
+    }, {passive: true})
+}
+
 // Пробуємо лише всередині скролу ядра: деінде (плеєр, віджети) чужий wheel міг би
 // крутити гучність чи перемотку. І не на першому ж кандидаті: картка з overflow:hidden,
 // з якої вилазить постер, теж «переповнена», а ряд — вище.
@@ -172,6 +201,13 @@ function plugRow(target){
     for(let el = target; el && el.parentElement; el = el.parentElement){
         if(el.matches('.scroll, .scroll__content, .scroll__body')) {
             return candidates.find(probe) || null
+        }
+
+        if(scrollable(el)) {
+            nativeAdd(el)
+            candidates.push(el)
+
+            continue
         }
 
         let frame = el.parentElement
@@ -185,6 +221,10 @@ function plugRow(target){
 }
 
 function shiftOf(el){
+    if(natives.has(el)) {
+        return -el.scrollLeft
+    }
+
     let match = /translate(?:3d|X)?\(\s*(-?[\d.]+)px/.exec(el.style.transform || el.style.webkitTransform || '')
 
     return match ? parseFloat(match[1]) : 0
@@ -203,6 +243,10 @@ function plugWheel(el, delta){
 // Штовхаємо на 10 і повертаємо назад (в одному кадрі — оком не видно).
 // Біля правого краю вперед нема куди, тож пробуємо й у зворотний бік.
 function probe(el){
+    if(natives.has(el)) {
+        return 1
+    }
+
     if(ratios.has(el)) {
         return ratios.get(el)
     }
@@ -226,6 +270,14 @@ function probe(el){
 }
 
 function plugMove(el, delta){
+    // Без smooth: кожен новий плавний scrollBy (тачпад, подвійний клік по стрілці)
+    // обриває попередній і губить решту його відстані
+    if(natives.has(el)) {
+        el.scrollLeft += delta
+
+        return
+    }
+
     let ratio = probe(el)
 
     if(ratio) {
@@ -233,9 +285,27 @@ function plugMove(el, delta){
     }
 }
 
-// Рамка ряду: у ядра це сам скрол, у плагіна — батько, бо сам ряд ширший за екран
+// Стрілки — fixed на body, тож мають стати над шаром, у якому живе ряд: на сторінці
+// це 12 (над .wrap і .navigation-bar, під .head), в оверлеї — його z-index + 1
+// (розширення й Hub на 20, пошук на 50, вікна плагінів — які вже є)
+function layer(el){
+    let z = 12
+
+    for(let node = el.parentElement; node && node != document.body; node = node.parentElement){
+        let style = window.getComputedStyle(node)
+
+        if(style.position == 'fixed' && style.zIndex != 'auto') {
+            z = Math.max(z, parseInt(style.zIndex) + 1)
+        }
+    }
+
+    return z
+}
+
+// Рамка ряду: у ядра й у звичайної прокрутки це сам ряд, у плагіна — батько,
+// бо сам ряд ширший за екран
 function frameOf(el){
-    return el.Scroll ? el : el.parentElement
+    return el.Scroll || natives.has(el) ? el : el.parentElement
 }
 
 // На ТВ-екрані ряд домальовує картки лише до активної (line/module/items.js:69),
@@ -251,10 +321,69 @@ function touchVisible(el){
 
     for(let i = items.length - 1; i >= 0; i--){
         if(items[i].getBoundingClientRect().left - left < right && !items[i].classList.contains('card-more')) {
-            Utils.trigger(items[i], 'hover:touch')
+            if(el.closest('.extensions__block')) {
+                focusQuiet(el, items[i])
+            }
+            else {
+                Utils.trigger(items[i], 'hover:touch')
+            }
 
             break
         }
+    }
+}
+
+// Картка фільму так само домальовує ряди лише до активного + 3 (components/full.js:onScroll),
+// а активним ряд стає, коли картка в ньому дістає hover:touch чи фокус. Колесо не робить
+// ні того, ні іншого — тож позначаємо останній видимий ряд з картками, як у touchVisible.
+function touchRows(el){
+    let body  = el.Scroll.body(true)
+    let top   = body.getBoundingClientRect().top
+    let limit = el.offsetHeight - el.Scroll.position()
+    let rows  = body.children
+
+    for(let i = rows.length - 1; i >= 0; i--){
+        if(rows[i].getBoundingClientRect().top - top >= limit) {
+            continue
+        }
+
+        // Лише ряди карток, як у row(): у кнопок опису чи фільтрів hover:touch
+        // переставив би, куди піде фокус з пульта
+        let line = rows[i].querySelector('.items-line .scroll--horizontal, .extensions__block .scroll--horizontal')
+
+        if(line && line.Scroll) {
+            touchVisible(line)
+
+            return
+        }
+
+        // Сітка каталогу (items/category) тримає в DOM лише сторінки по 60 карток
+        // довкола активної (onPageView) — решта підміняється заглушками
+        let cards = rows[i].querySelectorAll('.card')
+
+        for(let j = cards.length - 1; j >= 0; j--){
+            if(cards[j].getBoundingClientRect().top - top < limit) {
+                Utils.trigger(cards[j], 'hover:touch')
+
+                return
+            }
+        }
+    }
+}
+
+// Ряд розширень (extensions/line.js:attach) теж домальовує лише до активного, але
+// hover:touch не слухає — активний ставить hover:focus, який ще й підкручує ряд до
+// картки. Підкрутку на цей час глушимо, щоб ряд не смикався під курсором.
+function focusQuiet(el, item){
+    let update = el.Scroll.update
+
+    el.Scroll.update = () => {}
+
+    try {
+        Utils.trigger(item, 'hover:focus')
+    }
+    finally {
+        el.Scroll.update = update
     }
 }
 
@@ -276,7 +405,20 @@ function scrolled(el){
 
 function wheel(e){
     // !isTrusted — наш же plugWheel, він для плагіна
-    if(!enabled() || !e.isTrusted || !e.target.closest || e.target.closest('.endless')) {
+    if(!enabled() || !e.isTrusted) {
+        return
+    }
+
+    // Ядро (core/switcher.js) після будь-якої клавіші вимикає мишу на всій сторінці
+    // (pointer-events: none) і вмикає лише на mousemove — колесо без руху миші летить
+    // у <html> і нічого не крутить. Будимо так само: ця подія пропаде, наступні дійдуть.
+    if(e.target === document.documentElement) {
+        document.dispatchEvent(new MouseEvent('mousemove', {clientX: e.clientX, clientY: e.clientY}))
+
+        return
+    }
+
+    if(!e.target.closest || e.target.closest('.endless')) {
         return
     }
 
@@ -381,10 +523,16 @@ function pixels(e, target){
     let el = find(target, horizontal)
 
     if(!el) {
-        // Бічний свайп повз ряд: не віддаємо ядру, бо воно рушить фокус вгору/вниз
+        // Бічний свайп повз ряд: не віддаємо ядру, бо воно рушить фокус вгору/вниз.
+        // Над рядом зі звичайною прокруткою браузер гортає його сам — дію не глушимо.
         if(horizontal && find(target, false)) {
             e.stopPropagation()
-            e.preventDefault()
+
+            let own = row(target)
+
+            if(!own || !natives.has(own)) {
+                e.preventDefault()
+            }
         }
 
         return
@@ -474,6 +622,12 @@ function settleRun(el){
         return
     }
 
+    // Тут, а не на кожну подію колеса: settle кличе не частіше ніж раз на 100 мс,
+    // а сітка каталогу — це сотні getBoundingClientRect
+    if(!el.classList.contains('scroll--horizontal')) {
+        touchRows(el)
+    }
+
     scrolled(el)
 
     if(el.Scroll.onAnimateEnd) {
@@ -483,7 +637,7 @@ function settleRun(el){
 
 // Стрілки по краях ряду під курсором. Один fixed-шар на всю сторінку, а не в кожному ряду:
 // розмітку рядів не чіпаємо, і стрілки не їдуть разом з карткою, на яку навели.
-let arrows = {el: null, left: null, right: null, frame: 0}
+let arrows = {el: null, left: null, right: null, frame: 0, tick: 0}
 let pointer = {x: 0, y: 0}
 
 let chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
@@ -494,7 +648,9 @@ function arrowsCreate(){
     // Кольори як у фокусу Лампи: темна підкладка, при наведенні — білий з чорним
     style.textContent = `
         .mouse-pc .items-line .scroll--horizontal,
-        .mouse-pc .items-line .scroll--horizontal *{cursor:grab}
+        .mouse-pc .items-line .scroll--horizontal *,
+        .mouse-pc .extensions__block .scroll--horizontal,
+        .mouse-pc .extensions__block .scroll--horizontal *{cursor:grab}
         .mouse-pc--drag,
         .mouse-pc--drag *{cursor:grabbing !important}
         .mouse-pc-arrow{position:fixed;z-index:12;width:3em;height:3em;margin-top:-1.5em;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;visibility:hidden;box-shadow:0 .3em 1em rgba(0,0,0,.4);transition:opacity .15s ease-out,visibility .15s,background-color .15s ease-out,color .15s ease-out}
@@ -511,15 +667,6 @@ function arrowsCreate(){
 
     // Нова активність прибирає ряд з-під курсору, а миша могла й не ворухнутись
     Lampa.Listener.follow('activity', arrowsHide)
-
-    // Пульт/клавіатура пішли в шапку, меню, налаштування, Hub: ряд лишається під
-    // прозорим шаром, і стрілки інакше малювались би й клікались крізь нього.
-    // z-index 12 — над .wrap і .navigation-bar, під .head і оверлеями (від 20).
-    Controller.listener.follow('toggle', (e) => {
-        if(e.name != 'content' && e.name != 'items_line') {
-            arrowsHide()
-        }
-    })
 
     let sides = ['left', 'right']
 
@@ -618,9 +765,12 @@ function arrowsAttach(el){
     if(arrows.el != el) {
         let sides = [arrows.left, arrows.right]
 
+        let z = layer(el)
+
         sides.forEach(arrow => {
             arrow.classList.add('mouse-pc-arrow--instant')
             arrow.classList.remove('mouse-pc-arrow--visible')
+            arrow.style.zIndex = z
         })
 
         arrows.el = el
@@ -662,10 +812,15 @@ function arrowsFollow(){
     }
 
     // Від'єднаний ряд плагіна лишається без батька — рамки в нього вже нема
-    let rect = el.isConnected ? frameOf(el).getBoundingClientRect() : null
+    let rect  = el.isConnected ? frameOf(el).getBoundingClientRect() : null
+    // Ряд перекрив інший шар (меню, налаштування, оверлей плагіна, відкриті пультом):
+    // стрілки інакше малювались би й клікались крізь нього. Хіт-тест — раз на ~10 кадрів:
+    // щокадру він смикав би розкладку на слабких ТВ-приставках, а шар і так відкривається не миттєво.
+    let check = ++arrows.tick % 10 == 0 || !rect || pointer.y < rect.top || pointer.y > rect.bottom
+    let under = check ? document.elementFromPoint(pointer.x, pointer.y) : null
+    let covered = rect && under && !under.closest('.mouse-pc-arrow') && !frameOf(el).contains(under)
 
-    if(!rect || pointer.y < rect.top || pointer.y > rect.bottom) {
-        let under = document.elementFromPoint(pointer.x, pointer.y)
+    if(!rect || covered || pointer.y < rect.top || pointer.y > rect.bottom) {
         let next  = under && under.closest && !under.closest('.endless') ? row(under) : null
 
         if(next) {
@@ -734,6 +889,11 @@ function dragStart(e){
     }
 
     let el = row(e.target)
+
+    // Смугу прокрутки звичайного ряду тягне сам браузер — інакше ми гортали б назустріч
+    if(el && natives.has(el) && e.target == el && e.offsetY >= el.clientHeight) {
+        return
+    }
 
     if(el) {
         // Без цього браузер виділяє назви карток і тягне постери як картинки
