@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1d1f20">
-    <title>Сяйво — про проєкт</title>
-    <meta name="description" content="Сяйво — Лампа, що говорить українською: інтерфейс, назви й описи, аніме з Hikka. Без реклами й метрик.">
+    <title>Сяйво — Лампа українською</title>
+    <meta name="description" content="Сяйво — Лампа, що говорить українською: інтерфейс, назви й описи, аніме з Hikka. Без реклами й стеження.">
     <meta property="og:title" content="Сяйво — Лампа, що говорить українською">
-    <meta property="og:description" content="Інтерфейс, назви й описи, аніме з Hikka — українською за замовчуванням. Без реклами й метрик.">
+    <meta property="og:description" content="Інтерфейс, назви й описи, аніме з Hikka — українською за замовчуванням. Без реклами й стеження.">
     <meta property="og:image" content="https://siaivo.isroot.in/og-siaivo.png">
     <meta property="og:type" content="website">
     <link rel="apple-touch-icon" sizes="180x180" href="img/icons/ios/180.png">
@@ -136,6 +136,12 @@
             font-weight: 600;
         }
 
+        .hero__lead {
+            font-size: 1.3em;
+            color: var(--dim);
+            margin: -0.8em 0 1.6em;
+        }
+
         .links {
             display: flex;
             flex-wrap: wrap;
@@ -153,7 +159,7 @@
         }
 
         .link__label {
-            font-size: 0.7em;
+            font-size: 0.75em;
             font-weight: 600;
             border-radius: 0.4em;
             padding: 0.25em 0.5em;
@@ -223,9 +229,9 @@
         }
 
         .block__title {
-            font-size: 1.4em;
-            font-weight: 400;
-            margin: 0 0 1em;
+            font-size: 1.9em;
+            font-weight: 300;
+            margin: 0 0 1.1em;
         }
 
         .grid {
@@ -327,8 +333,16 @@
         }
 
         .item__name {
-            font-size: 1.05em;
-            margin-bottom: 0.25em;
+            font-size: 1.15em;
+            font-weight: 600;
+            margin-bottom: 0.35em;
+        }
+
+        .item__path {
+            display: block;
+            margin-top: 0.4em;
+            font-size: 0.9em;
+            color: var(--dim);
         }
 
         .text-link {
@@ -464,6 +478,10 @@
                 justify-content: space-between;
             }
 
+            .block__title {
+                font-size: 1.6em;
+            }
+
             .grid {
                 grid-template-columns: minmax(0, 1fr);
                 gap: 1.2em;
@@ -504,6 +522,7 @@
                 <img class="brand__word" src="img/logo.svg" alt="Сяйво" width="265" height="68">
             </div>
             <h1 class="hero__title">Лампа, що говорить <b>українською</b></h1>
+            <p class="hero__lead">Сяйво — фільми, серіали й аніме на телевізорі, телефоні та комп'ютері. Без реклами й стеження.</p>
 
             <nav class="links" aria-label="Адреси Сяйва">
                 <a class="link link--main" href="http://siaivo.tv">siaivo.tv <span class="link__label">HTTP</span></a>
@@ -520,11 +539,11 @@
             </li>
             <li>
                 <div class="langs__name">Назви й описи</div>
-                <div class="langs__descr">Немає українського — підставляється наявний переклад або англійська.</div>
+                <div class="langs__descr">Українською всюди, де є переклад. Де ще нема — іншою доступною мовою, а не порожнім місцем.</div>
             </li>
             <li>
                 <div class="langs__name">Аніме</div>
-                <div class="langs__descr">Українські назви й описи з Hikka.</div>
+                <div class="langs__descr">Окремий розділ: назви й описи українською з Hikka.</div>
             </li>
         </ul>
     </header>
@@ -534,62 +553,54 @@
             <h2 class="block__title">Що ви отримуєте</h2>
             <ul class="grid">
                 <li>
-                    <div class="item__name">Легко продовжити, де зупинились</div>
-                    <div class="item__descr">На головній один ряд «Продовжити перегляд» — фільми, серіали й аніме разом, найсвіжіше спереду. Досмотрене зникає саме.</div>
+                    <div class="item__name">Нова серія — одразу нагорі</div>
+                    <div class="item__descr">Усе, що ви дивитесь, — в одному ряду на головній: фільми, серіали й аніме. Вийшла нова серія — серіал сам підніметься на початок, а додивлене зникне.</div>
                 </li>
                 <li>
-                    <div class="item__name">Видно, що вийшла нова серія</div>
-                    <div class="item__descr">Серіал піднімається, коли з'явилась серія, яку ви ще не бачили, а не тому, що ви колись його відкривали.</div>
+                    <div class="item__name">Завжди є що подивитись далі</div>
+                    <div class="item__descr">Додивились — а на головній уже чекає наступне саме для вас. Рекомендації вчаться на тому, що ви дивитесь і що вам сподобалось, і щодня потроху оновлюються.</div>
                 </li>
                 <li>
-                    <div class="item__name">Аніме, в якому зручно шукати</div>
-                    <div class="item__descr">Окремий розділ за даними Hikka: «Минулий сезон», «Відзначено нагородами», розклад виходу серій, рекомендації. Назви й описи українською, де вони є.</div>
+                    <div class="item__name">Аніме, як воно на те заслуговує</div>
+                    <div class="item__descr">Власний розділ на даних Hikka: найкраще минулого сезону, нагороджені тайтли, розклад нових серій. Назви й описи українською.</div>
                 </li>
                 <li>
-                    <div class="item__name">Менше сміття в добірках</div>
-                    <div class="item__descr">Немає карток з незрозумілими назвами, а аніме не забиває тренди фільмів.</div>
+                    <div class="item__name">Hub — плагіни в один клік</div>
+                    <div class="item__descr">Відео, IPTV, теми, доріжки й керування — усе в одному каталозі. Переглянути його можна й онлайн: <a class="text-link" href="https://siaivo.github.io/Hub" target="_blank" rel="noopener">siaivo.github.io/Hub</a>.<span class="item__path">Налаштування → Hub</span></div>
                 </li>
                 <li>
-                    <div class="item__name">Hub — наш каталог плагінів</div>
-                    <div class="item__descr">Добірка плагінів за категоріями: відео, IPTV, теми, добірки, доріжки, керування. Встановлення в один клік: налаштування → Hub. Список відкритий на <a class="text-link" href="https://github.com/Siaivo/Hub" target="_blank" rel="noopener">GitHub</a>.</div>
+                    <div class="item__name">Захист від шкідливих плагінів</div>
+                    <div class="item__descr">Небезпечний плагін не запуститься тихцем: спершу попередження, а рішення — за вами.</div>
                 </li>
                 <li>
-                    <div class="item__name">Захист від небезпечних плагінів</div>
-                    <div class="item__descr">Якщо плагін у списку небезпечних — побачите попередження, і він не завантажиться, поки ви не вирішите, що з ним робити.</div>
+                    <div class="item__name">Найкраща роздача з першого погляду</div>
+                    <div class="item__descr">Якість, звук і відео видно біля кожного торрента — не треба відкривати кожен навмання.<span class="item__path">Налаштування → Siaivo → «Торренти v2»</span></div>
                 </li>
                 <li>
-                    <div class="item__name">Якість роздачі видно одразу</div>
-                    <div class="item__descr">Бейджі якості, аудіо й відео біля кожного торрента. Вмикається в налаштуваннях → Siaivo → «Торренти v2».</div>
+                    <div class="item__name">Голосовий пошук — і на телефоні</div>
+                    <div class="item__descr">Просто скажіть назву — мікрофон тепер не лише на ТВ.<span class="item__path">Налаштування → Інше</span></div>
                 </li>
                 <li>
-                    <div class="item__name">Голосовий пошук на телефоні</div>
-                    <div class="item__descr">В оригіналі мікрофон є лише на ТВ. Вмикається в налаштуваннях → Інше.</div>
-                </li>
-                <li>
-                    <div class="item__name">Зручно з мишкою на комп'ютері</div>
-                    <div class="item__descr">Колесо плавно гортає сторінку й ряди, а не стрибає по картках; ряди можна тягнути мишкою. На ПК при першому запуску вмикається саме, вручну — налаштування → Інше → «Тип навігації» → «Мишка».</div>
+                    <div class="item__name">На комп'ютері — зручно з мишкою</div>
+                    <div class="item__descr">Колесо мишки плавно гортає сторінку й ряди, а ряди можна тягнути.<span class="item__path">На ПК вмикається автоматично; вручну — налаштування → Інше → «Тип навігації»</span></div>
                 </li>
             </ul>
         </section>
 
         <section class="block">
-            <h2 class="block__title">Питання</h2>
+            <h2 class="block__title">Питання й відповіді</h2>
             <div class="faq">
                 <details class="q">
-                    <summary class="q__head">Чим відрізняється від Лампи?<span class="q__sign" aria-hidden="true"></span></summary>
+                    <summary class="q__head">Чим Сяйво відрізняється від Лампи?<span class="q__sign" aria-hidden="true"></span></summary>
                     <div class="q__body">
                         <ul class="grid">
                             <li>
                                 <div class="item__name">Менше CUB</div>
-                                <div class="item__descr">Прибрані сповіщення CUB, пошук через CUB, реакції, обговорення, AI-функції. Синхронізація не працює у фоні без увімкненого акаунта.</div>
+                                <div class="item__descr">Прибрано сповіщення, пошук, реакції, обговорення й AI-функції CUB, а з меню — «Релізи» та опції CUB. Без входу в акаунт синхронізація у фоні не працює. Усе своє — в окремому розділі налаштувань «Siaivo».</div>
                             </li>
                             <li>
                                 <div class="item__name">Без реклами</div>
                                 <div class="item__descr">Немає реклами, метрик і зайвих фонових запитів.</div>
-                            </li>
-                            <li>
-                                <div class="item__name">Простіше меню</div>
-                                <div class="item__descr">Прибрано пункт «Релізи» та опції CUB у налаштуваннях. Додано окремий розділ «Siaivo» в налаштуваннях.</div>
                             </li>
                             <li>
                                 <div class="item__name">Ширша видача</div>
@@ -604,20 +615,8 @@
                                 <div class="item__descr">«Аніме» — каталог за даними Hikka; «Настрій» — добірки за настроєм; «Стрічка» / «Кіно Сяйво» — стрічка новинок з фільтром за рейтингом і роком.</div>
                             </li>
                             <li>
-                                <div class="item__name">Українська за замовчуванням</div>
-                                <div class="item__descr">Якщо немає українського опису чи назви — підставляється наявний переклад або англійська. Перший екран вибору мови — українською.</div>
-                            </li>
-                            <li>
-                                <div class="item__name">Закладки для персон</div>
-                                <div class="item__descr">Акторів можна додавати в обране.</div>
-                            </li>
-                            <li>
-                                <div class="item__name">Торренти</div>
-                                <div class="item__descr">Увімкнено за замовчуванням.</div>
-                            </li>
-                            <li>
                                 <div class="item__name">І багато інших приємних дрібниць</div>
-                                <div class="item__descr">Усі зміни — в історії проєкту на <a class="text-link" href="https://github.com/siaivo/siaivo.github.io/commits/rework" target="_blank" rel="noopener">GitHub</a>.</div>
+                                <div class="item__descr">Наприклад, улюблені актори в «Обраному» та торренти, увімкнені одразу. Усі зміни — в історії проєкту на <a class="text-link" href="https://github.com/siaivo/siaivo.github.io/commits/rework" target="_blank" rel="noopener">GitHub</a>.</div>
                             </li>
                         </ul>
                     </div>
