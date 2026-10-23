@@ -98,7 +98,8 @@ function normalizeTitle(name) {
     return s.trim() || original
 }
 
-function card(item) {
+// Експортується й для рекомендацій аніме (custom/app/rows/recommend_anime.js).
+export function card(item) {
     var display  = normalizeTitle(item.title_ua || item.title_en || item.title_ja || item.slug || '')
     var original = normalizeTitle(item.title_ja || item.title_en || item.title_ua || '') || display
     var year     = item.year ? String(item.year) : ''

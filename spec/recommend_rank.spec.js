@@ -55,6 +55,14 @@ suite('recommend_rank', () => {
         expect(list[0].id).toBe(2)
     })
 
+    test('без кількості голосів (Shikimori) оцінка все одно важить', () => {
+        let low  = {id: 1, title: 'a', vote_average: 6, release_date: '2010-01-01'}
+        let high = {id: 2, title: 'b', vote_average: 8.7, release_date: '2010-01-01'}
+        let list = rank([[low], [high]], [1, 1], all, now)
+
+        expect(list[0].id).toBe(2)
+    })
+
     test('новинка обганяє рівну за всім іншим стару', () => {
         let old  = movies([1])[0]
         let news = movies([2], {release_date: '2026-06-01'})[0]

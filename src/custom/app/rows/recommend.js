@@ -10,6 +10,7 @@ import Utils from '../../../utils/utils'
 import {foreign_title, filterTitles, min_votes} from '../../core/tmdb/discover-filter'
 import rank, {hash} from './recommend_rank'
 import profile from './recommend_taste'
+import {source as animeSource, load as animeLoad} from './recommend_anime'
 
 // Стрічка «Рекомендуємо подивитись» замість core/recomend.js. Там фоновий сканер раз на 2 хв
 // обходив усю історію по одному тайтлу, а стрічка показувала 20 випадкових з накопиченого.
@@ -102,13 +103,29 @@ function taste(snap){
 // аніме - а воно потрібне на головній і в аніме. Розкладаємо по кошиках самі в bucket().
 // null - помилка мережі, а не порожня відповідь.
 function request(card, method){
-    let url  = TMDB.api(kind(card) + '/' + card.id + '/' + method + '?api_key=' + TMDB.key() + '&language=' + Storage.field('tmdb_lang'))
-    let life = day * (keep_min + Math.floor(keep_spread * hash(key(card))))
+    let url = TMDB.api(kind(card) + '/' + card.id + '/' + method + '?api_key=' + TMDB.key() + '&language=' + Storage.field('tmdb_lang'))
+
+    return send(url, false, life(card)).then(json => json && (Array.isArray(json.results) ? json.results : []))
+}
+
+function life(card){
+    return day * (keep_min + Math.floor(keep_spread * hash(key(card))))
+}
+
+// Будь-який запит рекомендацій - через чергу. body - JSON для POST (без кешу запитів: те, що
+// варто пам'ятати, тримає сам викликач), life - хвилини в кеші для GET.
+function send(url, body, minutes){
+    let params = {timeout}
+
+    if (body) {
+        params.headers = {'Content-Type': 'application/json'}
+    }
+    else {
+        params.cache = {life: minutes}
+    }
 
     return enqueue(() => new Promise(resolve => {
-        network.silent(url, json => {
-            resolve(json && Array.isArray(json.results) ? json.results : [])
-        }, () => resolve(null), false, {cache: {life}, timeout})
+        network.silent(url, resolve, () => resolve(null), body || false, params)
     }))
 }
 
@@ -141,8 +158,10 @@ function next(){
 }
 
 // Для українських і нішевих тайтлів TMDB часто не має рекомендацій - тоді схожі.
-// Кинутим схожі не потрібні: шумний штраф нічого не дає, а запит коштує.
-function load(card, fallback){
+// Кинутим схожі не потрібні: шумний штраф нічого не дає, а запит коштує. Аніме з історії
+// українською і російською радять Hikka і Shikimori (recommend_anime), TMDB - якщо вони мовчать;
+// кинутим вистачає TMDB.
+function load(card, good){
     let today = Math.floor(Date.now() / (day * 60 * 1000))
 
     if (today != loaded_day) {
@@ -150,15 +169,30 @@ function load(card, fallback){
         loaded_day = today
     }
 
-    let id = key(card)
+    let from = good && Utils.isAnime(card) ? animeSource() : null
+    let id   = key(card) + (from ? '_' + from : '')
 
     if (loaded[id]) {
         return loaded[id]
     }
 
-    loaded[id] = request(card, 'recommendations').then(results => {
-        if (!results || results.length || !fallback) {
-            return results && {results, similar: false}
+    let get   = (url, body) => send(url, body, life(card))
+    // збій розбору відповіді джерела не має валити всю стрічку й лишати тайтл мертвим до завтра
+    let anime = from ? animeLoad(card, kind(card), from, get).catch(() => null) : Promise.resolve(null)
+
+    loaded[id] = anime.then(results => {
+        if (results && results.length) {
+            return {results, similar: false}
+        }
+
+        return request(card, 'recommendations')
+    }).then(results => {
+        if (!Array.isArray(results)) {
+            return results
+        }
+
+        if (results.length || !good) {
+            return {results, similar: false}
         }
 
         return request(card, 'similar').then(similar => similar && {results: similar, similar: true})
@@ -182,7 +216,11 @@ function delay(ms){
 function bucket(item, today){
     let date = item.release_date || item.first_air_date || ''
 
-    if (item.adult || !item.poster_path || !date || date > today || (item.vote_count || 0) < min_votes) {
+    // карти аніме з Hikka/Shikimori несуть постер у poster/img, а Shikimori не знає голосів
+    let poster = item.poster_path || item.poster || item.img
+    let few    = item.vote_count != null && item.vote_count < min_votes
+
+    if (item.adult || !poster || !date || date > today || few) {
         return null
     }
 

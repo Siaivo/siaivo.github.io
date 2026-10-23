@@ -31,9 +31,10 @@ export function hash(text){
     return (h >>> 0) / 4294967296
 }
 
-// 8.1 з 40 голосів не обганяє 7.8 з 20 тисяч
+// 8.1 з 40 голосів не обганяє 7.8 з 20 тисяч. Голоси невідомі (Shikimori) - оцінка важить
+// наполовину, як від prior голосів, а не зникає зовсім.
 function quality(item){
-    let votes = item.vote_count || 0
+    let votes = item.vote_count == null ? prior : item.vote_count || 0
 
     return (votes * (item.vote_average || 0) + prior * mean) / (votes + prior) / mean
 }
