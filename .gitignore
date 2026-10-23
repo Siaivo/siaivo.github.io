@@ -5,6 +5,7 @@ dest/
 svg/
 temp/
 .idea/
+.claude/
 package-lock.json
 .opencode
 .codegraph
@@ -17,3 +18,8 @@ public/lang/
 .sisyphus
 .vscode
 .vs/
+src/utils/api/okko.js
+.DS_Store
+DECISIONS.md
+PROGRESS.md
+TASKS.md

@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #242424;
+    background-color: $bg_color;
     z-index: 200;
     display: flex;
     padding: 2em;
@@ -48,7 +48,7 @@
 
             &.focus{
                 background-color: #fff;
-                color: #242424;
+                color: $bg_color;
             }
         }
 

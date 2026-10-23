@@ -121,6 +121,11 @@ function task(call){
         if(call) call()
     }
 
+    // Если кто-то изменил зеркало, то нужно проверить его живое ли оно
+    if(Manifest.cub_alive.indexOf(Manifest.cub_domain) == -1) {
+        Storage.set('cub_alive', 'https://' + Manifest.cub_domain, true)
+    }
+
     check(Manifest.cub_alive, (answered)=>{
         console.log('Mirrors', 'first check:', Manifest.cub_alive, 'status:', answered)
 

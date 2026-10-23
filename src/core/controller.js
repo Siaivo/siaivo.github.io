@@ -13,6 +13,7 @@ import Select from '../interaction/select'
 import Modal from '../interaction/modal'
 import Player from '../interaction/player'
 import Search from '../interaction/search/global'
+import Console from '../interaction/console'
 
 let listener = Subscribe()
 
@@ -21,6 +22,13 @@ let active_name = ''
 let controlls = {}
 let select_active
 let try_close = false
+let windows = []
+let closed_below = []
+let closed_timer
+let back_count = 0
+let back_time  = 0
+// Контроллеры экрана активности, шапки и меню: их back уходит по истории (Activity.backward)
+let content_controllers = ['content', 'head', 'menu', 'items_line', 'full_start', 'full_descr']
 
 function observe(){
     if(typeof MutationObserver == 'undefined') return
@@ -119,14 +127,122 @@ function finish(){
  * Нажали назад
  */
 function back(){
+    let now = Date.now()
+
+    back_count = now - back_time <= 500 ? back_count + 1 : 1
+    back_time  = now
+
+    // Три быстрых «Назад», а на экране ещё что-то открыто (окно, селект, консоль, плеер...) —
+    // закрываем всё и возвращаемся в контент, даже если фокус потерялся
+    if(back_count >= 3 && anyOpened()){
+        back_count = 0
+
+        console.log('Controller', 'triple back, close all from "' + active_name + '"')
+
+        toggle('content', true)
+
+        return
+    }
+
     run('back')
 }
 
 /**
- * Переключить контроллер
- * @param {String} name 
+ * Открыто ли что-то поверх контента
+ * @returns {Boolean}
  */
-function toggle(name){
+function anyOpened(){
+    return Boolean(
+        windowTop() ||
+        $('body').hasClass('settings--open') ||
+        $('body').hasClass('selectbox--open') ||
+        $('.modal,.youtube-player,.player,.search-box,.search,.console').length
+    )
+}
+
+/**
+ * Зарегистрировать открытое окно (модалка, селект и т.п.)
+ * @param {String} name - имя контроллера окна
+ * @param {Function} [check] - вернёт false, если окно уже удалено
+ * @returns {Object} запись окна, её нужно передать в windowClose
+ */
+function windowOpen(name, check){
+    let entry = {
+        name: name,
+        below: active_name,
+        check: check
+    }
+
+    windows.push(entry)
+
+    return entry
+}
+
+/**
+ * Снять окно со стека. Если фокус был на нём и окно открывали из окна ниже, фокус возвращается в него
+ * @param {Object} entry - запись из windowOpen
+ * @param {Boolean} [silent] - не переключать фокус
+ */
+function windowClose(entry, silent){
+    let index = windows.indexOf(entry)
+
+    if(index == -1) return
+
+    let was_top = index == windows.length - 1
+
+    windows.splice(index, 1)
+
+    // Сразу после закрытия вызывающий код обычно делает toggle('content')
+    // или toggle(прошлый контроллер) — пока окно ниже ещё открыто, вернём фокус в него
+    closed_below.push(entry.below)
+
+    clearTimeout(closed_timer)
+
+    closed_timer = setTimeout(()=>{
+        closed_below = []
+    },0)
+
+    if(!silent && was_top && active_name == entry.name){
+        let top = windowTop()
+
+        // Окно открывали не из окна ниже (например, селект из плеера поверх модалки) — фокус возвращает вызывающий код
+        if(top && top.name == entry.below) toggle(top.name)
+    }
+}
+
+/**
+ * Верхнее открытое окно
+ * @returns {Object|Boolean}
+ */
+function windowTop(){
+    windows = windows.filter(w=>!w.check || w.check())
+
+    return windows.length ? windows[windows.length - 1] : false
+}
+
+function windowRedirect(name){
+    if(!closed_below.length) return name
+
+    let top = windowTop()
+
+    if(!top || top.name == name || !controlls[top.name]) return name
+
+    // Перехватываем, только если закрытое окно открывали из верхнего окна
+    if(closed_below.indexOf(top.name) == -1) return name
+
+    let below = name == 'content' || windows.some(w=>w.below == name)
+
+    return below ? top.name : name
+}
+
+/**
+ * Переключить контроллер
+ * @param {String} name
+ * @param {Boolean} [force] - не возвращать фокус в открытое окно
+ */
+function toggle(name, force){
+    if(!force) name = windowRedirect(name)
+
     if(active && active.gone) active.gone(name)
 
     if(controlls[name]){
@@ -136,7 +252,7 @@ function toggle(name){
         active_name = name
         
         Activity.call(()=>{
-            run('back')
+            back()
         })
 
         if(active.toggle) active.toggle()
@@ -354,20 +470,14 @@ function toContent(){
 
     Screensaver.stopSlideshow()
 
-    let any = ()=>{
-        return parseInt([
-            $('body').hasClass('settings--open') ? 1 : 0,
-            $('body').hasClass('selectbox--open') ? 1 : 0,
-            $('.modal,.youtube-player,.player,.search-box,.search').length ? 1 : 0,
-        ].join(''))
-    }
-
     let close = ()=>{
         let contrl = enabled()
 
         trys++
 
-        if(any()){
+        // Если фокус в контенте, шапке или меню, их back ушёл бы по истории (до 10 раз) —
+        // не вызываем, оставшееся закроет remove()
+        if(anyOpened() && content_controllers.indexOf(contrl.name) == -1){
             try{
                 if(contrl.controller.back) contrl.controller.back()
             }
@@ -383,17 +493,25 @@ function toContent(){
 
             if($('body').hasClass('selectbox--open')) Select.close()
 
-            if($('.modal').length) Modal.close()
+            Select.closeAll()
+
+            if($('.modal').length) Modal.closeAll()
 
             if($('.player').length) Player.close()
 
             if($('.search-box').length) $('.search-box').remove()
 
             if($('body').hasClass('search--open')) Search.close()
+            
+            if(Console.opened()) Console.close()
 
             $('body').removeClass('ambience--enable')
         }
-        catch(e){}
+        catch(e){
+            console.error('Controller', 'to content error remove', e)
+        }
+
+        windows = []
     }
 
     close()
@@ -428,5 +546,8 @@ export default {
     toContent,
     updateSelects: ()=>{},
     own,
-    clear
+    clear,
+    windowOpen,
+    windowClose,
+    windowTop
 }
