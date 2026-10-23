@@ -117,6 +117,15 @@ MainClass.prototype.loadCustomStore = function () {
     _origLoad.call(this)
 }
 
+// Штатний магазин CUB після встановлення плагіна шле на CUB лічильник установок
+// (/api/extensions/install). Сам магазин лишаємо, лічильник - ні: відповідаємо «не зараховано»,
+// і картка просто не додає собі одиницю.
+ExtensionClass.prototype.installSend = function (id, call) {
+    if (call) {
+        call(false)
+    }
+}
+
 // Нормалізоване порівняння URL для визначення "встановленого" плагіна.
 // Працює ВИКЛЮЧНО для карток нашого кастомного Hub (params.hubStore) —
 // штатний магазин, CUB-списки та стори інших плагінів не зачіпаються.
