@@ -29,18 +29,18 @@ let settle_final = 0
 
 Lang.add({
     settings_param_navigation_mouse_pc: {
-        uk: 'Мишка (експериментально)',
-        en: 'Mouse (experimental)',
-        be: 'Мышка (эксперыментальна)',
-        zh: '鼠标（实验性）',
-        pt: 'Rato (experimental)',
-        bg: 'Мишка (експериментално)',
-        he: 'עכבר (ניסיוני)',
-        cs: 'Myš (experimentální)',
-        ro: 'Mouse (experimental)',
-        fr: 'Souris (expérimental)',
-        pl: 'Mysz (eksperymentalne)',
-        ru: 'Мышка (экспериментально)'
+        uk: 'Мишка',
+        en: 'Mouse',
+        be: 'Мышка',
+        zh: '鼠标',
+        pt: 'Rato',
+        bg: 'Мишка',
+        he: 'עכבר',
+        cs: 'Myš',
+        ro: 'Mouse',
+        fr: 'Souris',
+        pl: 'Mysz',
+        ru: 'Мышка'
     }
 })
 
