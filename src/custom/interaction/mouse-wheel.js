@@ -150,7 +150,92 @@ function find(target, horizontal){
 function row(target){
     let el = find(target, true)
 
-    return el && el.closest('.items-line') ? el : null
+    if(el) {
+        return el.closest('.items-line') ? el : null
+    }
+
+    return plugRow(target)
+}
+
+// Ряди плагінів (nova_plus тощо) — не Scroll ядра, а свій елемент, що їде transform'ом
+// у рамці з overflow:hidden. Спільна мова з ними одна — колесо: його вони вже крутять.
+// Тож гортаємо їх синтетичним wheel на самому ряду, а крок (скільки пікселів плагін
+// дає на одиницю deltaX) міряємо пробою по зсуву transform.
+let ratios = new WeakMap()
+
+// Пробуємо лише всередині скролу ядра: деінде (плеєр, віджети) чужий wheel міг би
+// крутити гучність чи перемотку. І не на першому ж кандидаті: картка з overflow:hidden,
+// з якої вилазить постер, теж «переповнена», а ряд — вище.
+function plugRow(target){
+    let candidates = []
+
+    for(let el = target; el && el.parentElement; el = el.parentElement){
+        if(el.matches('.scroll, .scroll__content, .scroll__body')) {
+            return candidates.find(probe) || null
+        }
+
+        let frame = el.parentElement
+
+        if(el.scrollWidth > frame.clientWidth + 1 && window.getComputedStyle(frame).overflowX != 'visible') {
+            candidates.push(el)
+        }
+    }
+
+    return null
+}
+
+function shiftOf(el){
+    let match = /translate(?:3d|X)?\(\s*(-?[\d.]+)px/.exec(el.style.transform || el.style.webkitTransform || '')
+
+    return match ? parseFloat(match[1]) : 0
+}
+
+// bubbles:false — подія лише для обробника на самому ряду, до скролів ядра не дійде.
+// Дельта в обох осях: плагіни гортають ряд хто по deltaX, хто по звичайному колесу (deltaY).
+function plugWheel(el, delta){
+    let ev = new WheelEvent('wheel', {deltaX: delta, deltaY: delta, cancelable: true})
+
+    el.dispatchEvent(ev)
+
+    return ev.defaultPrevented
+}
+
+// Штовхаємо на 10 і повертаємо назад (в одному кадрі — оком не видно).
+// Біля правого краю вперед нема куди, тож пробуємо й у зворотний бік.
+function probe(el){
+    if(ratios.has(el)) {
+        return ratios.get(el)
+    }
+
+    let ratio = 0
+    let sides = [10, -10]
+
+    for(let i = 0; i < sides.length && !ratio; i++){
+        let before = shiftOf(el)
+
+        if(plugWheel(el, sides[i])) {
+            ratio = Math.abs(shiftOf(el) - before) / 10
+
+            plugWheel(el, -sides[i])
+        }
+    }
+
+    ratios.set(el, ratio)
+
+    return ratio
+}
+
+function plugMove(el, delta){
+    let ratio = probe(el)
+
+    if(ratio) {
+        plugWheel(el, delta / ratio)
+    }
+}
+
+// Рамка ряду: у ядра це сам скрол, у плагіна — батько, бо сам ряд ширший за екран
+function frameOf(el){
+    return el.Scroll ? el : el.parentElement
 }
 
 // На ТВ-екрані ряд домальовує картки лише до активної (line/module/items.js:69),
@@ -190,12 +275,32 @@ function scrolled(el){
 }
 
 function wheel(e){
-    if(!enabled() || !e.target.closest || e.target.closest('.endless')) {
+    // !isTrusted — наш же plugWheel, він для плагіна
+    if(!enabled() || !e.isTrusted || !e.target.closest || e.target.closest('.endless')) {
+        return
+    }
+
+    let over_arrow = e.target.closest('.mouse-pc-arrow') && arrows.el
+
+    // Колесо над стрілкою ряду плагіна: подія до ряду не дійде, тож бічне гортаємо самі,
+    // а звичайне віддаємо сторінці під рядом — як над стрілкою ряду ядра
+    if(over_arrow && !arrows.el.Scroll) {
+        if(e.type == 'wheel') {
+            if(Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+                e.preventDefault()
+
+                move(arrows.el, e.deltaX * (e.deltaMode == 1 ? 40 : e.deltaMode == 2 ? window.innerWidth : 1), true)
+            }
+            else {
+                pixels(e, frameOf(arrows.el))
+            }
+        }
+
         return
     }
 
     // Стрілки лежать на body, поза скролами — колесо над ними належить їхньому ряду
-    let target = e.target.closest('.mouse-pc-arrow') && arrows.el ? arrows.el : e.target
+    let target = over_arrow ? arrows.el : e.target
 
     // mousewheel ядра слухає теж — просто глушимо його, рахуємо лише по wheel
     if(e.type == 'mousewheel') {
@@ -206,6 +311,69 @@ function wheel(e){
         return
     }
 
+    // Плагіни (nova_plus тощо) вішають свій wheel усередині скролу ядра й крутять свої
+    // ряди самі. Тож не забираємо подію одразу, а ловимо її на елементі під скролом —
+    // після всіх вкладених обробників, але до wheel ядра на самому скролі.
+    // Плагін забрав (preventDefault) — його справа, ні — крутимо як завжди.
+    // Слухач із минулої події міг не спрацювати (плагін зупинив її вище) — знімаємо
+    ungate()
+
+    let el = below(target)
+
+    if(!el) {
+        pixels(e, target)
+
+        return
+    }
+
+    let fn = (ev) => {
+        if(ev !== e) {
+            return
+        }
+
+        ungate()
+
+        if(!ev.defaultPrevented) {
+            pixels(e, target)
+        }
+    }
+
+    el.addEventListener('wheel', fn, {passive: false})
+
+    gate = {el, fn}
+}
+
+let gate = null
+
+function ungate(){
+    if(gate) {
+        gate.el.removeEventListener('wheel', gate.fn)
+
+        gate = null
+    }
+}
+
+// Предок target, що лежить прямо під найближчим скролом ядра
+function below(target){
+    let el = target
+
+    // Сам скрол (колесо над стрілкою — target підмінено на ряд): нижче нікого
+    if(el.Scroll) {
+        return null
+    }
+
+    while(el.parentElement) {
+        if(el.parentElement.Scroll) {
+            return el
+        }
+
+        el = el.parentElement
+    }
+
+    return null
+}
+
+function pixels(e, target){
     let dx = e.deltaX
     let dy = e.deltaY
 
@@ -234,20 +402,25 @@ function wheel(e){
 // Головна стрічка має scroll_by_item: wheel() на будь-яку дельту стрибає на цілий ряд,
 // і тачпад з десятками подій проганяє всю сторінку. Крутимо її теж на пікселі.
 function move(el, delta, horizontal){
-    let params  = el.Scroll.params()
-    let by_item = params.scroll_by_item
+    if(el.Scroll) {
+        let params  = el.Scroll.params()
+        let by_item = params.scroll_by_item
 
-    params.scroll_by_item = false
+        params.scroll_by_item = false
 
-    el.Scroll.wheel(delta)
+        el.Scroll.wheel(delta)
 
-    params.scroll_by_item = by_item
+        params.scroll_by_item = by_item
 
-    if(horizontal) {
-        touchVisible(el)
+        if(horizontal) {
+            touchVisible(el)
+        }
+
+        settle(el)
     }
-
-    settle(el)
+    else {
+        plugMove(el, delta)
+    }
 
     // Ряд домальовує картки лише після анімації (scrollEnded -> onScroll), тож одразу
     // правій стрілці вірити не можна: біля краю домальованого вона б зникла й знов з'явилась
@@ -363,7 +536,7 @@ function arrowsCreate(){
             suppress_click = Date.now() + 500
 
             if(arrows.el) {
-                let page = arrows.el.offsetWidth * 0.8
+                let page = frameOf(arrows.el).offsetWidth * 0.8
 
                 move(arrows.el, side == 'left' ? -page : page, true)
             }
@@ -428,11 +601,14 @@ function arrowsUpdate(keep_right){
         return
     }
 
-    arrowsPlace(el.getBoundingClientRect())
+    arrowsPlace(frameOf(el).getBoundingClientRect())
 
-    arrows.left.classList.toggle('mouse-pc-arrow--visible', el.Scroll.position() < 0)
+    // Ряд плагіна: цільовий зсув — в інлайн-transform, по ньому й рахуємо, як у touchVisible
+    let shift = el.Scroll ? el.Scroll.position() : shiftOf(el)
+
+    arrows.left.classList.toggle('mouse-pc-arrow--visible', shift < 0)
     if(!keep_right) {
-        arrows.right.classList.toggle('mouse-pc-arrow--visible', canRight(el))
+        arrows.right.classList.toggle('mouse-pc-arrow--visible', el.Scroll ? canRight(el) : el.scrollWidth + shift - frameOf(el).clientWidth > 16)
     }
 }
 
@@ -449,7 +625,7 @@ function arrowsAttach(el){
 
         arrows.el = el
 
-        arrowsPlace(el.getBoundingClientRect())
+        arrowsPlace(frameOf(el).getBoundingClientRect())
 
         // примусовий reflow, щоб transition:none спрацював до повернення анімації
         arrows.left.offsetWidth
@@ -485,9 +661,10 @@ function arrowsFollow(){
         return
     }
 
-    let rect = el.getBoundingClientRect()
+    // Від'єднаний ряд плагіна лишається без батька — рамки в нього вже нема
+    let rect = el.isConnected ? frameOf(el).getBoundingClientRect() : null
 
-    if(!el.isConnected || pointer.y < rect.top || pointer.y > rect.bottom) {
+    if(!rect || pointer.y < rect.top || pointer.y > rect.bottom) {
         let under = document.elementFromPoint(pointer.x, pointer.y)
         let next  = under && under.closest && !under.closest('.endless') ? row(under) : null
 
@@ -584,19 +761,32 @@ function dragMove(e){
         return
     }
 
+    let el = drag.el
+
     if(!drag.moved) {
         document.body.classList.add('mouse-pc--drag')
 
         arrowsHide()
+
+        // Ряд плагіна їде з CSS-transition — під курсором він би відставав
+        if(!el.Scroll) {
+            drag.transition = el.style.transition
+            el.style.transition = 'none'
+        }
     }
 
     drag.moved = true
     drag.x = e.clientX
 
-    drag.el.Scroll.shift(-dx)
+    if(!el.Scroll) {
+        plugMove(el, -dx)
+
+        return
+    }
+
+    el.Scroll.shift(-dx)
 
     // Домальовування — раз на кадр, а не на кожен mousemove
-    let el = drag.el
 
     if(!drag_frame) {
         drag_frame = requestAnimationFrame(() => {
@@ -612,6 +802,10 @@ function dragEnd(){
     // Після перетягування браузер усе одно шле click — він відкрив би картку
     if(drag && drag.moved) {
         suppress_click = Date.now() + 100
+
+        if(!drag.el.Scroll) {
+            drag.el.style.transition = drag.transition
+        }
     }
 
     drag = null
