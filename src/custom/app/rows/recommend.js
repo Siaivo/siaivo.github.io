@@ -212,6 +212,11 @@ function delay(ms){
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+// Жанр 16. Аніме тут теж є - його відсікає inMedia: аніме має свій кошик і свій розділ.
+function animated(card){
+    return (card.genre_ids || []).indexOf(16) >= 0
+}
+
 // Кошик картки-рекомендації: 'anime' / 'tv' / 'movie', null - не показувати ніде.
 function bucket(item, today){
     let date = item.release_date || item.first_air_date || ''
@@ -240,6 +245,10 @@ function bucket(item, today){
     return kind(item)
 }
 
+// Чи належить картка розділу: і для джерел (seeds), і для порад (accept), і для збереженої
+// стрічки. 'cartoon_movie' / 'cartoon_tv' - сторінки жанру 16. У «Фільмах» і «Серіалах»
+// мультфільмам не місце (на головній - навпаки, там усе), а exclude_genres ріже лише японські
+// й китайські. Без жанрів у картці (буває в історії) мультфільмом її не вважаємо.
 function inMedia(card, media){
     if (media == 'all') {
         return true
@@ -247,7 +256,13 @@ function inMedia(card, media){
 
     let anime = Utils.isAnime(card)
 
-    return media == 'anime' ? anime : !anime && kind(card) == media
+    if (media == 'anime') {
+        return anime
+    }
+
+    let cartoon = media.indexOf('cartoon_') == 0
+
+    return !anime && kind(card) == media.replace('cartoon_', '') && animated(card) == cartoon
 }
 
 // Перші count придатних; skip поповнюється взятими, щоб наступний pick їх не повторив.
@@ -313,9 +328,7 @@ function build(media, snap, wait){
         })
 
         let accept = (item, id) => {
-            let type = !snap.seen[id] && bucket(item, today)
-
-            return Boolean(type) && (media == 'all' || type == media)
+            return !snap.seen[id] && Boolean(bucket(item, today)) && inMedia(item, media)
         }
 
         return Utils.addSource(rank(answers.map(a => a.results), weights, accept, Date.now(), taste(snap)), 'tmdb')
@@ -333,7 +346,7 @@ function pack(all){
 // Копія: Storage.get віддає спільний об'єкт зі свого кешу (storage.js:85).
 function stored(media, snap){
     let row     = Storage.get('recommend_rows', '{}')[media]
-    let results = row ? row.results.filter(card => !snap.seen[key(card)]) : []
+    let results = row ? row.results.filter(card => !snap.seen[key(card)] && inMedia(card, media)) : []
 
     return results.length ? {results, total_pages: row.total_pages} : null
 }
@@ -362,11 +375,20 @@ function screenMedia(params, screen){
         return 'all'
     }
 
+    let type = ['movie', 'tv'].indexOf(params.url) >= 0 ? params.url : null
+
+    // Раніше за аніме: на жанрах аніме стрічки теж нема. «Мультфільми» з меню - категорія
+    // фільмів із genres: 16 (interaction/menu/menu.js), жанр «Анімація» в серіалах - те саме
+    // для серіалів; на інших жанрах і ключових словах стрічки нема
+    if (params.genres || params.keywords) {
+        return params.genres == 16 && type ? 'cartoon_' + type : null
+    }
+
     if (screen == 'category_anime' || params.url == 'anime') {
         return 'anime'
     }
 
-    return ['movie', 'tv'].indexOf(params.url) >= 0 ? params.url : null
+    return type
 }
 
 function add(){
@@ -376,6 +398,7 @@ function add(){
         name: 'recomend_watch',
         title: Lang.translate('title_recomend_watch'),
         index: 0,
+        genres: true,
         screen: ['main', 'category', 'category_anime'],
         call: (params, screen) => {
             let media = screenMedia(params, screen)

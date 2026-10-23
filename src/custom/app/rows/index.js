@@ -27,9 +27,49 @@ let builders = {}
 
 patched.forEach(row => builders[row.name] = row.build)
 
-let original_add = ContentRows.add
+let original_add  = ContentRows.add
+let original_call = ContentRows.call
+
+// Сторінки жанру чи ключових слів core не дає жодному додатковому ряду (content_rows.js:69).
+// Ряд, якому там є що показати («Рекомендуємо» в «Мультфільмах»), позначає себе genres: true
+// і сам вирішує, на якому жанрі показуватись. Йому дописуємо екран-двійник 'category:genres',
+// а на такій сторінці кличемо core з двійником і параметрами, схованими від його перевірки, -
+// фільтр екранів, налаштування, remove і вставку результатів робить сам core.
+const GENRES = ':genres'
+
+let genre_rows = new WeakSet()
+
+ContentRows.call = function (screen, params, calls) {
+    if (params.genres || params.keywords) {
+        return original_call.call(this, screen + GENRES, {page: params}, calls)
+    }
+
+    return original_call.apply(this, arguments)
+}
+
+function genresAware(row) {
+    if (genre_rows.has(row) || typeof row.call != 'function') {
+        return
+    }
+
+    genre_rows.add(row)
+
+    let call    = row.call
+    let screens = [].concat(row.screen || [])
+
+    row.screen = screens.concat(screens.map(screen => screen + GENRES))
+    row.call   = (params, screen) => {
+        let twin = screen.slice(-GENRES.length) == GENRES
+
+        return twin ? call(params.page, screen.slice(0, -GENRES.length)) : call(params, screen)
+    }
+}
 
 ContentRows.add = function (row) {
+    if (row && row.genres) {
+        genresAware(row)
+    }
+
     let build = row && builders[row.name]
 
     if (build) {
