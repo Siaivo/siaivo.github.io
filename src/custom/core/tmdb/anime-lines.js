@@ -162,17 +162,11 @@ function settle(promise){
     return Promise.race([promise.catch(() => null), timer])
 }
 
-function patch(){
-    if (!Api.sources || !Api.sources.tmdb) {
-        setTimeout(patch, 0)
+// Картку відкривають і з джерела cub: у нього свій full(), але id ті самі, що в TMDB
+function wrap(api){
+    let prev = api.full.bind(api)
 
-        return
-    }
-
-    let tmdb = Api.sources.tmdb
-    let prev = tmdb.full.bind(tmdb)
-
-    tmdb.full = function(params, oncomplite, onerror){
+    api.full = function(params, oncomplite, onerror){
         let from = source()
 
         if (!from) {
@@ -207,6 +201,20 @@ function patch(){
                 oncomplite(data)
             })
         }, onerror)
+    }
+}
+
+function patch(){
+    if (!Api.sources || !Api.sources.tmdb) {
+        setTimeout(patch, 0)
+
+        return
+    }
+
+    wrap(Api.sources.tmdb)
+
+    if (Api.sources.cub && Api.sources.cub.full) {
+        wrap(Api.sources.cub)
     }
 }
 
