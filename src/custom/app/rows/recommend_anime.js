@@ -166,6 +166,25 @@ function batch(get){
     })
 }
 
+// Тайтли з Shikimori за mal_id - російські назви й постери (ряди картки аніме, anime-lines.js)
+export function shikimoriByMal(ids, get){
+    if (!ids.length) {
+        return Promise.resolve(null)
+    }
+
+    return get(shikimori + '/api/animes?limit=50&ids=' + ids.join(',')).then(json => {
+        return Array.isArray(json) ? json : null
+    })
+}
+
+export function hikkaCards(list){
+    return list ? unique(list.map(fromHikka)) : null
+}
+
+export function shikimoriCards(list){
+    return list ? unique(list.map(fromShikimori)) : null
+}
+
 // Поради до тайтлу з історії. get(url, body) - запит через чергу рекомендацій, Promise(json | null).
 // null - джерело не відповіло або тайтлу там нема: тоді recommend.js бере TMDB.
 export function load(card, method, from, get){

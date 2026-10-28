@@ -295,7 +295,7 @@ SettingsApi.addParam({
     param: {
         name: 'history_limit',
         type: 'select',
-        values: {'100': '100', '250': '250', '500': '500', '1000': '1000', '0': '#{player_disabled}'},
+        values: {'100': '100', '250': '250', '500': '500', '1000': '1000'},
         default: '100'
     },
     // назву/опис ставимо в onRender: addParams() вставляє їх у DOM без перекладу
@@ -306,10 +306,24 @@ SettingsApi.addParam({
     }
 })
 
+// Варіант «Вимкнено» (без ліміту) прибрано: історія повними картками в localStorage
+// (~1 КБ на картку) з роками займала все сховище, а при переповненні ядро стирає ключ,
+// що не влізе (storage.js) — зникали плагіни й налаштування. Кому він стояв — ставимо 1000.
+// Читаємо localStorage напряму: Storage.get до завантаження резерву закешував би порожнє.
+try {
+    if(window.localStorage.getItem('history_limit') === '0') {
+        Storage.set('history_limit', '1000', true)
+    }
+}
+catch(e) {}
+
 let original_add = Favorite.add
 Favorite.add = function(where, card, limit){
     // тільки якщо викликач взагалі передав ліміт — інакше нічого не обрізаємо
-    if(where === 'history' && typeof limit !== 'undefined') limit = parseInt(Storage.field('history_limit')) || 0
+    if(where === 'history' && typeof limit !== 'undefined') {
+        // 0 («Вимкнено») міг прийти повз міграцію вище — як і там, 1000, а не жорсткі 100
+        limit = parseInt(Storage.field('history_limit')) || 1000
+    }
 
     return original_add.call(this, where, card, limit)
 }

@@ -987,7 +987,14 @@ document.addEventListener('mousedown', dragStart, true)
 document.addEventListener('click', click, true)
 window.addEventListener('mousemove', dragMove)
 window.addEventListener('mousemove', hover)
-window.addEventListener('mouseup', dragEnd)
+// У перехопленні: плагін, що глушить mouseup на картці, інакше лишав би ряд «прилиплим» до курсору
+window.addEventListener('mouseup', dragEnd, true)
+// Жест забрав браузер чи система (нативне перетягування, довге натискання, втрата фокусу) —
+// mouseup уже не прийде, а buttons на деяких WebView так і лишається натиснутою
+window.addEventListener('pointercancel', dragEnd, true)
+window.addEventListener('dragstart', dragEnd, true)
+window.addEventListener('contextmenu', dragEnd, true)
+window.addEventListener('blur', dragEnd)
 
 // Клас для курсору grab: режим міняється лише з перезапуском, а екран — з розміром вікна
 function bodyMode(){

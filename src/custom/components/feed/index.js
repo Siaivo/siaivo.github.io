@@ -13,7 +13,7 @@ import Utils from '../../../utils/utils'
 import cors from '../../utils/cors'
 
 import { KINOSTRAIN_API } from './feed-sources'
-import { detectType, mapItem } from './feed-mapper'
+import { detectType, mapItem, getLang } from './feed-mapper'
 
 import './feed-templates'
 
@@ -34,6 +34,21 @@ Lang.add({
         zh: '电影光芒'
     }
 })
+
+// Назва для читання: шматки інших писемностей (тайська, корейська тощо) вирізаємо —
+// «Pls Love รักได้ไหม» стає «Pls Love». Не лишилось жодної літери — '', таку картку ховаємо.
+// Китайська й іврит — самі такі писемності, їм назву не чіпаємо.
+function readable(title) {
+    if (!title || ['zh', 'he'].indexOf(getLang()) !== -1) return title
+
+    let clean = title
+        .replace(/[^\u0000-\u024F\u0400-\u04FF\u2000-\u206F]+/g, ' ')
+        .replace(/\(\s*\)|\[\s*\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/^[\s\-\u2013\u2014:\u00B7|/]+|[\s\-\u2013\u2014:\u00B7|/(]+$/g, '')
+
+    return /[A-Za-z0-9\u00C0-\u024F\u0400-\u04FF]/.test(clean) ? clean : ''
+}
 
 function CustomFeed(object) {
     if (typeof object.page === 'undefined') object.page = 0
@@ -320,10 +335,13 @@ function CustomFeed(object) {
             const feedIndex = append ? (feed.length - data.length + i) : i
 
             let itemType = detectType(element)
+            // Kinostrain пише українською — іншим мовам до відповіді TMDB лише оригінальна назва й без жанрів
+            let ukrainian = getLang() === 'uk'
+            let title = element.title || (ukrainian ? element.name : element.originalName || element.name) || ''
 
             let elementData = {
-                title: element.title || element.name || '',
-                name: element.title || element.name || '',
+                title: title,
+                name: title,
                 original_name: element.originalName || '',
                 poster_path: element.poster_path || null,
                 backdrop_path: element.backdrop_path || null,
@@ -333,7 +351,7 @@ function CustomFeed(object) {
                 countries: element.origin_country || [],
                 genres: (element.tmdb_genres && element.tmdb_genres.length)
                     ? element.tmdb_genres
-                    : (element.genres || []).map(g => typeof g === 'string' ? g : (g.name || '')),
+                    : ukrainian ? (element.genres || []).map(g => typeof g === 'string' ? g : (g.name || '')) : [],
                 genre_ids: [],
                 vote_average: element.vote_average || 0,
                 source: element.tmdbId ? 'tmdb' : 'kinostrain',
@@ -358,8 +376,8 @@ function CustomFeed(object) {
                 serial: Lang.translate('menu_tv'),
                 'cartoon-movie': Lang.translate('menu_multmovie'),
                 'cartoon-series': Lang.translate('menu_multtv'),
-                'anime-movie': Lang.translate('menu_anime') + ' ' + 'Фільм',
-                anime: Lang.translate('menu_anime') + ' ' + 'Серіал'
+                'anime-movie': Lang.translate('menu_anime') + ' · ' + Lang.translate('menu_movies'),
+                anime: Lang.translate('menu_anime') + ' · ' + Lang.translate('menu_tv')
             }
 
             let sity = elementData.countries || []
@@ -430,7 +448,7 @@ function CustomFeed(object) {
                         component: 'full',
                         id: cardId,
                         method: ['serial', 'cartoon-series', 'anime', 'anime-movie'].includes(itemType) ? 'tv' : 'movie',
-                        card: elementData,
+                        card: Object.assign({}, elementData, { title: feedItem.title || elementData.title, name: feedItem.title || elementData.title }),
                         source: 'tmdb'
                     })
                 } else {
@@ -496,7 +514,7 @@ function CustomFeed(object) {
 
         const rawItem = {
             originalName: item.originalName,
-            name: item.title,
+            name: item.title || item.name,
             format: item.format,
             yearStart: item.yearStart,
             lastReadySeason: item.season != null
@@ -507,6 +525,7 @@ function CustomFeed(object) {
         mapItem(rawItem, network).then(result => {
             if (!result) return
 
+            item.title = result.title
             item.tmdbId = result.tmdbId
             item.poster_path = result.poster_path
             item.backdrop_path = result.backdrop_path
@@ -517,11 +536,42 @@ function CustomFeed(object) {
             item.origin_country = result.origin_country
             item.tmdb_genres = result.tmdb_genres
 
+            item.title = readable(item.title)
+
+            if (!item.title) {
+                self.removeItem(el)
+                return
+            }
+
             self.updateItemDOM(el, item)
         }).catch(() => {})
     }
 
+    // Картку з нечитабельною назвою прибираємо з ленти й з навігації пульта
+    this.removeItem = function (el) {
+        const btn = el.querySelector('.selector')
+
+        if (btn) {
+            if (last === btn) last = null
+            if (btn.classList.contains('focus')) Navigator.move('down')
+            Navigator.remove(btn)
+        }
+
+        el.remove()
+    }
+
     this.updateItemDOM = function (el, item) {
+        if (item.title) {
+            const title = el.querySelector('.feed-item__title')
+            if (title) title.textContent = item.title
+        }
+
+        // теги серіалу з сезоном і серією — не жанри, їх не чіпаємо
+        if (!item.season && item.tmdb_genres && item.tmdb_genres.length) {
+            const tags = el.querySelector('.feed-item__tags')
+            if (tags) tags.textContent = item.tmdb_genres.join(', ')
+        }
+
         if (item.overview) {
             const descr = el.querySelector('.feed-item__descr')
             if (descr) descr.textContent = item.overview

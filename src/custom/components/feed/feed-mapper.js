@@ -7,7 +7,7 @@ import { RADARR, SONARR } from './feed-sources'
 // Reguest кешує в IndexedDB (якщо увімкнено request_caching) — повторні відкриття стрічки без запитів.
 const CACHE = { cache: { life: 60 * 24 * 3 } }
 
-function getLang() {
+export function getLang() {
     return Storage.field('tmdb_lang') || Storage.field('language') || 'en'
 }
 
@@ -118,6 +118,26 @@ async function fetchTMDBDetails(network, tmdbId, type) {
     }
 }
 
+const CYRILLIC = /[Ѐ-ӿ]/
+
+// Назва мовою користувача. Kinostrain — українська, тож лише для uk: коли в TMDB
+// перекладу нема (не кирилиця), береться вона. Решта мов української не бачить:
+// для ru без кириличного перекладу — оригінальна назва.
+function localTitle(tmdbData, item) {
+    const title = tmdbData ? (tmdbData.title || tmdbData.name || '') : ''
+    const original = (tmdbData && (tmdbData.original_title || tmdbData.original_name)) || item.originalName || ''
+
+    if (getLang() === 'uk') {
+        return CYRILLIC.test(title) || !CYRILLIC.test(item.name || '') ? title || item.name : item.name
+    }
+
+    if (getLang() === 'ru' && !CYRILLIC.test(title)) {
+        return original
+    }
+
+    return title || original
+}
+
 // Порядок: точний збіг у пошуку TMDB (1 запит) -> Sonarr/Radarr + details -> нестрогий збіг у тому ж пошуку.
 export async function mapItem(item, network) {
     const type = detectType(item)
@@ -147,7 +167,7 @@ export async function mapItem(item, network) {
         : Api.sources.tmdb.getGenresNameFromIds(isTvType(type) ? 'tv' : 'movie', tmdbData.genre_ids || [])
 
     return {
-        title: item.name,
+        title: localTitle(tmdbData, item),
         originalName: item.originalName,
         slug: item.slug,
         posterUrl: item.posterUrl,
