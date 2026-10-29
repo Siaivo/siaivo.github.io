@@ -70,10 +70,8 @@
         if (installed) return
         installed = true
 
-        fetch('autoload.json', { cache: 'no-cache' })
-            .then(function (r) {
-                return r.ok ? r.json() : []
-            })
+        // $.ajax, not fetch: no fetch on iOS 9 / Android 4.4 / PS3
+        Promise.resolve($.ajax({ url: 'autoload.json', dataType: 'json', cache: false }))
             .then(install)
             .catch(function () {})
     }

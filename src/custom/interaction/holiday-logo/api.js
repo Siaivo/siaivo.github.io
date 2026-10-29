@@ -82,11 +82,8 @@ function load() {
         return Promise.resolve(cached.holidays)
     }
 
-    return fetch(API_URL, { method: 'GET' })
-        .then(function (resp) {
-            if (!resp.ok) throw new Error('HTTP ' + resp.status)
-            return resp.json()
-        })
+    // $.getJSON, not fetch: no fetch on iOS 9 / Android 4.4 / PS3
+    return Promise.resolve($.getJSON(API_URL))
         .then(function (data) {
             if (!Array.isArray(data)) throw new Error('Invalid response')
             if (!isTestMode) writeCache(data)
@@ -94,7 +91,7 @@ function load() {
             return data
         })
         .catch(function (e) {
-            console.warn('HolidayLogo', 'API error:', e.message, '— trying stale cache')
+            console.warn('HolidayLogo', 'API error:', e.message || 'HTTP ' + e.status, '— trying stale cache')
             // Відповідь з протермінованого кешу краща ніж нічого
             if (cached && cached.holidays) return cached.holidays
             return []

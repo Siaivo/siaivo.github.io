@@ -40,7 +40,7 @@
     "redis": "^4.0.2",
     "rollup": "~2.58.0",
     "rollup-plugin-regenerator": "^0.6.0",
-    "rollup-plugin-web-worker-loader": "^1.6.1",
+    "rollup-plugin-web-worker-loader": "1.6.1",
     "subsrt": "^1.1.1",
     "vinyl-buffer": "^1.0.1",
     "vinyl-source-stream": "^2.0.0"

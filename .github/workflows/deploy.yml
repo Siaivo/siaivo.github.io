@@ -27,6 +27,11 @@ jobs:
       - name: Build Lampa
         run: npx gulp build_github
 
+      # Old engines (iOS 9, Android 4.4/5.1 WebView, PS3) die on any ES6+ syntax
+      # in the bundle and hang on the splash screen.
+      - name: Check bundle is ES5
+        run: npx --yes acorn@8 --ecma5 --silent ./build/github/lampa/app.min.js
+
       - name: Prepare self-hosted template (no pre-installed plugins, no about page)
         run: |
           set -euo pipefail
