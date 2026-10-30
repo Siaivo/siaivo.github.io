@@ -21,6 +21,53 @@ const overrides = {
         pl: 'Udostępnij logi',
         ru: 'Поделиться логами'
     },
+    // Меню розробника (3× «вгору» на заставці) відкривається до завантаження lang/<code>.js
+    // (app.js: developerApp(loadLang)), тож без цих копій усі, крім en, бачили ru
+    title_continue_two: {
+        uk: 'Продовжити',
+        en: 'Proceed',
+        be: 'Працягнуць',
+        zh: '继续',
+        pt: 'Continuar',
+        bg: 'Продължи',
+        he: 'המשך',
+        cs: 'Pokračovat',
+        ro: 'Procedează',
+        fr: 'Continuer',
+        pl: 'Kontynuuj',
+        es: 'Continuar',
+        ru: 'Продолжить'
+    },
+    plugins_remove: {
+        uk: 'Видалити плагіни',
+        en: 'Remove plugins',
+        be: 'Выдаліць плагіны',
+        zh: '删除插件',
+        pt: 'Remover plug-ins',
+        bg: 'Премахване на добавките',
+        he: 'הסר תוספים',
+        cs: 'Odstranit pluginy',
+        ro: 'Elimină plugin-uri',
+        fr: 'Supprimer les extensions',
+        pl: 'Usuń wtyczki',
+        es: 'Eliminar complementos',
+        ru: 'Удалить плагины'
+    },
+    settings_reset: {
+        uk: 'Скинути налаштування',
+        en: 'Reset',
+        be: 'Скінуць налады',
+        zh: '重置',
+        pt: 'Redefinir',
+        bg: 'Нулиране',
+        he: 'איפוס',
+        cs: 'Resetovat nastavení',
+        ro: 'Resetare',
+        fr: 'Réinitialiser',
+        pl: 'Reset ustawień',
+        es: 'Restablecer ajustes',
+        ru: 'Сброс настроек'
+    },
     settings_rest_tmdb_posters: {
         uk: 'Роздільна здатність постерів TMDB'
     },
