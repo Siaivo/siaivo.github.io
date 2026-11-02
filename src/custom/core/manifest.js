@@ -38,8 +38,6 @@ function writeMirrorStorage(mirrors) {
 
 function applyManifestData() {
     Object.keys(manifestData).forEach((key) => {
-        if (key === 'patch_version') return
-
         if (key === 'cub_site') {
             // Апстрім тримає cub_site як getter без setter — перевизначаємо через defineProperty,
             // інакше пряме присвоєння кине TypeError і обірве весь цикл.
@@ -92,7 +90,37 @@ function applyDomainOverride(domain) {
     localStorage.setItem('cub_domain', domain)
 }
 
+function upstreamDigital(version) {
+    return parseInt(String(version).split('.').slice(0, 3).join(''))
+}
+
+// Плагіни порівнюють app_digital з числами оригінальної Лампи (>= 300), а патч робить 33841 замість 338.
+// В апстрімі app_digital — неконфігуровний getter, тому плагінам віддаємо нащадка Manifest з власними digital.
+// window.Lampa створюється в initClass() пізніше за цей модуль — підміняємо Manifest у момент присвоєння.
+function applyPluginManifest() {
+    const pluginManifest = Object.create(Manifest, {
+        app_digital: { get: () => upstreamDigital(Manifest.app_version) },
+        css_digital: { get: () => upstreamDigital(Manifest.css_version) }
+    })
+
+    let lampa = window.Lampa
+
+    Object.defineProperty(window, 'Lampa', {
+        configurable: true,
+        enumerable: true,
+        get: () => lampa,
+        set: (value) => {
+            if (value && value.Manifest === Manifest) {
+                value.Manifest = pluginManifest
+            }
+
+            lampa = value
+        }
+    })
+}
+
 applyManifestData()
+applyPluginManifest()
 applyMirrorOverride(manifestMirrors)
 applyDomainOverride(manifestDomain)
 
