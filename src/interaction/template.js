@@ -118,6 +118,7 @@ import navigation_bar from '../templates/navigation_bar'
 import head_backward from '../templates/head_backward'
 import account_add_device from '../templates/account/add_device_old'
 import account_add_device_new from '../templates/account/add_device'
+import account_device_code from '../templates/account/device_code'
 import feed_item from '../templates/feed/item'
 import feed_head from '../templates/feed/head'
 import feed_episode from '../templates/feed/episode'
@@ -133,6 +134,7 @@ import remote_helper from '../templates/remote_helper'
 import watched_history from '../templates/watched_history'
 import icons_sprite from '../templates/icons/sprite'
 import warning from '../templates/warning'
+import reaction_ask from '../templates/player/reaction'
 
 
 let templates = {
@@ -251,6 +253,7 @@ let templates = {
     head_backward,
     account_add_device,
     account_add_device_new,
+    account_device_code,
     feed_item,
     feed_head,
     feed_episode,
@@ -268,7 +271,8 @@ let templates = {
     remote_helper,
     watched_history,
     icons_sprite,
-    warning
+    warning,
+    reaction_ask
 }
 
 let created = {}

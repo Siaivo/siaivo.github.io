@@ -33,7 +33,7 @@ var babel = require('@rollup/plugin-babel').babel;
 // Add support for require() syntax
 var commonjs = require('@rollup/plugin-commonjs');
 // Add support for importing from node_modules folder like import x from 'module-name'
-var nodeResolve = require('@rollup/plugin-node-resolve');
+var nodeResolve = require('@rollup/plugin-node-resolve').nodeResolve;
 var regenerator = require('rollup-plugin-regenerator');
 
 
@@ -50,7 +50,7 @@ var docFolder = './build/doc/';
 var isDebugEnabled = false;
 
 function merge(done) {
-    let plugins = [nodeResolve.nodeResolve(), commonjs(), babel({
+    let plugins = [nodeResolve(), commonjs(), babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/core-js/**',
         presets: [
@@ -105,7 +105,7 @@ function merge(done) {
 }
 
 function bubbleFile(name) {
-    let plug = [nodeResolve.nodeResolve(), commonjs(), babel({
+    let plug = [nodeResolve(), commonjs(), babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/core-js/**',
         presets: [
