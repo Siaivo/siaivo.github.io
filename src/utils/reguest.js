@@ -399,8 +399,15 @@ function Request(){
         if(params.cache && params.cache.life > 0 && Storage.field('request_caching')) {
             Cache.getData('other', cacheName(params), -1, true).then((result)=>{
                 if (result) {
-                    if(Date.now() < result.time + (params.cache.life * 1000 * 60)) callback(result.value, result.value)
-                    else callback(null, result.value)
+                    // cache.skip(value) -> true: запис є, але свіжим не вважаємо (напр. порожній список)
+                    let skip = params.cache.skip && params.cache.skip(result.value)
+
+                    if(!skip && Date.now() < result.time + (params.cache.life * 1000 * 60)) {
+                        callback(result.value, result.value)
+                    }
+                    else {
+                        callback(null, result.value)
+                    }
                 } 
                 else callback(null, null)
             }).catch(e=>{

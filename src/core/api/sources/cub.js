@@ -515,11 +515,11 @@ function full(params, oncomplite, onerror){
 
         TMDB.get(params.method+'/'+params.id+'/recommendations',params,(json)=>{
             status.append('recomend', json)
-        },status.error.bind(status), {life: day * 7})
+        },status.error.bind(status), {life: day * 7, skip: json => !(json && json.results && json.results.length)})
 
         TMDB.get(params.method+'/'+params.id+'/similar',params,(json)=>{
             status.append('simular', json)
-        },status.error.bind(status), {life: day * 7})
+        },status.error.bind(status), {life: day * 7, skip: json => !(json && json.results && json.results.length)})
 
         if(!Permit.child){
             TMDB.videos(params, (json)=>{
