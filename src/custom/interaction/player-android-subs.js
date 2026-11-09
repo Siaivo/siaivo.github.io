@@ -1,14 +1,13 @@
 // Плагіни викликають Player.play(), а потім Player.subtitles()
 // в тому ж такті. Для зовнішнього android-плеєра intent летить синхронно
-// всередині play(), тому субтитри до нього не доїжджають — а внутрішнього
-// <video> не існує, і Subtitles.custom() падає "Cannot set properties of undefined (setting 'customSubs')".
+// всередині play(), тому субтитри до нього не доїжджають.
 //
 // Затримуємо intent на один такт і складаємо в його data ті субтитри,
 // що прийшли після play().
 
 (function() {
     function init() {
-        if (!window.Lampa || !Lampa.Player || !Lampa.Android || !Lampa.PlayerVideo) {
+        if (!window.Lampa || !Lampa.Player || !Lampa.Android) {
             setTimeout(init, 50)
             return
         }
@@ -40,9 +39,7 @@
                 return
             }
 
-            // Плеєр не відкритий (зовнішній плеєр вже запущено або вихід з плеєра)
-            if (!Lampa.PlayerVideo.video()) return console.log('Custom', 'subtitles skipped, no inner video')
-
+            // Без внутрішнього <video> Subtitles.custom() сам пропускає виклик (апстрим 86eaf1ac)
             return subtitles.apply(Lampa.Player, arguments)
         }
     }
