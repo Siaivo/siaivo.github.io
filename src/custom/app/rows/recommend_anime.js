@@ -185,7 +185,7 @@ export function shikimoriCards(list){
     return list ? unique(list.map(fromShikimori)) : null
 }
 
-// Поради до тайтлу з історії. get(url, body) - запит через чергу рекомендацій, Promise(json | null).
+// Поради до тайтлу з історії. get(url, body) - запит фонового збору (recommend_collect), Promise(json | null).
 // null - джерело не відповіло або тайтлу там нема: тоді recommend.js бере TMDB.
 export function load(card, method, from, get){
     return mapReady().then(() => {
