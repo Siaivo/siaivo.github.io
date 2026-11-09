@@ -4,6 +4,8 @@ import Lang from '../../core/lang'
 // Список джерел на картці: ядро на Android додає в кінець «Додати джерело», що веде в штатні
 // Розширення, і заради нього показує список навіть з одним джерелом (buttons.js:56). Пункт
 // прибираємо, а одне джерело, що лишилось, запускаємо одразу - як ядро без плагінів.
+// Запускаємо через onSelect ядра, а не trigger('hover:enter') напряму: ядро передає кнопці
+// контекст (сезон з меню серії, onBack), і без нього джерело відкрилось би не на тому сезоні.
 let select_show = Select.show
 
 Select.show = function(params){
@@ -12,8 +14,8 @@ Select.show = function(params){
     if (is_sources) {
         params.items = params.items.filter(item => !item.add_source)
 
-        if (params.items.length == 1 && params.items[0].btn) {
-            params.items[0].btn.trigger('hover:enter')
+        if (params.items.length == 1 && params.items[0].btn && params.onSelect) {
+            params.onSelect(params.items[0])
 
             return
         }
