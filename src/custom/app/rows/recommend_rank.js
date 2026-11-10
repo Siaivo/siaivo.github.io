@@ -10,6 +10,8 @@ let per_seed = 4    // скільки карток одне джерело мо�
 let row_size = 20
 let head_sources = 12 // джерел, що по колу набирають перші row_size
 let top_floor = 6.8 // оцінка, нижче якої картка не потрапляє в перші row_size (лише добирає недобір)
+let top_votes = 100 // і голосів не менше: 9.6 зі ста голосів і записи шоу перший ряд не відкривають
+let strong_lap = 2  // стільки карток за коло дає вподобане й переглянуте, решта - по одній
 let prior    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
 let mean     = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
 let fresh    = 365  // днів: вийшло недавно - буст
@@ -49,7 +51,7 @@ function released(item, now){
 
 // Перші row_size - по колу: кожне з head_sources джерел дає свою найсильнішу картку, у колі -
 // за очками, потім друге коло... Інакше вага свіжості віддавала весь ряд п'ятьом останнім
-// тайтлам історії. Вподобане й переглянуте (roles[i] = 1) у колі завжди, решта - за найкращою
+// тайтлам історії. Вподобане й переглянуте (roles[i] = 1) у колі завжди і дає strong_lap карток за коло, решта - за найкращою
 // карткою; слабке джерело (roles[i] = -1) місця в колі не має, його поради лише добирають недобір.
 function head(sorted, roles){
     let lists = {}
@@ -76,7 +78,18 @@ function head(sorted, roles){
     let result = []
 
     for (let round = 0; round < per_seed && result.length < row_size; round++) {
-        let lap = chosen.map(from => lists[from][round]).filter(Boolean).sort((a, b) => b.score - a.score)
+        let lap = []
+
+        chosen.forEach(from => {
+            let take = roles[from] > 0 ? strong_lap : 1
+            let pos  = roles[from] > 0 ? round * strong_lap : round
+
+            if (pos < per_seed) {
+                lap = lap.concat(lists[from].slice(pos, Math.min(pos + take, per_seed)))
+            }
+        })
+
+        lap.sort((a, b) => b.score - a.score)
 
         result = result.concat(lap.slice(0, row_size - result.length))
     }
@@ -84,14 +97,21 @@ function head(sorted, roles){
     return result
 }
 
+// Картка для першого ряду. Голоси невідомі (Shikimori) - не ріжемо за ними.
+function top(row){
+    let item = row.item
+
+    return (item.vote_average || 0) >= top_floor && (item.vote_count == null || item.vote_count >= top_votes)
+}
+
 // Кожна сторінка по row_size - так само по колу з того, що лишилось: ліміт на джерело тут
 // не допомагає - п'ять сильних джерел по per_seed уже заповнюють сторінку. Джерел замало
-// на повну сторінку - добираємо найсильнішими з решти. Перша сторінка - лише з карток від top_floor.
+// на повну сторінку - добираємо найсильнішими з решти. Перша сторінка - лише з карток, що пройшли top.
 function pages(rows, roles){
     let result = []
 
     while (rows.length) {
-        let pool  = result.length ? rows : rows.filter(row => (row.item.vote_average || 0) >= top_floor)
+        let pool  = result.length ? rows : rows.filter(top)
         let page  = head(pool, roles)
         let taken = {}
 

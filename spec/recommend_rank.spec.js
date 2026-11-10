@@ -99,6 +99,34 @@ suite('recommend_rank', () => {
         expect(rank([weak].concat(many), [1].concat(many.map(() => 0.5)), all, now).slice(0, 20).map(i => i.id)).not.toContain(1)
     })
 
+    test('картка з парою голосів у першому ряду лише на недобір, навіть з 9.6', () => {
+        let few  = movies([1], {vote_average: 9.6, vote_count: 60})
+        let many = []
+
+        for (let s = 0; s < 25; s++) {
+            many.push(movies([100 + s]))
+        }
+
+        expect(rank([few].concat(many), [1].concat(many.map(() => 0.5)), all, now).slice(0, 20).map(i => i.id)).not.toContain(1)
+    })
+
+    test('вподобане дає за коло дві картки, звичайне - одну', () => {
+        let answers = []
+        let weights = []
+
+        for (let s = 0; s < 12; s++) {
+            answers.push(movies([1, 2, 3, 4, 5].map(n => s * 10 + n)))
+            weights.push(1)
+        }
+
+        let roles = answers.map((a, s) => s == 11 ? 1 : 0)
+        let head  = rank(answers, weights, all, now, null, roles).slice(0, 20).map(i => Math.floor(i.id / 10))
+        let count = from => head.filter(f => f == from).length
+
+        expect(count(11)).toBeGreaterThanOrEqual(3)
+        expect(count(0)).toBeLessThanOrEqual(2)
+    })
+
     test('хвіст теж по колу: сильне джерело не забиває наступну сторінку', () => {
         let answers = [movies(Array.from({length: 30}, (v, n) => 100 + n))]
         let weights = [1]
