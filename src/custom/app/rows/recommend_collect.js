@@ -18,7 +18,7 @@ import '../../utils/db-get-many'
 // різною історією не витісняють одне одного, повернення в профіль - без запитів.
 // Без IndexedDB (старі рушії) збір той самий, лише живе в пам'яті до перезапуску.
 
-let tick_time   = 1000 * 10      // поки є незібране: один тайтл за тік
+let tick_time   = 1000 * 10      // перевірка, чи є незібране чи застаріле
 let stale_gap   = 1000 * 60      // застаріле оновлюємо не частіше
 let busy_life   = 1000 * 60 * 2  // запит, чий колбек не прийшов (Api.clear() скидає їх мовчки)
 let retry_min   = 1000 * 60      // після збою мережі: хвилина, далі вдвічі довше...
@@ -174,14 +174,14 @@ function waiting(id){
 }
 
 // Термінова партія: з list - те, чого ще нема, по parallel одночасно. Промахи мережі не чекаємо
-// повторно - їх підбере фон.
-function prefetch(list){
+// повторно - їх підбере фон. polite - фоновий збір: плеєр відкрили - нові запити не починаємо.
+function prefetch(list, polite){
     return read(list).then(found => {
         let todo = list.filter((item, i) => !found[i] && !waiting(idOf(item)))
         let next = 0
 
         function lane(){
-            if (next >= todo.length) {
+            if (next >= todo.length || (polite && Lampa.Player.opened())) {
                 return Promise.resolve()
             }
 
@@ -198,13 +198,12 @@ function prefetch(list){
     })
 }
 
-// Спершу те, чого ще нема зовсім (у порядку пулу - найважливіше першим), потім застаріле, але
-// не частіше stale_gap: воно лише освіжає вже робочу стрічку.
+// Застаріле, не частіше stale_gap: воно лише освіжає вже робочу стрічку.
 function due(list, found){
     let ids   = list.map(idOf)
-    let index = found.findIndex((answer, i) => !answer && !waiting(ids[i]))
+    let index = -1
 
-    if (index < 0 && Date.now() - stale_at > stale_gap) {
+    if (Date.now() - stale_at > stale_gap) {
         index = found.findIndex((answer, i) => answer && Date.now() - answer.time > life(ids[i], answer) && !waiting(ids[i]))
 
         if (index >= 0) {
@@ -215,7 +214,8 @@ function due(list, found){
     return index
 }
 
-// Один тайтл за тік і не під час перегляду: на слабкому ТВ ривок у відео помітніший за все.
+// Не під час перегляду: на слабкому ТВ ривок у відео помітніший за все. Незібране - усе одразу
+// по parallel (по тайтлу за тік довга історія збиралася б чверть години), застаріле - по тайтлу за тік.
 function tick(){
     if (Date.now() - busy_at < busy_life || Lampa.Player.opened()) {
         return
@@ -231,6 +231,10 @@ function tick(){
 
     // пул міг змінитись, поки читали базу - працюємо зі знімком
     read(list).then(found => {
+        if (found.some((answer, i) => !answer && !waiting(idOf(list[i])))) {
+            return prefetch(list, true).then(() => busy_at = 0)
+        }
+
         let index = due(list, found)
 
         if (index < 0) {
