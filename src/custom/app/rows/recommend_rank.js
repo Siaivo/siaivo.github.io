@@ -3,22 +3,21 @@
 //
 // answers[i] - рекомендації до i-го джерела, weights[i] - його вага (від'ємна - кинуте:
 // його поради топлять картку), accept(item, key) - чи можна показувати картку взагалі,
-// now - мілісекунди, від них новинки і щоденне перемішування, taste - множник профілю смаку
-// (recommend_taste) разом з показами (recommend_signals) або null.
+// now - мілісекунди, від них новинки, taste - множник профілю смаку (recommend_taste) разом
+// з показами (recommend_signals) або null, profile - картки джерел, з яких рахуємо, якою
+// стрічка має бути за форматом, мовою й роками (калібрування).
 
-let per_seed = 4    // скільки карток одне джерело може дати на кожну сторінку з row_size
-let row_size = 20
-let head_sources = 12 // джерел, що по колу набирають перші row_size
-let top_floor = 6.8 // оцінка, нижче якої картка не потрапляє в перші row_size (лише добирає недобір)
-let top_votes = 100 // і голосів не менше: 9.6 зі ста голосів і записи шоу перший ряд не відкривають
-let top_votes_local = 30 // неанглійським стільки: корейське й тайське набирає голоси на TMDB повільніше
-let tail_floor = 6.5 // нижче цього, як і без голосів, - у самий кінець, після всіх нормальних
-let strong_lap = 2  // стільки карток за коло дає вподобане й переглянуте, решта - по одній
-let prior    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
-let mean     = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
-let fresh    = 365  // днів: вийшло недавно - буст
-let fresh_x  = 1.2
-let shake    = 0.2  // щоденне перемішування: до +20% очок, стабільно протягом доби
+let row_size    = 20
+let per_seed    = 4    // скільки карток одне джерело може дати в перші row_size
+let keep        = 60   // стільки калібруємо, далі - просто за очками
+let prior_en    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
+let prior_local = 50   // неанглійським менше: голоси на TMDB вони набирають повільніше
+let mean        = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
+let gate        = 6.7  // байєсова оцінка, нижче якої картка йде після всіх інших
+let fresh       = 365  // днів: вийшло недавно - буст
+let fresh_x     = 1.2
+let lambda      = 0.97  // калібрування: 0 - лише очки, 1 - лише схожість на історію
+let alpha       = 0.01 // згладжування розподілу стрічки, щоб KL не йшов у нескінченність
 
 let day_ms = 1000 * 60 * 60 * 24
 
@@ -38,11 +37,12 @@ export function hash(text){
 }
 
 // 8.1 з 40 голосів не обганяє 7.8 з 20 тисяч. Голоси невідомі (Shikimori) - оцінка важить
-// наполовину, як від prior голосів, а не зникає зовсім.
-function quality(item){
+// як від prior голосів, а не зникає зовсім.
+function bayes(item){
+    let prior = item.original_language == 'en' ? prior_en : prior_local
     let votes = item.vote_count == null ? prior : item.vote_count || 0
 
-    return (votes * (item.vote_average || 0) + prior * mean) / (votes + prior) / mean
+    return (votes * (item.vote_average || 0) + prior * mean) / (votes + prior)
 }
 
 function released(item, now){
@@ -51,113 +51,114 @@ function released(item, now){
     return isNaN(time) ? Infinity : (now - time) / day_ms
 }
 
-// Перші row_size - по колу: кожне з head_sources джерел дає свою найсильнішу картку, у колі -
-// за очками, потім друге коло... Інакше вага свіжості віддавала весь ряд п'ятьом останнім
-// тайтлам історії. Вподобане й переглянуте (roles[i] = 1) у колі завжди і дає strong_lap карток за коло, решта - за найкращою
-// карткою; слабке джерело (roles[i] = -1) місця в колі не має, його поради лише добирають недобір.
-function head(sorted, roles){
-    let lists = {}
-    let order = []
+// Осі калібрування: формат, мова, давнина. Аніме з Hikka/Shikimori мови не має - воно японське.
+function group(item){
+    let lang = item.mal_id ? 'ja' : item.original_language
 
-    sorted.forEach(row => {
-        if (!lists[row.from]) {
-            lists[row.from] = []
+    return ['en', 'ja', 'ko', 'zh'].indexOf(lang) >= 0 ? lang : lang == 'cn' ? 'zh' : 'other'
+}
 
-            order.push(row.from)
-        }
+function era(item, now){
+    let year = parseInt((item.release_date || item.first_air_date || '').slice(0, 4)) || 0
+    let this_year = new Date(now).getFullYear()
 
-        lists[row.from].push(row)
+    return year >= this_year - 1 ? 'new' : year >= this_year - 5 ? 'recent' : 'old'
+}
+
+function axes(now){
+    return [
+        item => item.media_type || (item.name ? 'tv' : 'movie'),
+        group,
+        item => era(item, now)
+    ]
+}
+
+// Частки категорій однієї осі серед карток.
+function share(cards, axis){
+    let result = {}
+
+    cards.forEach(card => {
+        let name = axis(card)
+
+        result[name] = (result[name] || 0) + 1 / cards.length
     })
-
-    let chosen = order.filter(from => roles[from] > 0).slice(0, head_sources)
-
-    order.forEach(from => {
-        if (chosen.length < head_sources && chosen.indexOf(from) < 0 && !(roles[from] < 0)) {
-            chosen.push(from)
-        }
-    })
-
-    let result = []
-
-    for (let round = 0; round < per_seed && result.length < row_size; round++) {
-        let lap = []
-
-        chosen.forEach(from => {
-            let take = roles[from] > 0 ? strong_lap : 1
-            let pos  = roles[from] > 0 ? round * strong_lap : round
-
-            if (pos < per_seed) {
-                lap = lap.concat(lists[from].slice(pos, Math.min(pos + take, per_seed)))
-            }
-        })
-
-        lap.sort((a, b) => b.score - a.score)
-
-        result = result.concat(lap.slice(0, row_size - result.length))
-    }
 
     return result
 }
 
-// Аніме з Hikka/Shikimori (mal_id) за голосами не ріжемо: у Hikka це оцінки MAL - сотні тисяч,
-// у Shikimori голосів нема зовсім. Голоси невідомі - теж не ріжемо.
-function voted(item){
-    if (item.mal_id || item.vote_count == null) {
-        return true
-    }
+// KL(історія || стрічка) по всіх осях, якщо до стрічки додати row. Steck, «Calibrated
+// Recommendations» (2018): стрічка повторює пропорції історії, а не лише найсильніший її бік.
+function divergence(target, counts, total, row, list){
+    let sum = 0
 
-    return item.vote_count >= (item.original_language == 'en' ? top_votes : top_votes_local)
+    target.forEach((want, a) => {
+        let mine = list[a](row.item)
+
+        Object.keys(want).forEach(name => {
+            let have = ((counts[a][name] || 0) + (mine == name ? 1 : 0)) / (total + 1)
+            let soft = (1 - alpha) * have + alpha * want[name]
+
+            sum += want[name] * Math.log(want[name] / soft)
+        })
+    })
+
+    return sum
 }
 
-// Картка для першого ряду.
-function top(row){
-    return (row.item.vote_average || 0) >= top_floor && voted(row.item)
-}
-
-// Картка, що не варта навіть хвоста: її місце після всіх інших.
-function poor(row){
-    return (row.item.vote_average || 0) < tail_floor || !voted(row.item)
-}
-
-// Кожна сторінка по row_size - так само по колу з того, що лишилось: ліміт на джерело тут
-// не допомагає - п'ять сильних джерел по per_seed уже заповнюють сторінку. Джерел замало
-// на повну сторінку - добираємо найсильнішими з решти. Перша сторінка - лише з карток, що пройшли top.
-function pages(rows, roles){
+// Жадібно: на кожне місце - картка з найкращим (1 - lambda) * очки - lambda * KL. У перших
+// row_size одне джерело дає не більше per_seed. Решта після keep - за очками.
+function calibrate(rows, profile, now){
+    let list   = axes(now)
+    let target = profile.length ? list.map(axis => share(profile, axis)) : []
+    let counts = list.map(() => ({}))
+    let best   = rows.length ? rows[0].score : 1
+    let seeds  = {}
     let result = []
+    let left   = rows.slice()
 
-    while (rows.length) {
-        let pool  = result.length ? rows : rows.filter(top)
-        let page  = head(pool, roles)
-        let taken = {}
+    while (result.length < keep && left.length) {
+        let pick  = -1
+        let value = -Infinity
 
-        page.forEach(row => taken[row.id] = true)
+        for (let i = 0; i < left.length; i++) {
+            let row = left[i]
 
-        let rest = rows.filter(row => !taken[row.id])
-
-        // недобір - спершу з тих, що пройшли поріг, потім з решти
-        pool.concat(rest).forEach(row => {
-            if (page.length < row_size && !taken[row.id]) {
-                taken[row.id] = true
-
-                page.push(row)
+            if (result.length < row_size && (seeds[row.from] || 0) >= per_seed) {
+                continue
             }
+
+            let v = (1 - lambda) * row.score / best - lambda * divergence(target, counts, result.length, row, list)
+
+            if (v > value) {
+                value = v
+                pick  = i
+            }
+        }
+
+        // усі, що лишились, з уже повних джерел - беремо найсильнішу
+        if (pick < 0) {
+            pick = 0
+        }
+
+        let row = left.splice(pick, 1)[0]
+
+        list.forEach((axis, a) => {
+            let name = axis(row.item)
+
+            counts[a][name] = (counts[a][name] || 0) + 1
         })
 
-        rest = rest.filter(row => !taken[row.id])
+        seeds[row.from] = (seeds[row.from] || 0) + 1
 
-        result = result.concat(page)
-        rows   = rest
+        result.push(row)
     }
 
-    return result
+    return result.concat(left)
 }
 
-// roles[i] - роль i-го джерела в колі: 1 - вподобане чи переглянуте, завжди в ньому; -1 - слабке,
-// без місця в колі; 0 чи нема - за найкращою карткою.
-export default function rank(answers, weights, accept, now, taste, roles){
+export default function rank(answers, weights, accept, now, taste, profile){
     let found  = {}
     let denied = {}
-    let today  = Math.floor(now / day_ms)
 
     answers.forEach((results, i) => {
         results.forEach((item, rank) => {
@@ -193,16 +194,21 @@ export default function rank(answers, weights, accept, now, taste, roles){
     // радили лише кинуті або вони переважили
     let sorted = Object.keys(found).map(id => found[id]).filter(row => row.score > 0)
 
+    // Скільки джерел і як сильно радять - лише підстава, вирішує якість: інакше порядок усередині
+    // поради одного джерела задавала б популярність у TMDB, а не оцінка.
     sorted.forEach(row => {
-        row.score *= quality(row.item)
+        let q = bayes(row.item) / mean
+
+        row.good  = bayes(row.item) >= gate
+        row.score = Math.log(1 + row.score) * q * q
         row.score *= released(row.item, now) <= fresh ? fresh_x : 1
-        row.score *= 1 + shake * hash(today + row.id)
         row.score *= taste ? taste(row.item) : 1
     })
 
     sorted.sort((a, b) => b.score - a.score)
 
-    roles = roles || []
+    let good = sorted.filter(row => row.good)
+    let weak = sorted.filter(row => !row.good)
 
-    return pages(sorted.filter(row => !poor(row)), roles).concat(pages(sorted.filter(poor), roles)).map(row => row.item)
+    return calibrate(good, profile || [], now).concat(weak).map(row => row.item)
 }
