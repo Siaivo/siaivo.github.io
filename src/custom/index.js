@@ -1,5 +1,6 @@
 import './core/storage-quota'
 import './core/android-favorite'
+import './core/watch-history-local'
 import './app/default-lang'
 import './app/custom-welcome'
 import './app/custom-head'
