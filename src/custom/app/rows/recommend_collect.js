@@ -24,7 +24,7 @@ let busy_life   = 1000 * 60 * 2  // запит, чий колбек не при�
 let retry_min   = 1000 * 60      // після збою мережі: хвилина, далі вдвічі довше...
 let retry_max   = 1000 * 60 * 60 // ...але не довше години
 let timeout     = 10000          // як у TMDB.get; без нього Reguest чекає 30 с
-let parallel    = 3              // термінова партія: на слабкому ТВ і через проксі більше заважають одне одному
+let parallel    = 5           // запитів одночасно на весь збір: на слабкому ТВ і через проксі більше заважають одне одному
 let keep_min    = 10 // днів: поради TMDB до тайтлу змінюються тижнями, не днями
 let keep_spread = 8  // + до стількох днів, свої для кожного тайтлу - щоб не застарівали всі разом
 let keep_spare  = 1  // день: Hikka/Shikimori не відповіли, взяли TMDB - питаємо їх знову завтра
@@ -40,6 +40,8 @@ let make     = null
 let changed  = null
 let busy_at  = 0
 let stale_at = 0
+let queue    = [] // запити, що чекають вільного слота (send)
+let active   = 0
 
 // Аніме, до якого радимо, питаємо в Hikka чи Shikimori - відповідь залежить від джерела.
 function idOf(item){
@@ -56,7 +58,7 @@ function life(id, answer){
 
 // null - помилка мережі, а не порожня відповідь. Власна межа: якщо колбек Reguest не прийде
 // зовсім, тайтл інакше висів би в pending назавжди.
-function send(url, body){
+function raw(url, body){
     let params = {timeout}
 
     if (body) {
@@ -68,6 +70,30 @@ function send(url, body){
     })
 
     return Promise.race([answer, delay(timeout * 2).then(() => null)])
+}
+
+// Не більше parallel запитів на весь збір: фон, термінові партії й перерахунки кількох екранів
+// можуть іти разом, а кожен тримає по parallel потоків. raw не відхиляється - слот звільниться завжди.
+function send(url, body){
+    return new Promise(resolve => {
+        queue.push(() => raw(url, body).then(json => {
+            active--
+
+            next()
+
+            resolve(json)
+        }))
+
+        next()
+    })
+}
+
+function next(){
+    while (active < parallel && queue.length) {
+        active++
+
+        queue.shift()()
+    }
 }
 
 // Сирий запит, а не TMDB.get: той пропускає відповідь через filterTitles, а він вирізає
