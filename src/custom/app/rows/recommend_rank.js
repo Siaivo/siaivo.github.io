@@ -4,8 +4,8 @@
 // answers[i] - рекомендації до i-го джерела, weights[i] - його вага (від'ємна - кинуте:
 // його поради топлять картку), accept(item, key) - чи можна показувати картку взагалі,
 // now - мілісекунди, від них новинки, taste - множник профілю смаку (recommend_taste) разом
-// з показами (recommend_signals) або null, profile - картки джерел, з яких рахуємо, якою
-// стрічка має бути за форматом, мовою й роками (калібрування).
+// з показами (recommend_signals) або null, profile - [{card, weight}] джерел, з яких рахуємо,
+// якою стрічка має бути за форматом, мовою й роками (калібрування).
 
 let row_size    = 20
 let per_seed    = 4    // скільки карток одне джерело може дати в перші row_size
@@ -73,14 +73,15 @@ function axes(now){
     ]
 }
 
-// Частки категорій однієї осі серед карток.
-function share(cards, axis){
+// Частки категорій однієї осі серед карток профілю, з вагами джерел.
+function share(profile, axis){
     let result = {}
+    let total  = profile.reduce((sum, p) => sum + p.weight, 0)
 
-    cards.forEach(card => {
-        let name = axis(card)
+    profile.forEach(p => {
+        let name = axis(p.card)
 
-        result[name] = (result[name] || 0) + 1 / cards.length
+        result[name] = (result[name] || 0) + p.weight / total
     })
 
     return result

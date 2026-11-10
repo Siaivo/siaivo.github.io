@@ -244,6 +244,10 @@ function collected(list){
     })
 }
 
+function profileCard(card){
+    return Utils.isAnime(card) ? Object.assign({}, card, {original_language: 'ja'}) : card
+}
+
 // Вподобане, переглянуте чи додивлене - найсильніший сигнал «зайшло».
 function strongOf(card, snap){
     let id = key(card)
@@ -324,8 +328,10 @@ function build(media, watched){
 
         let mult = item => (liked ? liked(item) : 1) * exposure(seen[key(item)], day)
 
-        // калібруємо за тим, від чого радимо: свіжа частина історії, переглянуте, вподобане
-        let profile = list.filter(item => item.good).map(item => item.card)
+        // калібруємо за тим, від чого радимо, з тими ж вагами: чотири останні аніме мають вести
+        // стрічку, а не бути 4 з 37 рівноправних джерел
+        // аніме в історії часто без мови (картка з Hikka) - для калібрування воно японське
+        let profile = list.map((item, i) => ({card: profileCard(item.card), weight: weights[i]})).filter((p, i) => list[i].good && p.weight > 0)
 
         return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult, profile), 'tmdb')
     })
