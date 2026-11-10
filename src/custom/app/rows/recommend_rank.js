@@ -11,6 +11,8 @@ let row_size = 20
 let head_sources = 12 // джерел, що по колу набирають перші row_size
 let top_floor = 6.8 // оцінка, нижче якої картка не потрапляє в перші row_size (лише добирає недобір)
 let top_votes = 100 // і голосів не менше: 9.6 зі ста голосів і записи шоу перший ряд не відкривають
+let top_votes_local = 30 // неанглійським стільки: корейське й тайське набирає голоси на TMDB повільніше
+let tail_floor = 6.5 // нижче цього, як і без голосів, - у самий кінець, після всіх нормальних
 let strong_lap = 2  // стільки карток за коло дає вподобане й переглянуте, решта - по одній
 let prior    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
 let mean     = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
@@ -97,11 +99,21 @@ function head(sorted, roles){
     return result
 }
 
-// Картка для першого ряду. Голоси невідомі (Shikimori) - не ріжемо за ними.
-function top(row){
-    let item = row.item
+// Голоси невідомі (Shikimori) - не ріжемо за ними.
+function voted(item){
+    let need = item.original_language == 'en' ? top_votes : top_votes_local
 
-    return (item.vote_average || 0) >= top_floor && (item.vote_count == null || item.vote_count >= top_votes)
+    return item.vote_count == null || item.vote_count >= need
+}
+
+// Картка для першого ряду.
+function top(row){
+    return (row.item.vote_average || 0) >= top_floor && voted(row.item)
+}
+
+// Картка, що не варта навіть хвоста: її місце після всіх інших.
+function poor(row){
+    return (row.item.vote_average || 0) < tail_floor || !voted(row.item)
 }
 
 // Кожна сторінка по row_size - так само по колу з того, що лишилось: ліміт на джерело тут
@@ -187,5 +199,7 @@ export default function rank(answers, weights, accept, now, taste, roles){
 
     sorted.sort((a, b) => b.score - a.score)
 
-    return pages(sorted, roles || []).map(row => row.item)
+    roles = roles || []
+
+    return pages(sorted.filter(row => !poor(row)), roles).concat(pages(sorted.filter(poor), roles)).map(row => row.item)
 }
