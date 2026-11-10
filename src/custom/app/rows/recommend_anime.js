@@ -32,10 +32,10 @@ function mapReady(){
     return new Promise(resolve => AnimeMap.load(resolve))
 }
 
-// Поля, з якими працюють bucket і ранжування рекомендацій.
+// Поля, з якими працюють bucket і ранжування рекомендацій. Мови не ставимо: аніме впізнає
+// mal_id (Utils.isAnime), а 'ja' для всіх робило японською й китайську донхуа.
 function prepare(card){
-    card.media_type        = card.method
-    card.original_language = 'ja'
+    card.media_type = card.method
 
     return card
 }

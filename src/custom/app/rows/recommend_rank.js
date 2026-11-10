@@ -99,11 +99,14 @@ function head(sorted, roles){
     return result
 }
 
-// Голоси невідомі (Shikimori) - не ріжемо за ними.
+// Аніме з Hikka/Shikimori (mal_id) за голосами не ріжемо: у Hikka це оцінки MAL - сотні тисяч,
+// у Shikimori голосів нема зовсім. Голоси невідомі - теж не ріжемо.
 function voted(item){
-    let need = item.original_language == 'en' ? top_votes : top_votes_local
+    if (item.mal_id || item.vote_count == null) {
+        return true
+    }
 
-    return item.vote_count == null || item.vote_count >= need
+    return item.vote_count >= (item.original_language == 'en' ? top_votes : top_votes_local)
 }
 
 // Картка для першого ряду.
