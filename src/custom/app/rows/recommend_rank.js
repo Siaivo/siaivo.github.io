@@ -6,8 +6,9 @@
 // now - мілісекунди, від них новинки і щоденне перемішування, taste - множник профілю смаку
 // (recommend_taste) разом з показами (recommend_signals) або null.
 
-let per_seed = 4    // скільки карток одне джерело може дати в перші row_size
+let per_seed = 4    // скільки карток одне джерело може дати на кожну сторінку з row_size
 let row_size = 20
+let head_sources = 12 // джерел, що по колу набирають перші row_size
 let prior    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
 let mean     = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
 let fresh    = 365  // днів: вийшло недавно - буст
@@ -45,7 +46,69 @@ function released(item, now){
     return isNaN(time) ? Infinity : (now - time) / day_ms
 }
 
-export default function rank(answers, weights, accept, now, taste){
+// Перші row_size - по колу: кожне з head_sources джерел дає свою найсильнішу картку, у колі -
+// за очками, потім друге коло... Інакше вага свіжості віддавала весь ряд п'ятьом останнім
+// тайтлам історії. Вподобане й переглянуте (strong[i]) у колі завжди, решта - за найкращою карткою.
+function head(sorted, strong){
+    let lists = {}
+    let order = []
+
+    sorted.forEach(row => {
+        if (!lists[row.from]) {
+            lists[row.from] = []
+
+            order.push(row.from)
+        }
+
+        lists[row.from].push(row)
+    })
+
+    let chosen = order.filter(from => strong[from]).slice(0, head_sources)
+
+    order.forEach(from => {
+        if (chosen.length < head_sources && chosen.indexOf(from) < 0) {
+            chosen.push(from)
+        }
+    })
+
+    let result = []
+
+    for (let round = 0; round < per_seed && result.length < row_size; round++) {
+        let lap = chosen.map(from => lists[from][round]).filter(Boolean).sort((a, b) => b.score - a.score)
+
+        result = result.concat(lap.slice(0, row_size - result.length))
+    }
+
+    return result
+}
+
+// Кожна сторінка по row_size - так само по колу з того, що лишилось: ліміт на джерело тут
+// не допомагає - п'ять сильних джерел по per_seed уже заповнюють сторінку. Джерел замало
+// на повну сторінку - добираємо найсильнішими з решти.
+function pages(rows, strong){
+    let result = []
+
+    while (rows.length) {
+        let page  = head(rows, strong)
+        let taken = {}
+
+        page.forEach(row => taken[row.id] = true)
+
+        let rest = rows.filter(row => !taken[row.id])
+
+        while (page.length < row_size && rest.length) {
+            page.push(rest.shift())
+        }
+
+        result = result.concat(page)
+        rows   = rest
+    }
+
+    return result
+}
+
+// strong[i] - i-те джерело вподобане чи переглянуте: воно завжди серед тих, що набирають перший ряд.
+export default function rank(answers, weights, accept, now, taste, strong){
     let found  = {}
     let denied = {}
     let today  = Math.floor(now / day_ms)
@@ -93,21 +156,5 @@ export default function rank(answers, weights, accept, now, taste){
 
     sorted.sort((a, b) => b.score - a.score)
 
-    // одне джерело не забиває стрічку: зайве з нього їде в хвіст, на сторінку «Ще»
-    let head = []
-    let tail = []
-    let used = {}
-
-    sorted.forEach(row => {
-        used[row.from] = (used[row.from] || 0) + 1
-
-        if (head.length < row_size && used[row.from] <= per_seed) {
-            head.push(row.item)
-        }
-        else {
-            tail.push(row.item)
-        }
-    })
-
-    return head.concat(tail)
+    return pages(sorted, strong || []).map(row => row.item)
 }

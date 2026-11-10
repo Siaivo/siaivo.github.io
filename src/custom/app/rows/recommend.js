@@ -244,6 +244,13 @@ function collected(list){
     })
 }
 
+// Вподобане, переглянуте чи додивлене - найсильніший сигнал «зайшло».
+function strongOf(card, snap){
+    let id = key(card)
+
+    return Boolean(snap.like[id] || snap.viewed[id] || Favorite.caughtUp(card))
+}
+
 // Наскільки зайшло джерело. Серіали - за серіями з прив'язаних тайм-кодів; фільм без прив'язки
 // (старі записи) - за тайм-кодом по назві.
 function weightOf(card, snap, watched, now){
@@ -260,7 +267,7 @@ function weightOf(card, snap, watched, now){
     info = info || {}
 
     return engagement({
-        strong: snap.like[id] || snap.viewed[id] || Favorite.caughtUp(card),
+        strong: strongOf(card, snap),
         tv,
         episodes: info.episodes || 0,
         percent: info.percent || 0,
@@ -317,7 +324,9 @@ function build(media, watched){
 
         let mult = item => (liked ? liked(item) : 1) * exposure(seen[key(item)], day)
 
-        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult), 'tmdb')
+        let strong = list.map(item => item.good && strongOf(item.card, snap))
+
+        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult, strong), 'tmdb')
     })
 }
 

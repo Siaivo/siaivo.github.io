@@ -41,6 +41,51 @@ suite('recommend_rank', () => {
         expect(list.length).toBe(8)
     })
 
+    test('перший ряд набирають по колу кілька джерел, а не лише найсвіжіші', () => {
+        let answers = []
+        let weights = []
+
+        for (let s = 0; s < 12; s++) {
+            answers.push(movies([1, 2, 3, 4, 5].map(n => s * 10 + n)))
+            weights.push(Math.pow(0.85, s))
+        }
+
+        let from = rank(answers, weights, all, now).slice(0, 20).map(i => Math.floor(i.id / 10))
+
+        expect(new Set(from).size).toBe(12)
+    })
+
+    test('вподобане джерело в першому ряду, навіть якщо слабке', () => {
+        let answers = []
+        let weights = []
+
+        for (let s = 0; s < 14; s++) {
+            answers.push(movies([1, 2, 3, 4, 5].map(n => s * 10 + n)))
+            weights.push(Math.pow(0.85, s))
+        }
+
+        let strong = answers.map((a, s) => s == 13)
+        let head   = rank(answers, weights, all, now, null, strong).slice(0, 20).map(i => Math.floor(i.id / 10))
+
+        expect(head).toContain(13)
+        expect(rank(answers, weights, all, now).slice(0, 20).map(i => Math.floor(i.id / 10))).not.toContain(13)
+    })
+
+    test('хвіст теж по колу: сильне джерело не забиває наступну сторінку', () => {
+        let answers = [movies(Array.from({length: 30}, (v, n) => 100 + n))]
+        let weights = [1]
+
+        for (let s = 1; s < 12; s++) {
+            answers.push(movies([1, 2, 3, 4, 5, 6].map(n => s * 10 + n)))
+            weights.push(0.2)
+        }
+
+        let page = rank(answers, weights, all, now).slice(20, 40)
+
+        expect(page.filter(i => i.id >= 100).length).toBeLessThanOrEqual(4)
+        expect(new Set(page.map(i => i.id >= 100 ? 0 : Math.floor(i.id / 10))).size).toBeGreaterThanOrEqual(10)
+    })
+
     test('порада кинутого топить картку, а лише його поради зникають', () => {
         let list = rank([movies([1, 2]), movies([2, 3])], [1, -0.6], all, now)
 
