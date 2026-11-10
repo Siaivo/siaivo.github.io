@@ -29,6 +29,7 @@ let decay         = 0.85 // вага i-го джерела: decay^i, десят�
 let penalty       = -0.6 // вага кожного з кинутих
 let weak          = 0.5  // /similar замість порожніх /recommendations: шумніше
 let row_size      = 20   // як у recommend_rank
+let channel_size  = 60   // у recomends_list: застосунок відсіює рейтинг ≤ 6 і бере до 30
 let urgent_count  = 10   // перші джерела - половина ваги стрічки: їх збираємо одразу, не чекаючи фону
 let wait_cold     = 2500 // нічого ще не зібрано: стільки чекаємо термінову партію
 let visible_count = 8    // скільки карток стрічки видно без прокрутки: лише їх вважаємо показаними
@@ -350,13 +351,27 @@ function store(media, sig, all){
         return
     }
 
-    if (old && old.sig == sig && old.day == day && old.ids == ids && old.total == total) {
+    let channel = media == 'all'
+    let fresh   = old && old.sig == sig && old.day == day && old.ids == ids && old.total == total
+
+    if (fresh && !(channel && !window.localStorage.getItem('recomends_list'))) {
         return
     }
 
     saved[media] = {sig, day, ids, total, results: top.map(light)}
 
     Storage.set('recommend_rows', saved)
+
+    // Канал «Рекомендації» на Android TV застосунок бере з recomends_list (раніше його писав сканер core)
+    if (channel) {
+        Storage.set('recomends_list', all.slice(0, channel_size).map(card => {
+            let result = light(card)
+
+            result.media_type = kind(card)
+
+            return result
+        }))
+    }
 }
 
 function rebuild(){
@@ -516,10 +531,9 @@ function add(){
 }
 
 // app.js викликає Recomend.init() у loadApp(), уже після імпорту custom - підміна встигає.
-// Сканер core не запускаємо, його накопичене прибираємо.
+// Сканер core не запускаємо, його накопичене прибираємо. recomends_list лишаємо - це канал Android TV (store).
 Recomend.init = function(){
     window.localStorage.removeItem('recomends_scan')
-    window.localStorage.removeItem('recomends_list')
 
     add()
 
