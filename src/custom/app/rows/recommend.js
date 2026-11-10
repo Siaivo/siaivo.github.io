@@ -1,54 +1,54 @@
 import Recomend from '../../../core/recomend'
 import ContentRows from '../../../core/content_rows'
 import Favorite from '../../../core/favorite'
-import TMDB from '../../../core/tmdb/tmdb'
 import Storage from '../../../core/storage/storage'
 import Lang from '../../../core/lang'
 import Router from '../../../core/router'
-import Reguest from '../../../utils/reguest'
+import Timeline from '../../../interaction/timeline'
+import Player from '../../../interaction/player'
 import Utils from '../../../utils/utils'
 import {foreign_title, filterTitles, min_votes} from '../../core/tmdb/discover-filter'
 import rank, {hash} from './recommend_rank'
 import profile from './recommend_taste'
-import {source as animeSource, load as animeLoad} from './recommend_anime'
+import {kind, key, delay, progress, engagement, exposure, remember, opened, today} from './recommend_signals'
+import Collect from './recommend_collect'
 
 // Стрічка «Рекомендуємо подивитись» замість core/recomend.js. Там фоновий сканер раз на 2 хв
 // обходив усю історію по одному тайтлу, а стрічка показувала 20 випадкових з накопиченого.
-// Тут: останні seeds_count з історії, «Переглянуто» і «Подобається» свого кошика (аніме /
-// серіали / фільми / усе для головної), їхні TMDB-рекомендації складаються з вагами - свіжіше
-// переглянуте важить більше, тайтл, який радять кілька джерел, піднімається нагору.
-// Поради до кинутого, навпаки, топлять картку.
-let seeds_count  = 10
-let thrown_count = 3
-let decay        = 0.85 // вага i-го джерела: decay^i
-let boost        = 1.5  // вподобане, переглянуте або додивлене
-let penalty      = -0.6 // вага кожного з кинутих
-let weak         = 0.5  // /similar замість порожніх /recommendations: шумніше
-let row_size     = 20   // як у recommend_rank
-let day          = 60 * 24
-let keep_min     = 10   // днів у кеші запитів: поради TMDB до тайтлу змінюються тижнями, не днями
-let keep_spread  = 8    // + до стількох днів, свої для кожного тайтлу - щоб не застарівали всі разом
-let parallel     = 3    // запитів одночасно: на слабкому ТВ і через проксі 13 разом заважають одне одному
-let timeout      = 10000 // як у TMDB.get; без нього Reguest чекає 30 с
-let wait_cold    = 2500 // без збереженої стрічки: скільки чекати відповідей, решта - наступного разу
-let wait_warm    = 300  // зі збереженою: свіжа встигає лише з кешу, інакше показуємо збережену
-let taste_decay  = 0.97 // свіжість у профілі смаку: сотий з історії важить ~5% першого
+// Тут: останні seeds_count з історії, «Переглянуто» і «Подобається», їхні рекомендації
+// складаються з вагами - свіжіше й те, що зайшло, важить більше, тайтл, який радять кілька
+// джерел, піднімається нагору. Поради до кинутого, навпаки, топлять картку.
+//
+// Поради до кожного джерела збирає у фоні recommend_collect. Стрічку теж рахуємо заздалегідь:
+// після нових порад, зміни закладок чи прогресу, а не на кожен показ - показ бере готову з
+// пам'яті. Пул один на всі екрани (pool()), кожен екран бере з нього джерела свого кошика.
+let seeds_count   = 30
+let screen_count  = 10   // щонайменше стільки своїх джерел у кожного кошика (аніме, мультфільми...)
+let thrown_count  = 5
+let decay         = 0.85 // вага i-го джерела: decay^i, десяте важить ~23% першого - стрічка про те, що дивишся зараз
+let penalty       = -0.6 // вага кожного з кинутих
+let weak          = 0.5  // /similar замість порожніх /recommendations: шумніше
+let row_size      = 20   // як у recommend_rank
+let channel_size  = 60   // у recomends_list: застосунок відсіює рейтинг ≤ 6 і бере до 30
+let urgent_count  = 10   // перші джерела - половина ваги стрічки: їх збираємо одразу, не чекаючи фону
+let wait_cold     = 2500 // нічого ще не зібрано: стільки чекаємо термінову партію
+let visible_count = 8    // скільки карток стрічки видно без прокрутки: лише їх вважаємо показаними
+let rebuild_wait  = 1000 // події йдуть пачками (синхронізація, кілька відповідей) - один перерахунок
+let start_wait    = 5000 // перший перерахунок головної після запуску
+let taste_decay   = 0.97 // свіжість у профілі смаку: сотий з історії важить ~5% першого
 
-let network    = new Reguest()
-let loaded     = {} // 'tv_123' -> Promise({results, similar}); між сесіями тримає кеш запитів
-let loaded_day = 0  // ТВ місяцями не перезапускають - раз на добу перечитуємо кеш, і застарілі йдуть у мережу
-let queue      = []
-let active     = 0
+let marks   = ['history', 'like', 'wath', 'book', 'viewed', 'thrown', 'look', 'scheduled', 'continued']
+let screens = ['movie', 'tv', 'anime', 'cartoon_movie', 'cartoon_tv'] // кошики screenMedia, крім 'all'
 
-let marks = ['history', 'like', 'wath', 'book', 'viewed', 'thrown', 'look', 'scheduled', 'continued']
-
-function kind(card){
-    return card.media_type || (card.name ? 'tv' : 'movie')
-}
-
-function key(card){
-    return kind(card) + '_' + card.id
-}
+let state   = {snap: null, pool: [], sig: ''}
+let rows    = {}    // media -> {sig, day, all}: готова стрічка
+// екрани, де стрічку показували: лише їх і перераховуємо. Головну - завжди: її ряд сьомий і
+// вантажиться лише при прокрутці, а з неї пишеться recomends_list для каналу Android TV (store)
+let used    = {all: true}
+let dirty   = false
+let timer   = 0
+let shown   = null  // recommend_signals: покази карток поточного профілю
+let shown_name = '' // і їхній ключ у Storage
 
 function keysOf(cards){
     let result = {}
@@ -58,8 +58,8 @@ function keysOf(cards){
     return result
 }
 
-// Favorite.get без синхронізації - вкладений цикл по всіх картках закладок, тож на один
-// показ стрічки читаємо кожен тип рівно раз і далі працюємо зі знімком.
+// Favorite.get без синхронізації - вкладений цикл по всіх картках закладок, тож знімок
+// будуємо раз і тримаємо до зміни закладок.
 function snapshot(){
     let lists = {}
 
@@ -74,8 +74,19 @@ function snapshot(){
     }
 }
 
-// Профіль смаку з усього переглянутого (історія, потім відмітки) і кинутого. Будується раз
-// на знімок: обидві збірки одного показу ділять його.
+// Знімок, пул і його відбиток. Відбиток міняється разом зі складом пулу: зміна профілю, вхід у
+// CUB, нова історія - для стрічки це одне й те саме.
+function current(){
+    if (!state.snap) {
+        state.snap = snapshot()
+        state.pool = pool(state.snap)
+        state.sig  = String(hash(state.pool.map(item => key(item.card) + (item.good ? '' : '!')).join()))
+    }
+
+    return state.snap
+}
+
+// Профіль смаку з усього переглянутого (історія, потім відмітки) і кинутого.
 function taste(snap){
     if (snap.taste === undefined) {
         let skip     = Object.assign({}, snap.thrown)
@@ -87,7 +98,7 @@ function taste(snap){
             if (!skip[id]) {
                 skip[id] = true
 
-                positive.push({card, weight: Math.pow(taste_decay, positive.length) * (snap.like[id] || snap.viewed[id] ? boost : 1)})
+                positive.push({card, weight: Math.pow(taste_decay, positive.length) * (snap.like[id] || snap.viewed[id] ? 1.5 : 1)})
             }
         })
 
@@ -99,133 +110,20 @@ function taste(snap){
     return snap.taste
 }
 
-// Сирий запит, а не TMDB.get: той пропускає відповідь через filterTitles, а він вирізає
-// аніме - а воно потрібне на головній і в аніме. Розкладаємо по кошиках самі в bucket().
-// null - помилка мережі, а не порожня відповідь.
-function request(card, method){
-    let url = TMDB.api(kind(card) + '/' + card.id + '/' + method + '?api_key=' + TMDB.key() + '&language=' + Storage.field('tmdb_lang'))
-
-    return send(url, false, life(card)).then(json => json && (Array.isArray(json.results) ? json.results : []))
-}
-
-function life(card){
-    return day * (keep_min + Math.floor(keep_spread * hash(key(card))))
-}
-
-// Будь-який запит рекомендацій - через чергу. body - JSON для POST (без кешу запитів: те, що
-// варто пам'ятати, тримає сам викликач), life - хвилини в кеші для GET.
-function send(url, body, minutes){
-    let params = {timeout}
-
-    if (body) {
-        params.headers = {'Content-Type': 'application/json'}
-    }
-    else {
-        params.cache = {life: minutes}
-    }
-
-    return enqueue(() => new Promise(resolve => {
-        network.silent(url, resolve, () => resolve(null), body || false, params)
-    }))
-}
-
-// Черга в порядку постановки: build ставить джерела від найважчого, кинуті в кінці, тож за
-// wait_cold встигають найважливіші. З кешу відповідь приходить одразу, черга її майже не тримає.
-function enqueue(task){
-    return new Promise(resolve => {
-        queue.push({task, resolve})
-
-        next()
-    })
-}
-
-function next(){
-    while (active < parallel && queue.length) {
-        let job = queue.shift()
-
-        active++
-
-        // Reguest сам кличе помилку за таймаутом, але якщо колбек не прийде зовсім, слот
-        // зайнятий назавжди і стрічка мертва до перезапуску - тому власна межа
-        Promise.race([job.task(), delay(timeout * 2).then(() => null)]).then(result => {
-            active--
-
-            job.resolve(result)
-
-            next()
-        })
-    }
-}
-
-// Для українських і нішевих тайтлів TMDB часто не має рекомендацій - тоді схожі.
-// Кинутим схожі не потрібні: шумний штраф нічого не дає, а запит коштує. Аніме з історії
-// українською і російською радять Hikka і Shikimori (recommend_anime), TMDB - якщо вони мовчать;
-// кинутим вистачає TMDB.
-function load(card, good){
-    let today = Math.floor(Date.now() / (day * 60 * 1000))
-
-    if (today != loaded_day) {
-        loaded     = {}
-        loaded_day = today
-    }
-
-    let from = good && Utils.isAnime(card) ? animeSource() : null
-    let id   = key(card) + (from ? '_' + from : '')
-
-    if (loaded[id]) {
-        return loaded[id]
-    }
-
-    let get   = (url, body) => send(url, body, life(card))
-    // збій розбору відповіді джерела не має валити всю стрічку й лишати тайтл мертвим до завтра
-    let anime = from ? animeLoad(card, kind(card), from, get).catch(() => null) : Promise.resolve(null)
-
-    loaded[id] = anime.then(results => {
-        if (results && results.length) {
-            return {results, similar: false}
-        }
-
-        return request(card, 'recommendations')
-    }).then(results => {
-        if (!Array.isArray(results)) {
-            return results
-        }
-
-        if (results.length || !good) {
-            return {results, similar: false}
-        }
-
-        return request(card, 'similar').then(similar => similar && {results: similar, similar: true})
-    }).then(answer => {
-        // мережа впала - наступний показ спробує ще раз
-        if (!answer) {
-            delete loaded[id]
-        }
-
-        return answer || {results: [], similar: false}
-    })
-
-    return loaded[id]
-}
-
-function delay(ms){
-    return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 // Жанр 16. Аніме тут теж є - його відсікає inMedia: аніме має свій кошик і свій розділ.
 function animated(card){
     return (card.genre_ids || []).indexOf(16) >= 0
 }
 
 // Кошик картки-рекомендації: 'anime' / 'tv' / 'movie', null - не показувати ніде.
-function bucket(item, today){
+function bucket(item, day){
     let date = item.release_date || item.first_air_date || ''
 
     // карти аніме з Hikka/Shikimori несуть постер у poster/img, а Shikimori не знає голосів
     let poster = item.poster_path || item.poster || item.img
     let few    = item.vote_count != null && item.vote_count < min_votes
 
-    if (item.adult || !poster || !date || date > today || few) {
+    if (item.adult || !poster || !date || date > day || few) {
         return null
     }
 
@@ -245,10 +143,10 @@ function bucket(item, today){
     return kind(item)
 }
 
-// Чи належить картка розділу: і для джерел (seeds), і для порад (accept), і для збереженої
-// стрічки. 'cartoon_movie' / 'cartoon_tv' - сторінки жанру 16. У «Фільмах» і «Серіалах»
-// мультфільмам не місце (на головній - навпаки, там усе), а exclude_genres ріже лише японські
-// й китайські. Без жанрів у картці (буває в історії) мультфільмом її не вважаємо.
+// Чи належить картка розділу: і для джерел, і для порад. 'cartoon_movie' / 'cartoon_tv' -
+// сторінки жанру 16. У «Фільмах» і «Серіалах» мультфільмам не місце (на головній - навпаки,
+// там усе), а exclude_genres ріже лише японські й китайські. Без жанрів у картці (буває в
+// історії) мультфільмом її не вважаємо.
 function inMedia(card, media){
     if (media == 'all') {
         return true
@@ -265,7 +163,7 @@ function inMedia(card, media){
     return !anime && kind(card) == media.replace('cartoon_', '') && animated(card) == cartoon
 }
 
-// Перші count придатних; skip поповнюється взятими, щоб наступний pick їх не повторив.
+// Перші count придатних кошика media; skip поповнюється взятими, щоб наступний pick їх не повторив.
 function pick(cards, media, count, skip){
     let result = []
 
@@ -287,87 +185,285 @@ function pick(cards, media, count, skip){
 
 // Не Favorite.candidates: той прибирає «Переглянуто» - для «Продовжити» це правильно, а тут
 // це найсильніший сигнал «зайшло». Кожне третє місце - з відміток: інакше довга історія
-// витісняла б їх повністю.
-function seeds(media, snap){
-    let skip    = Object.assign({}, snap.thrown)
-    let history = pick(snap.lists.history, media, seeds_count, skip)
-    let marked  = pick(snap.lists.viewed.concat(snap.lists.like), media, seeds_count, skip)
+// витісняла б їх повністю. skip поповнюється взятими.
+function seeds(snap, media, count, skip){
+    let history = pick(snap.lists.history, media, count, skip)
+    let marked  = pick(snap.lists.viewed.concat(snap.lists.like), media, count, skip)
     let result  = []
 
-    while (result.length < seeds_count && (history.length || marked.length)) {
+    while (result.length < count && (history.length || marked.length)) {
         let mark = (result.length % 3 == 2 && marked.length) || !history.length
 
         result.push(mark ? marked.shift() : history.shift())
     }
 
+    // невзяте повертаємо: його ще може взяти інший кошик
+    history.concat(marked).forEach(card => delete skip[key(card)])
+
     return result
 }
 
-// wait - скільки чекати кожну відповідь: 0 - лише те, що вже прийшло, без нього - усі.
-// Запити, що не встигли, не скасовуються: допишуть кеш для наступного build.
-function build(media, snap, wait){
-    let good = seeds(media, snap)
-    let bad  = pick(snap.lists.thrown, media, thrown_count, {})
-    let list = good.concat(bad)
+// Пул: останні seeds_count з усього переглянутого, далі кожен кошик добирає до screen_count
+// своїх - інакше той, хто останнім часом дивиться лише серіали, лишився б без стрічки в аніме.
+// Кинуті - в кінці пулу.
+function pool(snap){
+    let skip = Object.assign({}, snap.thrown)
+    let good = seeds(snap, 'all', seeds_count, skip)
 
-    let answers = list.map((card, i) => {
-        let answer = load(card, i < good.length)
+    screens.forEach(media => {
+        let have = good.filter(card => inMedia(card, media)).length
 
-        return wait === undefined ? answer : Promise.race([answer, delay(wait).then(() => ({results: [], similar: false}))])
+        if (have < screen_count) {
+            good = good.concat(seeds(snap, media, screen_count - have, skip))
+        }
     })
 
-    return Promise.all(answers).then(answers => {
-        let today = new Date().toISOString().slice(0, 10)
+    let bad = pick(snap.lists.thrown, 'all', thrown_count, {})
 
-        let weights = list.map((card, i) => {
-            let id     = key(card)
-            let strong = snap.like[id] || snap.viewed[id] || Favorite.caughtUp(card)
-            let weight = i < good.length ? Math.pow(decay, i) * (strong ? boost : 1) : penalty
+    return good.map(card => ({card, good: true})).concat(bad.map(card => ({card, good: false})))
+}
+
+// Джерела одного екрана - частина пулу того ж порядку.
+function sources(media){
+    current()
+
+    return state.pool.filter(item => inMedia(item.card, media))
+}
+
+// Нічого з джерел екрана ще не зібрано (новий профіль, перший запуск) - чекаємо термінову партію
+// перших, решту допише фон.
+function collected(list){
+    return Collect.read(list).then(found => {
+        if (found.some((answer, i) => answer && list[i].good)) {
+            return found
+        }
+
+        let first = list.filter(item => item.good).slice(0, urgent_count)
+
+        return Promise.race([Collect.prefetch(first), delay(wait_cold)]).then(() => Collect.read(list))
+    })
+}
+
+// Вподобане, переглянуте чи додивлене - найсильніший сигнал «зайшло».
+function strongOf(card, snap){
+    let id = key(card)
+
+    return Boolean(snap.like[id] || snap.viewed[id] || Favorite.caughtUp(card))
+}
+
+// Наскільки зайшло джерело. Серіали - за серіями з прив'язаних тайм-кодів; фільм без прив'язки
+// (старі записи) - за тайм-кодом по назві.
+function weightOf(card, snap, watched, now){
+    let id   = key(card)
+    let tv   = kind(card) == 'tv'
+    let info = watched[id]
+
+    if (!info && !tv) {
+        let time = Timeline.watched(card, true) || {}
+
+        info = {percent: time.percent, updated: time.updated}
+    }
+
+    info = info || {}
+
+    return engagement({
+        strong: strongOf(card, snap),
+        tv,
+        episodes: info.episodes || 0,
+        percent: info.percent || 0,
+        updated: info.updated || 0
+    }, now)
+}
+
+// Покази свої в кожного профілю CUB, як і тайм-коди.
+function shownName(){
+    return 'recommend_shown' + Timeline.filename().replace('file_view', '')
+}
+
+function shownStore(){
+    if (!shown || shown_name != shownName()) {
+        shown_name = shownName()
+        shown      = Storage.get(shown_name, '{}')
+    }
+
+    return shown
+}
+
+function shownSave(){
+    Storage.set(shown_name, shown)
+}
+
+// Прогрес за прив'язаними тайм-кодами - прохід по всіх тайм-кодах, тож раз на перерахунок.
+function watchedNow(){
+    return progress(Storage.get(Timeline.filename(), '{}'))
+}
+
+function build(media, watched){
+    let snap = current()
+    let list = sources(media)
+    let good = list.filter(item => item.good).length
+
+    return collected(list).then(found => {
+        let now     = Date.now()
+        let date    = new Date(now).toISOString().slice(0, 10)
+        let day     = today(now)
+        watched     = watched || watchedNow()
+        let seen    = shownStore()
+        let liked   = taste(snap)
+        let answers = found.map(answer => answer || {results: [], similar: false})
+
+        let weights = list.map((item, i) => {
+            let weight = i < good ? Math.pow(decay, i) * weightOf(item.card, snap, watched, now) : penalty
 
             return answers[i].similar ? weight * weak : weight
         })
 
         let accept = (item, id) => {
-            return !snap.seen[id] && Boolean(bucket(item, today)) && inMedia(item, media)
+            return !snap.seen[id] && Boolean(bucket(item, date)) && inMedia(item, media)
         }
 
-        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, Date.now(), taste(snap)), 'tmdb')
+        let mult = item => (liked ? liked(item) : 1) * exposure(seen[key(item)], day)
+
+        // калібруємо за тим, від чого радимо: свіжа частина історії, переглянуте, вподобане
+        let profile = list.filter(item => item.good).map(item => item.card)
+
+        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult, profile), 'tmdb')
     })
 }
 
-function pack(all){
-    return {
-        results: all.slice(0, row_size),
-        total_pages: Math.ceil(all.length / row_size)
+// Для збереженої стрічки: clearCard не знає полів карток аніме з Hikka/Shikimori.
+function light(card){
+    let result = Utils.clearCard(card)
+    let extra  = ['media_type', 'mal_id', 'method']
+
+    extra.forEach(field => {
+        if (typeof card[field] !== 'undefined') {
+            result[field] = card[field]
+        }
+    })
+
+    return result
+}
+
+// Готова стрічка в пам'ять, перші row_size - у localStorage для першого показу після запуску.
+// localStorage на ТВ повільний - пишемо, лише коли склад змінився.
+function store(media, sig, all){
+    let day   = today(Date.now())
+    let total = Math.ceil(all.length / row_size)
+    let top   = all.slice(0, row_size)
+    let ids   = top.map(key).join()
+    let saved = Storage.get('recommend_rows', '{}')
+    let old   = saved[media]
+
+    rows[media] = {sig, day, all}
+
+    // порожньо - найімовірніше, мережа ще не піднялась: не зберігаємо, наступний показ порахує знову
+    if (!all.length) {
+        delete rows[media]
+
+        return
+    }
+
+    let channel = media == 'all'
+    let fresh   = old && old.sig == sig && old.day == day && old.ids == ids && old.total == total
+
+    if (fresh && !(channel && !window.localStorage.getItem('recomends_list'))) {
+        return
+    }
+
+    saved[media] = {sig, day, ids, total, results: top.map(light)}
+
+    Storage.set('recommend_rows', saved)
+
+    // Канал «Рекомендації» на Android TV застосунок бере з recomends_list (раніше його писав сканер core)
+    if (channel) {
+        Storage.set('recomends_list', all.slice(0, channel_size).map(card => {
+            let result = light(card)
+
+            result.media_type = kind(card)
+
+            return result
+        }))
     }
 }
 
-// Збережена з минулого показу стрічка без того, що відтоді переглянуто чи відкладено.
-// Копія: Storage.get віддає спільний об'єкт зі свого кешу (storage.js:85).
-function stored(media, snap){
-    let row     = Storage.get('recommend_rows', '{}')[media]
-    let results = row ? row.results.filter(card => !snap.seen[key(card)] && inMedia(card, media)) : []
+function rebuild(){
+    dirty = false
 
-    return results.length ? {results, total_pages: row.total_pages} : null
+    current()
+
+    let sig     = state.sig
+    let watched = watchedNow()
+
+    Object.keys(used).forEach(media => {
+        build(media, watched).then(all => store(media, sig, all)).catch(e => {
+            console.log('Recomendations', 'build error:', e)
+        })
+    })
 }
 
-// localStorage на ТВ повільний - пишемо, лише коли склад стрічки змінився.
-function save(media, all){
-    let row  = pack(all)
-    let rows = Storage.get('recommend_rows', '{}')
-    let old  = rows[media]
-    let ids  = row.results.map(key).join()
+// Щось змінилось - перерахуємо. Під час перегляду стрічки не видно: рахуємо, коли плеєр закриють.
+function touch(wait){
+    dirty = true
 
-    if (!old || old.total_pages != row.total_pages || old.results.map(key).join() != ids) {
-        rows[media] = {
-            results: row.results.map(card => Utils.clearCard(card)),
-            total_pages: row.total_pages
+    if (Player.opened()) {
+        return
+    }
+
+    clearTimeout(timer)
+
+    timer = setTimeout(rebuild, typeof wait == 'number' ? wait : rebuild_wait)
+}
+
+// Закладки змінились. Новий склад пулу - зміна профілю, вхід у CUB, нова історія: перші джерела
+// без порад збираємо одразу, навіть під час перегляду - це кілька легких запитів.
+function favoriteChanged(){
+    let before = state.sig
+
+    state.snap = null
+
+    current()
+
+    if (state.sig != before) {
+        Collect.prefetch(state.pool.filter(item => item.good).slice(0, urgent_count))
+    }
+
+    // події закладок уже зібрані в пачку - другий раз не чекаємо
+    touch(0)
+}
+
+// Стрічка екрана: готова з пам'яті, збережена з минулого запуску, або порахована зараз.
+// {all, total}
+function ready(media){
+    used[media] = true
+
+    current()
+
+    let row = rows[media]
+
+    if (row && row.sig == state.sig) {
+        if (row.day != today(Date.now())) {
+            touch()
         }
 
-        Storage.set('recommend_rows', rows)
+        return Promise.resolve({all: row.all, total: Math.ceil(row.all.length / row_size)})
     }
 
-    return row
+    let saved = Storage.get('recommend_rows', '{}')[media]
+
+    if (saved && saved.sig == state.sig && Array.isArray(saved.results)) {
+        touch()
+
+        return Promise.resolve({all: saved.results, total: saved.total})
+    }
+
+    let sig = state.sig
+
+    return build(media).then(all => {
+        store(media, sig, all)
+
+        return {all, total: Math.ceil(all.length / row_size)}
+    })
 }
 
 function screenMedia(params, screen){
@@ -402,47 +498,41 @@ function add(){
         screen: ['main', 'category', 'category_anime'],
         call: (params, screen) => {
             let media = screenMedia(params, screen)
-            let snap  = media && snapshot()
 
-            if (!media || !seeds(media, snap).length) {
+            if (!media || !sources(media).some(item => item.good)) {
                 return
             }
 
             return function(call){
-                let respond = (row) => {
+                ready(media).then(row => {
+                    // переглянуте після перерахунку не чекає наступного
+                    let results = row.all.filter(card => !state.snap.seen[key(card)]).slice(0, row_size)
+
+                    if (remember(shownStore(), results.slice(0, visible_count).map(key), today(Date.now()))) {
+                        shownSave()
+                    }
+
                     call({
-                        results: row.results,
+                        results,
                         title: Lang.translate('title_recomend_watch'),
-                        total_pages: row.total_pages,
+                        total_pages: row.total,
                         page: 1,
                         params: {
                             emit: {
                                 onlyMore: () => {
-                                    Router.call('recomend', {media, total_pages: row.total_pages})
+                                    Router.call('recomend', {media, total_pages: row.total})
+                                },
+                                // перейшов у картку саме зі стрічки - для показів це «бачив і відкрив»
+                                onAppend: (item, element) => {
+                                    item.html.on('hover:enter', () => {
+                                        if (opened(shownStore(), key(element), today(Date.now()))) {
+                                            shownSave()
+                                        }
+                                    })
                                 }
                             }
                         }
                     })
-                }
-
-                let last = stored(media, snap)
-                let done = false
-                let full = build(media, snap).then(all => save(media, all))
-
-                // перша партія рядів чекає найповільніший, тож довго не тримаємо: збережена
-                // стрічка або те, що встигло; повна збірка в будь-якому разі ляже на наступний раз
-                let quick = delay(last ? wait_warm : wait_cold).then(() => {
-                    if (done) {
-                        return null
-                    }
-
-                    return last || build(media, snap, 0).then(pack)
-                })
-
-                Promise.race([full, quick]).then(row => {
-                    done = true
-
-                    respond(row)
                 }).catch(e => {
                     console.log('Recomendations', 'build error:', e)
 
@@ -454,27 +544,54 @@ function add(){
 }
 
 // app.js викликає Recomend.init() у loadApp(), уже після імпорту custom - підміна встигає.
-// Сканер core не запускаємо, його накопичене прибираємо.
+// Сканер core не запускаємо, його накопичене прибираємо. recomends_list лишаємо - це канал Android TV (store).
 Recomend.init = function(){
     window.localStorage.removeItem('recomends_scan')
-    window.localStorage.removeItem('recomends_list')
 
     add()
+
+    let favorite_timer = 0
+
+    Lampa.Listener.follow('state:changed', (e) => {
+        if (e.target == 'favorite') {
+            clearTimeout(favorite_timer)
+
+            favorite_timer = setTimeout(favoriteChanged, rebuild_wait)
+        }
+
+        // прогрес міняє вагу джерела (запоєм, кинув); під час перегляду touch чекає плеєр
+        if (e.target == 'timeline') {
+            touch()
+        }
+    })
+
+    Player.listener.follow('destroy', () => {
+        if (dirty) {
+            touch()
+        }
+    })
+
+    Collect.start(() => {
+        current()
+
+        return state.pool
+    }, touch)
+
+    // головну рахуємо й без показу ряду; після старту, щоб не заважати першим рядам
+    touch(start_wait)
 }
 
-// Сторінка «Ще» (components/recomend.js). Починається зі збереженої стрічки - тієї, яку
-// людина щойно бачила, - далі свіжа збірка без її карток.
+// Сторінка «Ще» (components/recomend.js): готова стрічка цілком, а не лише перші row_size.
 Recomend.page = function(object, call, empty){
+    current()
+
     let page = object.page || 1
-    let snap = snapshot()
-    let last = stored(object.media, snap)
+    let row  = rows[object.media]
+    let all  = row && row.sig == state.sig ? Promise.resolve(row.all) : build(object.media)
 
-    build(object.media, snap).then(all => {
-        if (last) {
-            let first = keysOf(last.results)
-
-            all = last.results.concat(all.filter(card => !first[key(card)]))
-        }
+    all.then(all => {
+        // як у стрічці: переглянуте й відкладене після перерахунку не повертається
+        all = all.filter(card => !state.snap.seen[key(card)])
 
         let results = all.slice((page - 1) * row_size, page * row_size)
 
