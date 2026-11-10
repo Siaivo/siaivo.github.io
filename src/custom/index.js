@@ -1,4 +1,5 @@
 import './core/storage-quota'
+import './core/android-favorite'
 import './app/default-lang'
 import './app/custom-welcome'
 import './app/custom-head'
