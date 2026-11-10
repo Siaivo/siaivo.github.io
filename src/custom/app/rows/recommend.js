@@ -34,6 +34,7 @@ let urgent_count  = 10   // перші джерела - половина ваг�
 let wait_cold     = 2500 // нічого ще не зібрано: стільки чекаємо термінову партію
 let visible_count = 8    // скільки карток стрічки видно без прокрутки: лише їх вважаємо показаними
 let rebuild_wait  = 1000 // події йдуть пачками (синхронізація, кілька відповідей) - один перерахунок
+let start_wait    = 5000 // перший перерахунок головної після запуску
 let taste_decay   = 0.97 // свіжість у профілі смаку: сотий з історії важить ~5% першого
 
 let marks   = ['history', 'like', 'wath', 'book', 'viewed', 'thrown', 'look', 'scheduled', 'continued']
@@ -41,7 +42,9 @@ let screens = ['movie', 'tv', 'anime', 'cartoon_movie', 'cartoon_tv'] // кош�
 
 let state   = {snap: null, pool: [], sig: ''}
 let rows    = {}    // media -> {sig, day, all}: готова стрічка
-let used    = {}    // екрани, де стрічку показували: лише їх і перераховуємо
+// екрани, де стрічку показували: лише їх і перераховуємо. Головну - завжди: її ряд сьомий і
+// вантажиться лише при прокрутці, а з неї пишеться recomends_list для каналу Android TV (store)
+let used    = {all: true}
 let dirty   = false
 let timer   = 0
 let shown   = null  // recommend_signals: покази карток поточного профілю
@@ -563,6 +566,9 @@ Recomend.init = function(){
 
         return state.pool
     }, touch)
+
+    // головну рахуємо й без показу ряду; після старту, щоб не заважати першим рядам
+    touch(start_wait)
 }
 
 // Сторінка «Ще» (components/recomend.js): готова стрічка цілком, а не лише перші row_size.
