@@ -64,11 +64,39 @@ suite('recommend_rank', () => {
             weights.push(Math.pow(0.85, s))
         }
 
-        let strong = answers.map((a, s) => s == 13)
+        let strong = answers.map((a, s) => s == 13 ? 1 : 0)
         let head   = rank(answers, weights, all, now, null, strong).slice(0, 20).map(i => Math.floor(i.id / 10))
 
         expect(head).toContain(13)
         expect(rank(answers, weights, all, now).slice(0, 20).map(i => Math.floor(i.id / 10))).not.toContain(13)
+    })
+
+    test('слабке джерело не має місця в першому ряду, хоч і свіже', () => {
+        let answers = []
+        let weights = []
+
+        for (let s = 0; s < 12; s++) {
+            answers.push(movies([1, 2, 3, 4, 5].map(n => s * 10 + n)))
+            weights.push(Math.pow(0.85, s))
+        }
+
+        let roles = answers.map((a, s) => s == 0 ? -1 : 0)
+        let head  = rank(answers, weights, all, now, null, roles).slice(0, 20).map(i => Math.floor(i.id / 10))
+
+        expect(head).not.toContain(0)
+    })
+
+    test('картка з оцінкою нижче 6.8 у першому ряду лише на недобір', () => {
+        let weak = movies([1], {vote_average: 6.5})
+        let good = movies([2, 3])
+        let many = []
+
+        for (let s = 0; s < 25; s++) {
+            many.push(movies([100 + s]))
+        }
+
+        expect(rank([weak, good], [1, 0.5], all, now).map(i => i.id)).toEqual([2, 3, 1])
+        expect(rank([weak].concat(many), [1].concat(many.map(() => 0.5)), all, now).slice(0, 20).map(i => i.id)).not.toContain(1)
     })
 
     test('хвіст теж по колу: сильне джерело не забиває наступну сторінку', () => {

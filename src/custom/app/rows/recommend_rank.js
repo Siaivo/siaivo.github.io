@@ -9,6 +9,7 @@
 let per_seed = 4    // скільки карток одне джерело може дати на кожну сторінку з row_size
 let row_size = 20
 let head_sources = 12 // джерел, що по колу набирають перші row_size
+let top_floor = 6.8 // оцінка, нижче якої картка не потрапляє в перші row_size (лише добирає недобір)
 let prior    = 200  // байєсів рейтинг: стільки «середніх» голосів домішуємо до власних
 let mean     = 6.5  // середня оцінка, до якої тягне рейтинг з малою кількістю голосів
 let fresh    = 365  // днів: вийшло недавно - буст
@@ -48,8 +49,9 @@ function released(item, now){
 
 // Перші row_size - по колу: кожне з head_sources джерел дає свою найсильнішу картку, у колі -
 // за очками, потім друге коло... Інакше вага свіжості віддавала весь ряд п'ятьом останнім
-// тайтлам історії. Вподобане й переглянуте (strong[i]) у колі завжди, решта - за найкращою карткою.
-function head(sorted, strong){
+// тайтлам історії. Вподобане й переглянуте (roles[i] = 1) у колі завжди, решта - за найкращою
+// карткою; слабке джерело (roles[i] = -1) місця в колі не має, його поради лише добирають недобір.
+function head(sorted, roles){
     let lists = {}
     let order = []
 
@@ -63,10 +65,10 @@ function head(sorted, strong){
         lists[row.from].push(row)
     })
 
-    let chosen = order.filter(from => strong[from]).slice(0, head_sources)
+    let chosen = order.filter(from => roles[from] > 0).slice(0, head_sources)
 
     order.forEach(from => {
-        if (chosen.length < head_sources && chosen.indexOf(from) < 0) {
+        if (chosen.length < head_sources && chosen.indexOf(from) < 0 && !(roles[from] < 0)) {
             chosen.push(from)
         }
     })
@@ -84,21 +86,29 @@ function head(sorted, strong){
 
 // Кожна сторінка по row_size - так само по колу з того, що лишилось: ліміт на джерело тут
 // не допомагає - п'ять сильних джерел по per_seed уже заповнюють сторінку. Джерел замало
-// на повну сторінку - добираємо найсильнішими з решти.
-function pages(rows, strong){
+// на повну сторінку - добираємо найсильнішими з решти. Перша сторінка - лише з карток від top_floor.
+function pages(rows, roles){
     let result = []
 
     while (rows.length) {
-        let page  = head(rows, strong)
+        let pool  = result.length ? rows : rows.filter(row => (row.item.vote_average || 0) >= top_floor)
+        let page  = head(pool, roles)
         let taken = {}
 
         page.forEach(row => taken[row.id] = true)
 
         let rest = rows.filter(row => !taken[row.id])
 
-        while (page.length < row_size && rest.length) {
-            page.push(rest.shift())
-        }
+        // недобір - спершу з тих, що пройшли поріг, потім з решти
+        pool.concat(rest).forEach(row => {
+            if (page.length < row_size && !taken[row.id]) {
+                taken[row.id] = true
+
+                page.push(row)
+            }
+        })
+
+        rest = rest.filter(row => !taken[row.id])
 
         result = result.concat(page)
         rows   = rest
@@ -107,8 +117,9 @@ function pages(rows, strong){
     return result
 }
 
-// strong[i] - i-те джерело вподобане чи переглянуте: воно завжди серед тих, що набирають перший ряд.
-export default function rank(answers, weights, accept, now, taste, strong){
+// roles[i] - роль i-го джерела в колі: 1 - вподобане чи переглянуте, завжди в ньому; -1 - слабке,
+// без місця в колі; 0 чи нема - за найкращою карткою.
+export default function rank(answers, weights, accept, now, taste, roles){
     let found  = {}
     let denied = {}
     let today  = Math.floor(now / day_ms)
@@ -156,5 +167,5 @@ export default function rank(answers, weights, accept, now, taste, strong){
 
     sorted.sort((a, b) => b.score - a.score)
 
-    return pages(sorted, strong || []).map(row => row.item)
+    return pages(sorted, roles || []).map(row => row.item)
 }

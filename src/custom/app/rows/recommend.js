@@ -35,6 +35,7 @@ let wait_cold     = 2500 // нічого ще не зібрано: стільк�
 let visible_count = 8    // скільки карток стрічки видно без прокрутки: лише їх вважаємо показаними
 let rebuild_wait  = 1000 // події йдуть пачками (синхронізація, кілька відповідей) - один перерахунок
 let start_wait    = 5000 // перший перерахунок головної після запуску
+let source_floor  = 6    // джерело з нижчою оцінкою не має свого місця в першому ряду
 let taste_decay   = 0.97 // свіжість у профілі смаку: сотий з історії важить ~5% першого
 
 let marks   = ['history', 'like', 'wath', 'book', 'viewed', 'thrown', 'look', 'scheduled', 'continued']
@@ -251,6 +252,22 @@ function strongOf(card, snap){
     return Boolean(snap.like[id] || snap.viewed[id] || Favorite.caughtUp(card))
 }
 
+// Роль джерела в колі першого ряду (recommend_rank): 1 - зайшло, -1 - сам тайтл слабкий
+// (оцінка нижче source_floor; без оцінки - не слабкий), 0 - решта.
+function roleOf(item, snap){
+    if (!item.good) {
+        return 0
+    }
+
+    if (strongOf(item.card, snap)) {
+        return 1
+    }
+
+    let rating = item.card.vote_average || 0
+
+    return rating && rating < source_floor ? -1 : 0
+}
+
 // Наскільки зайшло джерело. Серіали - за серіями з прив'язаних тайм-кодів; фільм без прив'язки
 // (старі записи) - за тайм-кодом по назві.
 function weightOf(card, snap, watched, now){
@@ -324,9 +341,9 @@ function build(media, watched){
 
         let mult = item => (liked ? liked(item) : 1) * exposure(seen[key(item)], day)
 
-        let strong = list.map(item => item.good && strongOf(item.card, snap))
+        let roles = list.map(item => roleOf(item, snap))
 
-        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult, strong), 'tmdb')
+        return Utils.addSource(rank(answers.map(a => a.results), weights, accept, now, mult, roles), 'tmdb')
     })
 }
 
