@@ -52,7 +52,7 @@ function get(method, params = {}, oncomplete, onerror, cache = false){
         json.source = source
 
         // Фильтруем результаты по ключевым словам, чтобы не показывать фильмы с неуместными словами в названии
-        if((VPN.is(['ru','by']) || Lang.selected(['ru','be'])) && json.results && Arrays.isArray(json.results)){
+        if(json.results && Arrays.isArray(json.results)){
             json.results = json.results.filter(item => {
                 let title = (item.title || item.name || '').toLowerCase()
 
@@ -515,11 +515,11 @@ function full(params, oncomplete, onerror){
 
         TMDB.get(params.method+'/'+params.id+'/recommendations',params,(json)=>{
             status.append('recomend', json)
-        },status.error.bind(status), {life: day * 7, skip: json => !(json && json.results && json.results.length)})
+        },status.error.bind(status), {life: day * 7})
 
         TMDB.get(params.method+'/'+params.id+'/similar',params,(json)=>{
             status.append('simular', json)
-        },status.error.bind(status), {life: day * 7, skip: json => !(json && json.results && json.results.length)})
+        },status.error.bind(status), {life: day * 7})
 
         if(!Permit.child){
             TMDB.videos(params, (json)=>{

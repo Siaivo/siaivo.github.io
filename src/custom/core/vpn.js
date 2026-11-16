@@ -98,6 +98,11 @@ Vpn.task = function(call){
     })
 }
 
+// Core is() reads its own region, which only the core task sets, and ours replaces it
+Vpn.is = function(need_array = []){
+    return need_array.indexOf(responseCode) >= 0
+}
+
 Vpn.code = function(){
     return responseCode
 }

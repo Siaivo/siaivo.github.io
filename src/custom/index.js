@@ -1,4 +1,5 @@
 import './core/storage-quota'
+import './utils/empty-recommendations-cache'
 import './core/android-favorite'
 import './core/watch-history-local'
 import './app/default-lang'
