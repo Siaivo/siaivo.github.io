@@ -242,12 +242,6 @@ function Keyboard(params = {}){
             let layout = typeof params.layout == 'string' ? Layers.get(params.layout) : params.layout || Layers.get('default')
             let press  = Date.now()
 
-            if(is_electron){
-                Arrays.getKeys(layout).forEach((code)=>{
-                    layout[code] = layout[code].map((row)=>row.replace('{MIC}', '').replace(/\s{2,}/g, ' ').trim())
-                })
-            }
-
             _keyboard = new _keyClass({
                 display: {
                     '{BKSP}': '&nbsp;',
