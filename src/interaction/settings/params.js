@@ -77,6 +77,7 @@ function init(){
         }, 'android')
 
         select('player_torrent', {
+            'inner': '#{settings_param_player_inner}',
             'android': 'Android'
         }, 'android')
 
@@ -328,7 +329,7 @@ function bind(elems, elems_html){
                 elem: elem,
                 name: name,
                 nomic: true,
-                value: elem.data('string') ? window.localStorage.getItem(name) || defaults[name] : Storage.get(name,defaults[name]) + ''
+                value: elem.data('string') ? Storage.value(name, defaults[name]) : Storage.get(name,defaults[name]) + ''
             },(new_value)=>{
                 Storage.set(name,new_value)
 
@@ -444,7 +445,7 @@ function displayAddList(elem){
 function update(elem,elems,elems_html){
     let name = elem.data('name')
 
-    let key = elem.data('string') ? window.localStorage.getItem(name) || defaults[name] : Storage.get(name, defaults[name] + '')
+    let key = elem.data('string') ? Storage.value(name, defaults[name]) : Storage.get(name, defaults[name] + '')
     let val = typeof values[name] == 'string' ? key : values[name][key] || values[name][defaults[name]]
     let plr = elem.attr('placeholder')
 
@@ -457,11 +458,11 @@ function update(elem,elems,elems_html){
     if(children){
         let parent = elems_html ? elems_html.find('[data-parent="'+children+'"]') : elems.filter('[data-parent="'+children+'"]')
         let value  = elem.data('children-value')
-        let visibl = value ? Storage.field(name) !== value : !Storage.field(name)
+        let hidden = value ? Storage.field(name) !== value : !Storage.field(name)
 
-        if(elem.data('children-reverse')) visibl = !visibl
+        if(elem.data('children-reverse')) hidden = !hidden
 
-        parent.toggleClass('hide',visibl)
+        parent.toggleClass('hide',hidden)
 
         parent.filter('[data-visible-value]').each(function(){
             $(this).toggleClass('hide', $(this).data('visible-value') !== key)
@@ -767,6 +768,7 @@ trigger('animation',true)
 trigger('background',true)
 trigger('torrserver_savedb',false)
 trigger('torrserver_preload', true)
+trigger('player_torrent_gst_warning', true)
 trigger('parser_use',false)
 trigger('cloud_use',false)
 trigger('account_use',false)

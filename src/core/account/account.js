@@ -7,6 +7,8 @@ import Bookmarks from './bookmarks'
 import Listener from './listener'
 import Permit from './permit'
 import Profile from './profile'
+import Friends from './friends'
+import Watching from './watching'
 import Panel from './panel'
 import Device from './device'
 import Api from './api'
@@ -28,6 +30,8 @@ function init(){
     Timeline.init()
     Bookmarks.init()
     Profile.init()
+    Friends.init()
+    Watching.init()
     Panel.init()
     Device.init()
 
@@ -36,7 +40,7 @@ function init(){
     Timer.add(1000 * 60 * 10, checkAccountValidity)
 
     Profile.check(()=>{
-        Api.user(user=>user_data = user)
+        loadUser()
 
         Timeline.update()
 
@@ -68,6 +72,21 @@ function checkAccountValidity(){
 }
 
 /**
+ * Загрузить данные пользователя. Если CUB заменил старый токен на новый (Api.user),
+ * повторно проверить токен в сокете — иначе соединение так и считается старым входом
+ * @return {void}
+ */
+function loadUser(){
+    let token = Permit.token
+
+    Api.user((user)=>{
+        user_data = user
+
+        if(Permit.token && Permit.token !== token) checkAccountValidity()
+    })
+}
+
+/**
  * Выход из аккаунта
  * @param {Object} data - данные аккаунта
  * @return {void}
@@ -94,6 +113,7 @@ let Account = {
     Api,
     Bookmarks,
     Profile,
+    Friends,
     Timeline,
     Permit,
     Modal,
@@ -171,10 +191,10 @@ let Account = {
 
         Api.subscribeToTranslation(params, call, error)
     },
-    subscribes: (params, secuses, error)=>{
+    subscribes: (params, success, error)=>{
         console.warn('Account.subscribes() is deprecated, use Account.Api.subscribes()')
 
-        Api.subscribes(params, secuses, error)
+        Api.subscribes(params, success, error)
     },
     showNoAccount: ()=>{
         console.warn('Account.showNoAccount() is deprecated, use Account.Modal.account()')
@@ -197,9 +217,7 @@ let Account = {
 
         Api.persons()
     },
-    updateUser: ()=>{
-        Api.user(user=>user_data = user)
-    }
+    updateUser: loadUser
 }
 
 Object.defineProperty(Account, 'hasPremium', {

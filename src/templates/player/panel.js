@@ -78,6 +78,10 @@ let html = `<div class="player-panel">
                         <svg><use xlink:href="#sprite-player-voice"></use></svg>
                         <div class="tooltip">#{player_tracks}</div>
                     </div>
+                    <div class="player-panel__playinfo button selector hide">
+                        <svg><use xlink:href="#sprite-player-info"></use></svg>
+                        <div class="tooltip">#{extensions_info}</div>
+                    </div>
                 </div>
                 <div class="player-panel__box-buttons">
                     <div class="player-panel__settings button selector">

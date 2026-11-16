@@ -9,6 +9,7 @@ import EpisodeParser from '../utils/episodes_parser'
 import Arrays from '../utils/arrays'
 
 let network  = new Request()
+let gst_check = new Request()
 let gst_work = false
 
 /**
@@ -207,7 +208,13 @@ function connected(success, fail){
  * @returns {void}
  */
 function gstCheck(){
-    network.silent(url()+'/gst/echo',(json)=>{
+    // отдельный объект запросов: общий network очищается через clear() при добавлении торрента и получении файлов,
+    // и проверка отменялась до ответа, из-за чего gst_work оставался false
+    gst_check.clear()
+
+    gst_check.timeout(5000)
+
+    gst_check.silent(url()+'/gst/echo',(json)=>{
         gst_work = true
     },(a,c)=>{
         gst_work = false
@@ -215,11 +222,19 @@ function gstCheck(){
 }
 
 /**
- * Возвращает true, если gstreamer работает на сервере
+ * Возвращает true, если gstreamer работает на сервере и включен в настройках
  * @returns {boolean}
  */
 function gstWork(){
     return Storage.field('torrserver_gts') && gst_work
+}
+
+/**
+ * Возвращает true, если gstreamer работает на сервере
+ * @returns {boolean}
+ */
+function gstExist(){
+    return gst_work
 }
 
 /**
@@ -452,7 +467,9 @@ export default {
     parse,
     error,
     cache,
+    gstCheck,
     gstWork,
+    gstExist,
     clearFileName,
     toPlayUrl,
 	viewed,

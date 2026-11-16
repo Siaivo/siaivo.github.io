@@ -130,7 +130,7 @@ function select(callback){
                 let list = items.map((elem, index)=>{
                     elem.title    = elem.name
                     elem.template = 'selectbox_icon'
-                    elem.icon     = '<img src="' + Utils.protocol() + Manifest.cub_domain +'/img/profiles/'+elem.icon+'.png" />'
+                    elem.icon     = '<img src="' + Utils.protocol() + Manifest.cub_domain +'/img/profiles/'+elem.icon+'.png" class="size-medium" />'
                     elem.clone    = clone[index]
                     elem.subtitle = elem.main ? Lang.translate('account_profile_main') : elem.child ? Lang.translate('account_profile_child') + ' ' + '(' + Lang.translate('filter_rating_to') + ' ' + (elem.age || 12) + ')' : ''
 
@@ -143,7 +143,7 @@ function select(callback){
                 let additional = {
                     title: Lang.translate('account_profile_add'),
                     template: 'selectbox_icon',
-                    icon: '<svg><use xlink:href="#sprite-plus"></use></svg>',
+                    icon: '<svg class="size-medium"><use xlink:href="#sprite-plus"></use></svg>',
                     ghost: list.length >= maximum,
                     onSelect: (a)=>{
                         callback && callback()
@@ -152,7 +152,7 @@ function select(callback){
                             Noty.show(Lang.translate('account_profile_limited').replace('{count}', maximum))
                         }
                         else{
-                            let contrioller = Controller.enabled().name
+                            let controller = Controller.enabled().name
 
                             Input.edit({
                                 title: Lampa.Lang.translate('account_profile_name'),
@@ -161,7 +161,7 @@ function select(callback){
                                 nosave: true,
                                 nomic: true
                             },(name)=>{
-                                Controller.toggle(contrioller)
+                                Controller.toggle(controller)
 
                                 if(name){
                                     name = Utils.capitalizeFirstLetter(name)

@@ -22,7 +22,7 @@ import Utils from '../../utils/utils'
  */
 function Keyboard(params = {}){
     let _keyClass = window.SimpleKeyboard.default,
-        _keyBord
+        _keyboard
 
     let _lang_codes = {
         'ru': 'ru-RU',
@@ -43,6 +43,7 @@ function Keyboard(params = {}){
     let last_value
     let height = window.innerHeight
     let mobile = Platform.screen('mobile') && params.textarea
+    let is_electron = Platform.is('electron')
 
     if(params.keyboard){
         simple = params.keyboard !== 'lampa'
@@ -187,7 +188,7 @@ function Keyboard(params = {}){
 
             let keyboard = $('.simple-keyboard')
 
-            if(!Platform.is('orsay') && !Platform.is('apple_tv') && (window.SpeechRecognition || window.webkitSpeechRecognition) && !params.nomic && Platform.screen('tv')){
+            if(!is_electron && !Platform.is('orsay') && !Platform.is('apple_tv') && (window.SpeechRecognition || window.webkitSpeechRecognition) && !params.nomic && Platform.screen('tv')){
                 let mic = $(`<div class="selector simple-keyboard-mic">
                     <svg viewBox="0 0 24 31" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="5" width="14" height="23" rx="7" fill="currentColor"/>
@@ -242,7 +243,13 @@ function Keyboard(params = {}){
             let layout = typeof params.layout == 'string' ? Layers.get(params.layout) : params.layout || Layers.get('default')
             let press  = Date.now()
 
-            _keyBord = new _keyClass({
+            if(is_electron){
+                Arrays.getKeys(layout).forEach((code)=>{
+                    layout[code] = layout[code].map((row)=>row.replace('{MIC}', '').replace(/\s{2,}/g, ' ').trim())
+                })
+            }
+
+            _keyboard = new _keyClass({
                 display: {
                     '{BKSP}': '&nbsp;',
                     '{ENTER}': '&nbsp;',
@@ -271,6 +278,8 @@ function Keyboard(params = {}){
 
                     if (button === "{SHIFT}" || button === "{SIM}" || button === "{ABC}") this._handle(button)
                     else if(button === '{MIC}'){
+                        if(is_electron) return
+
                         if(Platform.is('android')){
                             Android.voiceStart()
 
@@ -289,7 +298,7 @@ function Keyboard(params = {}){
                     else if(button === '{LANG}'){
                         let codes = Lang.codes()
                         let items = []
-                        let select_code = _keyBord.options.layoutName.split('-')[0]
+                        let select_code = _keyboard.options.layoutName.split('-')[0]
 
                         items.push({
                             title: codes.ru,
@@ -316,18 +325,18 @@ function Keyboard(params = {}){
 
                                     Storage.set('keyboard_default_lang', item.value)
 
-                                    let shifted    = _keyBord.options.layoutName.split('-')[1] == 'shift'
+                                    let shifted    = _keyboard.options.layoutName.split('-')[1] == 'shift'
                                     let new_layout = item.value + (shifted ? '-shift' : '')
 
                                     this.shifted(!shifted, new_layout, item.value)
 
-                                    _keyBord.setOptions({
+                                    _keyboard.setOptions({
                                         layoutName: new_layout
                                     })
                             
                                     last = false
 
-                                    _keyBord.options.lastLayerSelect = _keyBord.options.layoutName
+                                    _keyboard.options.lastLayerSelect = _keyboard.options.layoutName
                             
                                     Controller.toggle('keybord')
 
@@ -344,10 +353,10 @@ function Keyboard(params = {}){
                         },300)
                     }
                     else if(button === '{SPACE}'){
-                        this.value(_keyBord.getInput() + ' ')
+                        this.value(_keyboard.getInput() + ' ')
                     }
                     else if(button === '{BKSP}'){
-                        this.value(_keyBord.getInput().slice(0, -1))
+                        this.value(_keyboard.getInput().slice(0, -1))
                     }
                     else if(button === '{ENTER}' || button === '{SEARCH}'){
                         this.listener.send('enter')
@@ -357,7 +366,7 @@ function Keyboard(params = {}){
 
             let lang = Storage.get('keyboard_default_lang', Storage.get('language','ru')) 
 
-            _keyBord.setOptions({
+            _keyboard.setOptions({
                 layoutName: lang == 'ru' ? 'default' : Arrays.getKeys(layout).indexOf(lang) >= 0 ? lang : layout.en ? 'en' : 'default',
             })
 
@@ -448,7 +457,7 @@ function Keyboard(params = {}){
                 input[0].style.height = (input[0].scrollHeight) + 'px';
             }
         } 
-        else _keyBord.setInput(value)
+        else _keyboard.setInput(value)
 
         last_value = value
 
@@ -465,7 +474,7 @@ function Keyboard(params = {}){
         $('.simple-keyboard .hg-button:not(.binded)').on('hover:enter',function(e){
             Controller.collectionFocus($(this)[0])
 
-            _keyBord.handleButtonClicked($(this).attr('data-skbtn'),e)
+            _keyboard.handleButtonClicked($(this).attr('data-skbtn'),e)
         }).on('hover:focus', (e)=>{
             last = e.target
 
@@ -478,17 +487,17 @@ function Keyboard(params = {}){
     }
 
     this.shifted = function(shifted, layout, code){
-        if(!(shifted && _keyBord.options.layout[layout])){
-            let shift_layer = Arrays.clone(_keyBord.options.layout[code])
+        if(!(shifted && _keyboard.options.layout[layout])){
+            let shift_layer = Arrays.clone(_keyboard.options.layout[code])
 
             shift_layer = shift_layer.map((button)=>button.toUpperCase())
                     
-            _keyBord.options.layout[layout] = shift_layer
+            _keyboard.options.layout[layout] = shift_layer
         }
     }
 
     this._handle = function(button){
-        let current_layout = _keyBord.options.layoutName,
+        let current_layout = _keyboard.options.layoutName,
             layout = 'default',
             focus
 
@@ -507,15 +516,15 @@ function Keyboard(params = {}){
             layout = 'sim'
             focus  = '{ABC}'
 
-            _keyBord.options.lastLayerSelect = current_layout
+            _keyboard.options.lastLayerSelect = current_layout
         }
         else if(button == '{ABC}'){
-            layout = _keyBord.options.lastLayerSelect || 'default'
+            layout = _keyboard.options.lastLayerSelect || 'default'
 
             focus = '{SIM}'
         }
 
-        _keyBord.setOptions({
+        _keyboard.setOptions({
             layoutName: layout
         })
 
@@ -574,7 +583,7 @@ function Keyboard(params = {}){
             if(simple){
                 input.remove()
             } 
-            else _keyBord.destroy()
+            else _keyboard.destroy()
 
             if(recognition) recognition.stop()
         }

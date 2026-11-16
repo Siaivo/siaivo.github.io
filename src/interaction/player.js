@@ -1,5 +1,8 @@
 import Video from './player/video'
 import Panel from './player/panel'
+import PlaybackInfo from './player/playback_info'
+import GstAudio from './player/gst_audio'
+import AudioExternal from './player/audio_external'
 import Info from './player/info'
 import Controller from '../core/controller'
 import Template from './template'
@@ -58,6 +61,9 @@ function init(){
     Panel.init()
     Video.init()
     Info.init()
+    PlaybackInfo.init()
+    GstAudio.init()
+    AudioExternal.init()
     Footer.init()
     TV.init()
     Agent.init()
@@ -72,10 +78,20 @@ function init(){
     Subtitles.init()
     Error.init()
 
+    /** Скринсейвер поверх плеера на паузе: освобождаем видео и возвращаем после */
+    Screensaver.listener.follow('start',()=>{
+        if(is_opened) Video.suspend()
+    })
+
+    Screensaver.listener.follow('stop',()=>{
+        Video.resume()
+    })
+
     html = Template.get('player')
     html.append(Video.render())
     html.append(Panel.render())
     html.append(Info.render())
+    html.append(PlaybackInfo.render())
     html.append(Footer.render())
     html.append(Chat.render())
     html.append(Skip.render())
@@ -108,7 +124,9 @@ function init(){
 
     /** Дорожки полученые из видео */
     Video.listener.follow('tracks', (e)=>{
-        if(!work.voiceovers) Panel.setTracks(e.tracks)
+        // при транскодировании торрента дорожки берутся из файла (gst_audio), а не из HLS-потока;
+        // при внешних дорожках на прямом потоке список собирает audio_external
+        if(!work.voiceovers && !GstAudio.isActive() && !AudioExternal.isActive()) Panel.setTracks(e.tracks)
     })
 
     /** Ошибка при попытки возпроизвести */
@@ -329,6 +347,9 @@ function toggle(){
  */
 
 function backward(){
+    // сначала закрываем окно информации о воспроизведении
+    if(PlaybackInfo.isOpen()) return PlaybackInfo.close()
+
     let data = work
 
     launch_player = ''
@@ -507,7 +528,8 @@ function launchExternalPlayer(data, player_need, players, infuseCallbacks, onFal
 function start(data, need, inner){
     let player_need = 'player' + (need ? '_' + need : '')
     let launchInner = ()=>{
-        if(Disclaimer.needs(player_need, launch_player)) Disclaimer.show(inner)
+        if(Disclaimer.needs(player_need, launch_player)) Disclaimer.show(inner, player_need)
+        else if(Disclaimer.needsTorrent(player_need, launch_player, data)) Disclaimer.show(inner, player_need, true)
         else inner()
     }
 
@@ -568,7 +590,7 @@ function start(data, need, inner){
             listener.send('external',data)
         })
     } 
-    else if(Platform.is('android') && (Storage.field(player_need) == 'android' || launch_player == 'android' || (data.torrent_hash && !Torserver.gstWork()))){
+    else if(Platform.is('android') && (Storage.field(player_need) == 'android' || launch_player == 'android')){
         data.url   = Torserver.toPlayUrl(data.url)
         data.title = Utils.clearHtmlTags(data.title || '').trim()
         
@@ -600,7 +622,11 @@ function start(data, need, inner){
             if (detectedType) {
                 ExternalPlayer.openPlayer(url, data, {
                     type: detectedType,
-                    fullscreen: Storage.field('player_external_fullscreen')
+                    fullscreen: Storage.field('player_external_fullscreen'),
+                    playlist: Array.isArray(data.playlist) ? data.playlist.filter(p => typeof p.url == 'string').map(p => ({
+                        url: Torserver.toPlayUrl(p.url),
+                        timeline: p.timeline
+                    })) : null
                 })
             } else {
                 const file = require('fs')
@@ -705,7 +731,7 @@ function play(data){
         }
     }
 
-    let lauch = ()=>{
+    let launch = ()=>{
         // Запоминаем текущий объект, чтобы потом можно было получить его в других методах
         work = data
 
@@ -727,7 +753,7 @@ function play(data){
 
     if(launch_player) data.launch_player = launch_player
 
-    start(data, data.torrent_hash ? 'torrent' : '', lauch)
+    start(data, data.torrent_hash ? 'torrent' : '', launch)
 }
 
 function iptv(data){
@@ -737,7 +763,7 @@ function iptv(data){
         data.iptv        = true //пометка для ведра, что это iptv
         data.iptv_player = true //помечаем как iptv плеер, для него совсем другой интерфейс
 
-        let lauch = ()=>{
+        let launch = ()=>{
             work = data
 
             html.toggleClass('iptv', Boolean(data.iptv))
@@ -752,8 +778,8 @@ function iptv(data){
         }
 
         start(data, 'iptv', ()=>{
-            if(data.vast_url) Preroll.show(data,lauch)
-            else lauch()
+            if(data.vast_url) Preroll.show(data,launch)
+            else launch()
         })
     })
 }
