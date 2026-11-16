@@ -20,5 +20,6 @@ export default {
         blacklist: true,
         metadata: true,
         remote_configuration: true,
+        friends: true,
     }
 }
