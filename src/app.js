@@ -199,7 +199,9 @@ Arrays.extend(window.lampa_settings,{
         // Установка прокси для запросов
         install_proxy: false,
         // Удаленная конфигурация
-        remote_configuration: false
+        remote_configuration: false,
+        // Друзья
+        friends: false
     },
 
     // Подключить другие языки интерфейса, по умолчанию только русский и английский
@@ -499,6 +501,9 @@ function startApp(){
 
     window.app_time_launch = Date.now()
     window.app_time_end    = 0
+
+    // Удаляем app.js из localStorage, экономим место
+    window.localStorage.removeItem('app.js')
 
     // Стартуем
 
