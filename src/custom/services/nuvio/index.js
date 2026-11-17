@@ -9,6 +9,7 @@ import Dedupe from './dedupe'
 import Outbox from './outbox'
 import Watched from './watched'
 import Progress from './progress'
+import Addons from './addons'
 import Head from './head'
 
 var started = false
@@ -110,6 +111,7 @@ function firstImport(profile){
                     applyProgress(prows || [], profile)
                     setCursor(profile, c)
                     Settings.setStatus('ok')
+                    return Addons.apply(profile).catch(function(){ return null })
                 })
             })
         })
@@ -451,6 +453,11 @@ function subscribe(){
     Tline.listener.follow('update', _handler)
 
     Storage.listener.follow('change', function(e){
+        if(e.name == 'plugins'){
+            // свій apply пише в Storage.plugins — ігноруємо, інакше петля
+            if(!Addons.isApplying() && active() && permitOk()) Addons.schedulePush()
+            return
+        }
         if(e.name != 'account') return
         // Cub увімкнув синхрон -> paused, черга зберігається
         try {
