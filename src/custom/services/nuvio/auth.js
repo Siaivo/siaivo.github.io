@@ -53,7 +53,8 @@ function logout(){
 function clientId(){
     var id = Storage.get('nuvio_client_id', '')
     if(!id){
-        id = 'lampa-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+        // Nuvio приймає 16..96 символів [A-Za-z0-9_-]
+        id = 'lampa-' + (Math.random().toString(36).slice(2) + Date.now().toString(36) + '0000000000').slice(0, 20)
         try { Storage.set('nuvio_client_id', id) } catch(e){}
     }
     return id
