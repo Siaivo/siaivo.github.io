@@ -1311,10 +1311,11 @@ function init(){
 //             переноситься на кінець вікна, а не губиться;
 //   ambient — фон (будь-який екран, повернення у вкладку): 15 с;
 //   screen  — головна, закладки, історія: 15 с, разом із закладками;
+//   focus   — повернулися у вікно (два вікна поруч не дають visibilitychange): 3 с, усе;
 //   wake    — пробудження після сну чи простою: одразу, усе.
 // Документ закладок великий, тож попутно його тягнемо не частіше за раз на хвилину.
 
-var GAP = {intent: 5000, ambient: 15000, screen: 15000, wake: 0}
+var GAP = {intent: 5000, focus: 3000, ambient: 15000, screen: 15000, wake: 0}
 var SCREENS = ['main', 'category', 'bookmarks', 'favorite', 'watch_history']
 var FRESH = 20 * 1000 // дані свіжі, якщо pull вдався не раніше
 var pendingKick = null
@@ -1328,7 +1329,7 @@ function kick(kind){
 
     // прогрес і закладки мають окремі вікна: екран одразу після картки все одно тягне закладки
     var needP = now - lastP >= GAP[kind]
-    var needF = kind == 'wake' || now - lastF > 60 * 1000 || (kind == 'screen' && now - lastF > 15 * 1000)
+    var needF = kind == 'wake' || now - lastF > 60 * 1000 || (kind == 'screen' && now - lastF > 15 * 1000) || (kind == 'focus' && now - lastF > GAP.focus)
 
     if (!needP && !needF) {
         // явну дію не губимо, а переносимо на кінець вікна
@@ -1400,9 +1401,11 @@ function patchViews(touched, data){
         })
     })
 
-    if (playing && playing.timeline && touched[playing.timeline.hash]) {
-        reread(playing.timeline)
-    }
+    [playing, starting].forEach(function(data){
+        if (data && data.timeline && touched[data.timeline.hash]) {
+            reread(data.timeline)
+        }
+    })
 }
 
 // ---------- playback ----------
@@ -1412,6 +1415,7 @@ function patchViews(touched, data){
 // (player/timeline.js), тож свіже значення ще встигає потрапити в той самий об'єкт.
 
 var playing = null // дані плеєра, що грає
+var starting = null // дані плеєра між create і start (реклама, дисклеймер)
 var snap = null // таймкод на старті, щоб розпізнати закриття без перегляду
 var bypass = false
 
@@ -1455,12 +1459,21 @@ function onCreate(e){
 
     rereadAll(data)
 
-    // свіже, наступна серія, немає мережі, відступ після помилок — стартуємо без затримки
+    // свіже, наступна серія, немає мережі, відступ після помилок — нічого не тягнемо
     if (bypass || data.continue_play || Date.now() - okP < FRESH || navigator.onLine === false || Date.now() < failUntil) {
         return
     }
 
-    // інакше чекаємо pull, але не довше за 1,5 с: зовнішні плеєри беруть позицію одразу при запуску
+    // вбудований плеєр бере позицію лише на першому timeupdate, після буферизації:
+    // стартуємо одразу, а свіжа позиція встигне потрапити в той самий об'єкт (patchViews)
+    if (!external(data)) {
+        starting = data
+        lastP = Date.now()
+        sync({p: true})
+        return
+    }
+
+    // зовнішній плеєр бере позицію одразу при запуску — чекаємо pull, але не довше за 1,5 с
     e.abort()
 
     var done = false
@@ -1504,8 +1517,16 @@ function onCreate(e){
     })
 }
 
+// Чи відкриється зовнішній плеєр (Android, webOS, VLC, Infuse…), як вирішує Player.start у ядрі
+function external(data){
+    var choice = data.launch_player || Storage.field('player' + (data.torrent_hash ? '_torrent' : ''))
+
+    return Boolean(choice) && ['inner', 'lampa', 'ios', 'tizen', 'orsay'].indexOf(choice) == -1
+}
+
 function onStart(data){
     playing = data
+    starting = null
 
     var tl = data && data.timeline
 
@@ -1515,6 +1536,7 @@ function onStart(data){
 function onDestroy(){
     // збереження позиції ядро робить раніше за цю подію (player.js destroy: Timeline.destroy)
     playing = null
+    starting = null
     snap = null
 
     flushAll()
@@ -1615,6 +1637,10 @@ function start(){
         else {
             kick('wake')
         }
+    })
+
+    window.addEventListener('focus', function(){
+        kick('focus')
     })
 
     window.addEventListener('pagehide', function(){
