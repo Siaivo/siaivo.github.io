@@ -10,6 +10,22 @@ import Profiles from './profiles'
 import Settings from './settings'
 
 var icon_el = null
+
+// Аватар у шапці — як у профілю CUB (head.scss .open--profile): клас open--profile не беремо,
+// за ним ядро шукає й ховає свою іконку
+function addStyle(){
+    if(document.getElementById('nuvio-head-css')){
+        return
+    }
+
+    var style = document.createElement('style')
+
+    style.id = 'nuvio-head-css'
+    style.textContent = '.head__action.open--nuvio-profile{padding:0.2em}' +
+        '.head__action.open--nuvio-profile .nuvio-head-avatar{width:2.4em !important;height:2.4em !important;border-radius:100%;font-size:1.1em;line-height:1;object-fit:cover;flex-shrink:0}'
+
+    document.head.appendChild(style)
+}
 var listener = Subscribe()
 
 function avatarHtml(row, size){
@@ -36,6 +52,8 @@ function init(){
     try {
         // Чекаємо head, потім ховаємо штатний open--profile і ставимо свій поруч.
         // Свій елемент — з унікальним класом open--nuvio-profile, конфліктів з Cub немає.
+        addStyle()
+
         var mount = function(){
             var cub = $('.head .open--profile')
             if(!cub.length){ setTimeout(mount, 500); return }
@@ -43,10 +61,26 @@ function init(){
             icon_el = $('<div class="head__action selector open--nuvio-profile hide"></div>')
             icon_el.on('hover:enter', function(){ select(null) })
             cub.after(icon_el)
+            var hadSession = hasSession()
+
             Storage.listener.follow('change', function(e){
                 if(e.name == 'nuvio_tokens' || e.name == 'nuvio_enable' || e.name == 'nuvio_active_profile' || e.name == 'account') update()
+
+                // вхід або ввімкнення: підтягнути профілі для аватарки (токен оновлюється щогодини — його не рахуємо)
+                if(hasSession() != hadSession){
+                    hadSession = hasSession()
+
+                    if(hadSession){
+                        refreshCache().then(update).catch(function(){})
+                    }
+                }
             })
             update()
+
+            // аватарка й ім'я активного профілю беруться з кешу; без нього в шапці лише запасна «N»
+            if(hadSession){
+                refreshCache().then(update).catch(function(){})
+            }
         }
         mount()
     } catch(e){}
@@ -70,8 +104,7 @@ function update(){
                 if(cached[i] && cached[i].profile_index == idx){ row = cached[i]; break }
             }
             own.empty()
-            if(row) own.append($(avatarHtml(row, 'size-small')))
-            else own.append($('<div class="size-small" style="background:#7c5cff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;">N</div>'))
+            own.append($(row ? avatarHtml(row, 'nuvio-head-avatar') : '<div class="nuvio-head-avatar" style="background:#7c5cff;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;">N</div>'))
         }
         else {
             // Немає сесії — повертаємо штатний Cub, свій ховаємо

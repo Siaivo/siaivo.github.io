@@ -16,6 +16,7 @@ import Auth from './auth'
 import Profiles from './profiles'
 import Settings from './settings'
 import Keys from './keys'
+import Cache from '../../../utils/cache'
 
 var PAGE = 900
 var CHUNK = 100
@@ -33,7 +34,6 @@ var lastP = 0 // коли востаннє запустили pull прогре�
 var lastF = 0 // коли востаннє тягнули закладки
 var fails = 0
 var failUntil = 0 // після помилок не тягнемо до цього часу (крім пробудження)
-var changes = 0 // скільки віддалених змін застосовано в поточному циклі
 
 function timeline(){
     return Lampa.Timeline
@@ -43,10 +43,29 @@ function profile(){
     return parseInt(Profiles.resolveActive(), 10) || 0
 }
 
-function scope(){
-    var email = (Storage.get('nuvio_email', '') + '').toLowerCase()
+// Хто увійшов: id користувача з токена (sub у JWT). Поле email у налаштуваннях лише для входу —
+// його можна змінити, не перелогінившись, і тоді дані двох акаунтів змішалися б
+function account(){
+    try {
+        var part = (Api.tokens().access_token || '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
 
-    return Lampa.Utils.hash(Api.base() + '|' + email) + '_' + profile()
+        while (part.length % 4) {
+            part += '='
+        }
+
+        var sub = JSON.parse(atob(part)).sub
+
+        if (sub) {
+            return sub
+        }
+    }
+    catch (e) {}
+
+    return (Storage.get('nuvio_email', '') + '').toLowerCase()
+}
+
+function scope(){
+    return Lampa.Utils.hash(Api.base() + '|' + account()) + '_' + profile()
 }
 
 function cubSync(){
@@ -80,8 +99,28 @@ function getCursor(sc){
     return c && typeof c.p == 'number' ? c : null
 }
 
-function rpc(name, args){
-    args.p_profile_id = profile()
+// Профіль, чиї дані зараз у file_view і favorite. Після перемикання він ще старий, доки
+// switchScope не підмінить файли — локальні зміни пишемо в чергу саме цього профілю
+function loaded(){
+    return Storage.get('nuvio_scope', '') + '' || scope()
+}
+
+// Контекст операції: профіль фіксуємо на старті, а не беремо в момент запиту
+function ctx(){
+    return {sc: scope(), p: profile()}
+}
+
+// Операцію перервали, бо профіль змінився: дані лишаються в черзі свого профілю
+var ABORT = {abort: true}
+
+function rpc(name, args, op){
+    // профіль перемкнули посеред операції — нічого не шлемо й не читаємо чужим профілем.
+    // fixed — свідомо працюємо зі старим профілем (дочищаємо його чергу перед перемиканням)
+    if (!op.fixed && scope() != op.sc) {
+        return Promise.reject(ABORT)
+    }
+
+    args.p_profile_id = op.p
 
     return Api.rpc(name, args)
 }
@@ -94,7 +133,16 @@ function writeArgs(args){
 
 // Одна операція за раз: pull і flush ніколи не йдуть паралельно
 function run(fn){
-    chain = chain.then(fn, fn).catch(function(e){
+    // fn без аргументів: інакше then() передав би результат попереднього кроку (attempt, op)
+    var call = function(){
+        return fn()
+    }
+
+    chain = chain.then(call, call).catch(function(e){
+        if (e === ABORT) {
+            return
+        }
+
         console.log('Nuvio', 'sync error', e && e.status ? e.status : e)
         Settings.setStatus(e && e.status == 401 ? 'error' : 'offline')
 
@@ -130,31 +178,53 @@ function sync(parts){
             return
         }
 
-        Settings.setStatus('syncing')
-
         migrate()
-        switchScope()
 
-        changes = 0
+        return drainPrevious().then(function(){
+            switchScope()
 
-        var fav = need.f || Object.keys(favGet('nuvio_favdirty_', scope())).length > 0
+            var fav = need.f || Object.keys(favGet('nuvio_favdirty_', scope())).length > 0
 
-        return (need.p || !pulled ? pull() : Promise.resolve()).then(flush).then(function(){
-            if (fav) {
-                lastF = Date.now()
+            return (need.p || !pulled ? pull() : Promise.resolve()).then(function(){
+                return flush()
+            }).then(function(){
+                if (fav) {
+                    lastF = Date.now()
 
-                return favSync()
-            }
+                    return favSync()
+                }
+            })
         }).then(function(){
             fails = 0
             failUntil = 0
 
             Settings.setStatus('ok')
-
-            if (changes) {
-                refreshScreens()
-            }
         })
+    })
+}
+
+// Профіль перемкнули: поки його файли ще завантажені, дочищаємо його черги його ж номером профілю,
+// інакше вони чекали б повернення на нього. Лише в межах того самого акаунта: токен у нас від нового
+function drainPrevious(){
+    var prev = loaded()
+    var next = scope()
+    var account = function(sc){
+        return sc.slice(0, sc.lastIndexOf('_'))
+    }
+
+    if (prev == next || account(prev) != account(next)) {
+        return Promise.resolve()
+    }
+
+    var old = {sc: prev, p: parseInt(prev.slice(prev.lastIndexOf('_') + 1), 10) || 0, fixed: true}
+
+    return Promise.resolve(flush(old)).then(function(){
+        if (Object.keys(favGet('nuvio_favdirty_', prev)).length) {
+            return favSync(0, old)
+        }
+    }).catch(function(e){
+        // не вийшло — черга лишається за старим профілем і піде, коли на нього повернуться
+        console.log('Nuvio', 'previous profile not flushed', e && e.status ? e.status : e)
     })
 }
 
@@ -195,6 +265,8 @@ function pool(list, fn){
     return Promise.all([next(), next(), next(), next()])
 }
 
+var byCard = null // cardKey -> content_id, зворотний індекс nuvio_ids
+
 function idCache(){
     if (!ids) {
         ids = Storage.get('nuvio_ids', {}) || {}
@@ -203,22 +275,30 @@ function idCache(){
     return ids
 }
 
+// Лише в пам'яті: зберігаємо раз на пачку (saveIds), а не на кожен знайдений id
 function remember(cid, cardKey, title){
     idCache()[cid] = [cardKey, title || '']
-    Storage.set('nuvio_ids', ids, true)
+    byCard = null
+}
+
+function saveIds(){
+    Storage.set('nuvio_ids', idCache(), true)
 }
 
 function cidOf(cardKey){
-    var cache = idCache()
-    var found = null
+    if (!byCard) {
+        var cache = idCache()
 
-    for (var cid in cache) {
-        if (cache[cid][0] == cardKey && (!found || Keys.idKind(cid) == 'imdb')) {
-            found = cid
+        byCard = {}
+
+        for (var cid in cache) {
+            if (!byCard[cache[cid][0]] || Keys.idKind(cid) == 'imdb') {
+                byCard[cache[cid][0]] = cid
+            }
         }
     }
 
-    return found
+    return byCard[cardKey] || null
 }
 
 // cardKey -> content_id. Без IMDb лишається tmdb:N (лише в пам'яті: IMDb може з'явитися пізніше)
@@ -245,21 +325,34 @@ function resolveLocal(cardKeys){
             }
         })
     }).then(function(){
+        saveIds()
+
         return out
     })
 }
 
 // content_id -> {cardKey, type, title}. Мережева помилка відхиляє весь pull, курсор не рухається
-function resolveRemote(list){
+var missCid = {} // content_id, яких TMDB не знає (на сесію)
+
+function resolveRemote(events){
     var out = {}
     var cache = idCache()
+    var seen = {}
+
+    // по одному запиту на content_id, а не на кожну серію
+    var list = events.filter(function(ev){
+        if (seen[ev.cid] || missCid[ev.cid]) {
+            return false
+        }
+
+        seen[ev.cid] = true
+
+        return true
+    })
 
     return pool(list, function(ev){
         var cid = ev.cid
 
-        if (out[cid]) {
-            return Promise.resolve()
-        }
 
         if (cache[cid] && cache[cid][1]) {
             out[cid] = {cardKey: cache[cid][0], type: Keys.parseCard(cache[cid][0]).type, title: cache[cid][1]}
@@ -297,6 +390,7 @@ function resolveRemote(list){
 
         return request.then(function(found){
             if (!found || !found.card.id) {
+                missCid[cid] = true
                 return
             }
 
@@ -311,17 +405,19 @@ function resolveRemote(list){
             out[cid] = {cardKey: cardKey, type: found.type, title: title}
         })
     }).then(function(){
+        saveIds()
+
         return out
     })
 }
 
 // ---------- pull ----------
 
-function pullDelta(name, since){
+function pullDelta(name, since, op){
     var all = []
 
     function page(from){
-        return rpc(name, {p_since_event_id: from, p_limit: PAGE}).then(function(rows){
+        return rpc(name, {p_since_event_id: from, p_limit: PAGE}, op).then(function(rows){
             rows = rows || []
             all = all.concat(rows)
 
@@ -379,13 +475,14 @@ function collapse(rows, kind){
 }
 
 function pull(){
-    var sc = scope()
+    var op = ctx()
+    var sc = op.sc
     var cursor = getCursor(sc)
     var since = cursor || {p: 0, w: 0}
 
     return Promise.all([
-        pullDelta('sync_pull_watch_progress_delta', since.p),
-        pullDelta('sync_pull_watched_items_delta', since.w)
+        pullDelta('sync_pull_watch_progress_delta', since.p, op),
+        pullDelta('sync_pull_watched_items_delta', since.w, op)
     ]).then(function(res){
         var events = collapse(res[0], 'p').concat(collapse(res[1], 'w'))
 
@@ -451,55 +548,54 @@ function apply(events, found, sc){
     })
 
     Object.keys(groups).forEach(function(key){
-        var list = groups[key]
-        var upserts = list.filter(function(ev){
-            return ev.op == 'upsert'
+        // подій на ключ щонайбільше дві (прогрес і позначка). Програємо їх по черзі за часом,
+        // кожну звіряючи з уже зміненим локальним станом: інакше відхилена новіша подія
+        // ховала б старішу (видалення прогресу перед позначкою «переглянуто»), а курсор іде далі
+        var list = groups[key].sort(function(a, b){
+            return a.ts - b.ts || (a.kind == 'p' ? -1 : 1)
         })
         var first = list[0]
         var hash = index[key] || Keys.canonHash(first.type, first.title, first.season, first.episode)
-        var local = typeof data[hash] == 'object' ? data[hash] : null
+        var hit = false
 
-        // є оновлення — беремо найсвіжіше, інакше видалення
-        if (upserts.length) {
-            var ev = upserts.sort(function(a, b){
-                return b.ts - a.ts
-            })[0]
+        list.forEach(function(ev){
+            var local = typeof data[hash] == 'object' ? data[hash] : null
 
             if (!Keys.decide(local, ev)) {
                 return
             }
 
-            var road = ev.kind == 'p' ? Keys.roadFromProgress(ev.row) : {
-                percent: 100,
-                time: local && local.duration ? local.duration : 0,
-                duration: local && local.duration ? local.duration : 0,
-                updated: ev.ts
+            if (ev.op == 'delete') {
+                delete data[hash]
+            }
+            else {
+                var road = ev.kind == 'p' ? Keys.roadFromProgress(ev.row) : {
+                    percent: 100,
+                    time: local && local.duration ? local.duration : 0,
+                    duration: local && local.duration ? local.duration : 0,
+                    updated: ev.ts
+                }
+
+                if (!road) {
+                    return
+                }
+
+                road.card = ev.card
+
+                if (ev.type == 'tv') {
+                    road.season = ev.season
+                    road.episode = ev.episode
+                }
+
+                data[hash] = Object.assign(local || {profile: 0}, road)
+                applied.push(ev)
             }
 
-            if (!road) {
-                return
-            }
+            hit = true
+        })
 
-            road.card = ev.card
-
-            if (ev.type == 'tv') {
-                road.season = ev.season
-                road.episode = ev.episode
-            }
-
-            data[hash] = Object.assign(local || {profile: 0}, road)
-            applied.push(ev)
-        }
-        else {
-            var hit = list.some(function(ev){
-                return Keys.decide(local, ev)
-            })
-
-            if (!hit) {
-                return
-            }
-
-            delete data[hash]
+        if (!hit) {
+            return
         }
 
         delete dirty[hash]
@@ -517,16 +613,28 @@ function apply(events, found, sc){
         failed = true
     })
 
-    if (failed) {
+    // переповнений localStorage: ядро саме кладе значення в резерв IndexedDB. Втрачене воно лише без неї.
+    // Тоді повертаємо в пам'ять збережене: data — це той самий об'єкт, що тримають ядро й Timeline,
+    // і наступний pull вирішив би, що зміни вже застосовані, та посунув би курсор повз них
+    if (failed && !Cache.db) {
         console.log('Nuvio', 'file_view is not saved, quota')
+
+        var stored = {}
+
+        try {
+            stored = JSON.parse(window.localStorage.getItem(name) || '{}') || {}
+        }
+        catch (e) {}
+
+        Storage.set(name, stored, true)
+        timeline().read()
+
         return null
     }
 
     setDirty(sc, dirty)
 
     timeline().read()
-
-    changes += Object.keys(touched).length
 
     patchViews(touched, data)
 
@@ -611,7 +719,16 @@ function touchHistory(applied){
         // по зростанню часу: останній доданий опиняється першим
         list.forEach(function(ev){
             if (cards[ev.card]) {
-                Favorite.add('history', cards[ev.card], 100)
+                // час перегляду, а не синхронізації: тоді видалення з історії після перегляду
+                // переважить, а новий перегляд після видалення поверне картку
+                favTime = ev.ts
+
+                try {
+                    Favorite.add('history', cards[ev.card], 100)
+                }
+                finally {
+                    favTime = 0
+                }
             }
         })
     })
@@ -619,14 +736,18 @@ function touchHistory(applied){
 
 // ---------- push ----------
 
-function flush(){
+function flush(op){
+    // run()/then() передають сюди результат попереднього кроку — беремо лише справжній контекст
+    op = op && op.sc ? op : ctx()
+
     // до першого pull не відправляємо, але курсор з минулої сесії теж підходить:
-    // інакше при стабільній помилці pull за всю сесію нічого б не пішло
-    if (!ok() || (!pulled && !getCursor(scope()))) {
+    // інакше при стабільній помилці pull за всю сесію нічого б не пішло.
+    // Відправляємо лише профіль, чиї дані зараз завантажені
+    if (!ok() || loaded() != op.sc || (!pulled && !getCursor(op.sc))) {
         return
     }
 
-    var sc = scope()
+    var sc = op.sc
     var dirty = getDirty(sc)
     var data = viewed()
     var list = []
@@ -699,15 +820,15 @@ function flush(){
             done.push(it)
         })
 
-        return send('sync_delete_watch_progress', 'p_keys', delProgress)
+        return send('sync_delete_watch_progress', 'p_keys', delProgress, op)
             .then(function(){
-                return send('sync_delete_watched_items', 'p_keys', delWatched)
+                return send('sync_delete_watched_items', 'p_keys', delWatched, op)
             })
             .then(function(){
-                return send('sync_push_watch_progress', 'p_entries', progress)
+                return send('sync_push_watch_progress', 'p_entries', progress, op)
             })
             .then(function(){
-                return send('sync_push_watched_items', 'p_items', watched)
+                return send('sync_push_watched_items', 'p_items', watched, op)
             })
             .then(function(){
                 var now = getDirty(sc)
@@ -727,7 +848,7 @@ function flush(){
 
 // Пачками по CHUNK. Відмова сервера (4xx, крім авторизації й ліміту) — пачку пропускаємо,
 // інакше вона блокувала б чергу назавжди; мережа — пробуємо наступного разу
-function send(name, field, items){
+function send(name, field, items, op){
     var chunks = []
 
     for (var i = 0; i < items.length; i += CHUNK) {
@@ -740,10 +861,10 @@ function send(name, field, items){
 
             args[field] = part
 
-            return rpc(name, writeArgs(args)).catch(function(e){
+            return rpc(name, writeArgs(args), op).catch(function(e){
                 var status = e && e.status
 
-                if (status >= 400 && status < 500 && status != 401 && status != 408 && status != 429) {
+                if (e !== ABORT && status >= 400 && status < 500 && status != 401 && status != 408 && status != 429) {
                     console.log('Nuvio', name, 'rejected', status, part)
                     return
                 }
@@ -759,11 +880,13 @@ function send(name, field, items){
 function park(name, prefix, current, next){
     var failed = false
 
-    Storage.set(prefix + current, Storage.value(name, '{}'), true, function(){
+    // з пам'яті, а не Storage.value: після переносу в IndexedDB той міг віддати знімок з резерву
+    // на момент запуску й відкотити таймкоди за сесію
+    Storage.set(prefix + current, JSON.stringify(Storage.get(name, {}) || {}), true, function(){
         failed = true
     })
 
-    if (failed) {
+    if (failed && !Cache.db) {
         Storage.set('nuvio_cursor_' + current, {}, true)
         Storage.set('nuvio_favknown_' + current, {}, true)
         Storage.set('nuvio_favinit_' + current, false, true)
@@ -793,6 +916,7 @@ var FAV_TTL = 60 * 24 * 3600 * 1000 // скільки тримати позна�
 var favApplying = false
 var favDeb = null
 var favLast = 0
+var favTime = 0 // час для наступної зміни замість поточного (touchHistory)
 
 // Час зміни, що строго зростає: кілька змін за одну мілісекунду мають зберегти свій порядок
 function favNow(){
@@ -819,7 +943,7 @@ function favId(id){
 
 function onFavorite(method){
     return function(e){
-        if (!ok() || favApplying || !e || !e.card || !e.card.id || FAV_TYPES.indexOf(e.where) == -1) {
+        if (!queueing() || favApplying || !e || !e.card || !e.card.id || FAV_TYPES.indexOf(e.where) == -1) {
             return
         }
 
@@ -828,7 +952,7 @@ function onFavorite(method){
             return
         }
 
-        var sc = scope()
+        var sc = loaded()
         var key = favKey(e.where, e.card.id)
         var known = favGet('nuvio_favknown_', sc)
         var dirty = favGet('nuvio_favdirty_', sc)
@@ -839,9 +963,15 @@ function onFavorite(method){
             return
         }
 
-        dirty[key] = method == 'remove' ? {t: favNow(), del: 1} : {t: favNow(), c: Lampa.Utils.clearCard(e.card)}
+        var t = favTime || favNow()
+
+        dirty[key] = method == 'remove' ? {t: t, del: 1} : {t: t, c: Lampa.Utils.clearCard(e.card)}
 
         favSet('nuvio_favdirty_', sc, dirty)
+
+        if (!ok()) {
+            return
+        }
 
         clearTimeout(favDeb)
         favDeb = setTimeout(function(){
@@ -850,12 +980,26 @@ function onFavorite(method){
     }
 }
 
-// Застосувати віддалені зміни, новіші за ті, що ми вже бачили. За зростанням часу:
-// Favorite.add ставить картку на початок, тож найсвіжіша опиниться першою
+// Застосувати віддалені зміни. Як у CUB, головний — сервер: усе, що не чекає відправки (dirty),
+// приводимо до документа. Новіші за побачені — за зростанням часу (Favorite.add ставить картку
+// на початок, тож найсвіжіша опиниться першою). Уже побачені теж звіряємо з фактичним списком:
+// пам'ять known могла пережити сам список (часткове очищення сховища, правки з вимкненою синхронізацією)
 function favApply(items, cards, known, dirty){
     var Favorite = Lampa.Favorite
+    var data = Favorite.full()
     var list = Object.keys(items).filter(function(key){
-        return !dirty[key] && Math.abs(known[key] || 0) < items[key].t
+        if (dirty[key]) {
+            return false
+        }
+
+        if (Math.abs(known[key] || 0) < items[key].t) {
+            return true
+        }
+
+        var type = key.split('|')[0]
+        var has = (data[type] || []).indexOf(favId(key.slice(type.length + 1))) > -1
+
+        return items[key].del ? has : !has
     }).sort(function(a, b){
         return items[a].t - items[b].t
     })
@@ -883,8 +1027,6 @@ function favApply(items, cards, known, dirty){
             }
 
             known[key] = item.del ? -item.t : item.t
-
-            changes++
         })
     }
     finally {
@@ -933,17 +1075,18 @@ function favPrune(items, cards){
     })
 }
 
-function favSync(attempt){
+function favSync(attempt, op){
     attempt = typeof attempt == 'number' ? attempt : 0
+    op = op && op.sc ? op : ctx()
 
-    if (!ok()) {
+    if (!ok() || loaded() != op.sc) {
         return
     }
 
-    var sc = scope()
+    var sc = op.sc
 
-    return rpc('sync_pull_profile_settings_blob', {p_platform: 'lampa'}).then(function(rows){
-        if (sc != scope()) {
+    return rpc('sync_pull_profile_settings_blob', {p_platform: 'lampa'}, op).then(function(rows){
+        if (!op.fixed && sc != scope()) {
             return
         }
 
@@ -953,6 +1096,13 @@ function favSync(attempt){
         var cards = doc.cards || {}
         var known = favGet('nuvio_favknown_', sc)
         var dirty = favGet('nuvio_favdirty_', sc)
+
+        // віддалена зміна новіша за локальну невідправлену — локальна застаріла, застосовуємо віддалену
+        Object.keys(dirty).forEach(function(key){
+            if (items[key] && items[key].t >= dirty[key].t) {
+                delete dirty[key]
+            }
+        })
 
         favApply(items, cards, known, dirty)
 
@@ -991,7 +1141,7 @@ function favSync(attempt){
             p_platform: 'lampa',
             p_settings_json: {v: 1, items: items, cards: cards},
             p_expected_updated_at: row.updated_at || null
-        }).then(function(){
+        }, op).then(function(){
             var now = favGet('nuvio_favdirty_', sc)
 
             keys.forEach(function(key){
@@ -1014,7 +1164,7 @@ function favSync(attempt){
     }).catch(function(e){
         // документ змінив інший клієнт між читанням і записом
         if (e && e.status == 409 && attempt < 3) {
-            return favSync(attempt + 1)
+            return favSync(attempt + 1, op)
         }
 
         throw e
@@ -1023,8 +1173,16 @@ function favSync(attempt){
 
 // ---------- local changes ----------
 
+// Черга локальних змін ведеться й тоді, коли синхронізація вимкнена чи без мережі, — якщо Nuvio
+// на цьому пристрої вже налаштовували. Інакше переглянуте з вимкненим Nuvio не пішло б ніколи:
+// у профілю вже є курсор, і повторного початкового злиття не буде. Під синхронізацією CUB
+// таймкоди лежать в іншому файлі (file_view_<профіль CUB>) — їх не чіпаємо
+function queueing(){
+    return Boolean(Storage.get('nuvio_scope', '')) && !cubSync()
+}
+
 function onUpdate(e){
-    if (!ok() || !e || !e.data || !e.data.road) {
+    if (!queueing() || !e || !e.data || !e.data.road) {
         return
     }
 
@@ -1043,11 +1201,15 @@ function onUpdate(e){
         return
     }
 
-    var sc = scope()
+    var sc = loaded()
     var dirty = getDirty(sc)
 
     dirty[hash] = 1
     setDirty(sc, dirty)
+
+    if (!ok()) {
+        return
+    }
 
     clearTimeout(deb)
     deb = setTimeout(function(){
@@ -1083,6 +1245,8 @@ function identify(hash, road){
     return Boolean(Keys.localKey(road))
 }
 
+var tables = {} // ключ картки -> {хеш: прив'язка}
+
 function match(hash, card){
     var hashFn = Lampa.Utils.hash
     var link = timeline().link
@@ -1094,18 +1258,37 @@ function match(hash, card){
         return titles.length && hashFn(titles[0]) + '' == hash ? link(card) : null
     }
 
-    for (var t = 0; t < titles.length; t++) {
-        for (var s = 0; s <= 50; s++) {
-            for (var e = 1; e <= 200; e++) {
-                // ядро ставить ':' для сезонів > 10, онлайн-плагіни — ні
-                if (hashFn([s, s > 10 ? ':' : '', e, titles[t]].join('')) + '' == hash || hashFn([s, e, titles[t]].join('')) + '' == hash) {
-                    return link(card, s, e)
-                }
+    var key = (card.source || 'tmdb') + '_' + card.id
+
+    // таблицю будуємо раз на картку: сезони й кількість серій беремо з картки, коли вони є
+    if (!tables[key]) {
+        var table = {}
+        var seasons = Array.isArray(card.seasons) && card.seasons.length ? card.seasons.map(function(item){
+            return {s: item.season_number, e: item.episode_count || 30}
+        }) : []
+
+        if (!seasons.length) {
+            for (var n = 0; n <= Math.min(card.number_of_seasons || 30, 50); n++) {
+                seasons.push({s: n, e: 100})
             }
         }
+
+        titles.forEach(function(title){
+            seasons.forEach(function(season){
+                for (var e = 1; e <= season.e; e++) {
+                    // ядро ставить ':' для сезонів > 10, онлайн-плагіни — ні
+                    table[hashFn([season.s, season.s > 10 ? ':' : '', e, title].join('')) + ''] = [season.s, e]
+                    table[hashFn([season.s, e, title].join('')) + ''] = [season.s, e]
+                }
+            })
+        })
+
+        tables[key] = table
     }
 
-    return null
+    var found = tables[key][hash]
+
+    return found ? link(card, found[0], found[1]) : null
 }
 
 // ---------- profiles ----------
@@ -1175,9 +1358,11 @@ function migrate(){
 // Видалити з Nuvio рядки з голим числовим id, які записала попередня реалізація
 function cleanup(){
     return run(function(){
+        var op = ctx()
+
         return Promise.all([
-            pullDelta('sync_pull_watch_progress_delta', 0),
-            pullDelta('sync_pull_watched_items_delta', 0)
+            pullDelta('sync_pull_watch_progress_delta', 0, op),
+            pullDelta('sync_pull_watched_items_delta', 0, op)
         ]).then(function(res){
             var junk = function(ev){
                 return ev.operation != 'delete' && /^\d+$/.test(ev.content_id + '')
@@ -1202,8 +1387,8 @@ function cleanup(){
 
             return send('sync_delete_watch_progress', 'p_keys', progress.map(function(row){
                 return row.progress_key
-            })).then(function(){
-                return send('sync_delete_watched_items', 'p_keys', keys)
+            }), op).then(function(){
+                return send('sync_delete_watched_items', 'p_keys', keys, op)
             }).then(function(){
                 return progress.length + watched.length
             })
@@ -1311,7 +1496,7 @@ function init(){
 //             переноситься на кінець вікна, а не губиться;
 //   ambient — фон (будь-який екран, повернення у вкладку): 15 с;
 //   screen  — головна, закладки, історія: 15 с, разом із закладками;
-//   focus   — повернулися у вікно (два вікна поруч не дають visibilitychange): 3 с, усе;
+//   focus   — повернулися у вікно (два вікна поруч не дають visibilitychange): прогрес 3 с, закладки 15 с;
 //   wake    — пробудження після сну чи простою: одразу, усе.
 // Документ закладок великий, тож попутно його тягнемо не частіше за раз на хвилину.
 
@@ -1329,11 +1514,11 @@ function kick(kind){
 
     // прогрес і закладки мають окремі вікна: екран одразу після картки все одно тягне закладки
     var needP = now - lastP >= GAP[kind]
-    var needF = kind == 'wake' || now - lastF > 60 * 1000 || (kind == 'screen' && now - lastF > 15 * 1000) || (kind == 'focus' && now - lastF > GAP.focus)
+    var needF = kind == 'wake' || now - lastF > 60 * 1000 || (kind == 'screen' && now - lastF > 15 * 1000) || (kind == 'focus' && now - lastF > 15 * 1000)
 
     if (!needP && !needF) {
         // явну дію не губимо, а переносимо на кінець вікна
-        if (kind != 'ambient' && !pendingKick) {
+        if ((kind == 'intent' || kind == 'screen') && !pendingKick) {
             pendingKick = setTimeout(function(){
                 pendingKick = null
                 kick(kind)
@@ -1368,23 +1553,6 @@ function flushAll(){
     })
 }
 
-// Після pull перебудувати відкриті головну, історію чи закладки («Продовжити» береться з Favorite).
-// Поки грає плеєр — відкладаємо до його закриття
-var refreshLater = false
-
-function refreshScreens(){
-    var active = Lampa.Activity.active()
-
-    if (playing) {
-        refreshLater = true
-        return
-    }
-
-    if (active && SCREENS.indexOf(active.component) > -1) {
-        Lampa.Activity.refresh()
-    }
-}
-
 // Оновити на місці смужки прогресу (як Timeline.update у ядрі) і позицію плеєра, що ще не стартував
 function patchViews(touched, data){
     Object.keys(touched).forEach(function(hash){
@@ -1401,7 +1569,9 @@ function patchViews(touched, data){
         })
     })
 
-    [playing, starting].forEach(function(data){
+    var live = [playing, starting]
+
+    live.forEach(function(data){
         if (data && data.timeline && touched[data.timeline.hash]) {
             reread(data.timeline)
         }
@@ -1417,7 +1587,6 @@ function patchViews(touched, data){
 var playing = null // дані плеєра, що грає
 var starting = null // дані плеєра між create і start (реклама, дисклеймер)
 var snap = null // таймкод на старті, щоб розпізнати закриття без перегляду
-var bypass = false
 
 // Підтягнути в об'єкт таймкоду збережене, якщо воно новіше. Поки плеєр не перемотав (continued)
 function reread(tl){
@@ -1460,68 +1629,18 @@ function onCreate(e){
     rereadAll(data)
 
     // свіже, наступна серія, немає мережі, відступ після помилок — нічого не тягнемо
-    if (bypass || data.continue_play || Date.now() - okP < FRESH || navigator.onLine === false || Date.now() < failUntil) {
+    if (data.continue_play || Date.now() - okP < FRESH || navigator.onLine === false || Date.now() < failUntil) {
         return
     }
 
-    // вбудований плеєр бере позицію лише на першому timeupdate, після буферизації:
-    // стартуємо одразу, а свіжа позиція встигне потрапити в той самий об'єкт (patchViews)
-    if (!external(data)) {
-        starting = data
-        lastP = Date.now()
-        sync({p: true})
-        return
-    }
-
-    // зовнішній плеєр бере позицію одразу при запуску — чекаємо pull, але не довше за 1,5 с
-    e.abort()
-
-    var done = false
-    var go = function(cancel){
-        if (done) {
-            return
-        }
-
-        done = true
-
-        Lampa.Loading.stop()
-
-        if (cancel) {
-            return
-        }
-
-        rereadAll(data)
-
-        bypass = true
-
-        try {
-            Lampa.Player.play(data)
-        }
-        finally {
-            bypass = false
-        }
-    }
-
-    Lampa.Loading.start(function(){
-        go(true)
-    })
-
-    setTimeout(function(){
-        go()
-    }, 1500)
-
+    // Старт не затримуємо: перезапуск Player.play губив би те, що викликають одразу після play()
+    // в тому ж такті (субтитри для Android, runas). Вбудований плеєр бере позицію лише на першому
+    // timeupdate, після буферизації, тож свіжа позиція встигне потрапити в той самий об'єкт
+    // (patchViews). Зовнішні беруть її одразу — для них свіжість дають pull при відкритті картки,
+    // роздачі й списку файлів, що йдуть раніше за старт
+    starting = data
     lastP = Date.now()
-
-    sync({p: true}).then(function(){
-        go()
-    })
-}
-
-// Чи відкриється зовнішній плеєр (Android, webOS, VLC, Infuse…), як вирішує Player.start у ядрі
-function external(data){
-    var choice = data.launch_player || Storage.field('player' + (data.torrent_hash ? '_torrent' : ''))
-
-    return Boolean(choice) && ['inner', 'lampa', 'ios', 'tizen', 'orsay'].indexOf(choice) == -1
+    sync({p: true})
 }
 
 function onStart(data){
@@ -1541,11 +1660,6 @@ function onDestroy(){
 
     flushAll()
     kick('intent')
-
-    if (refreshLater) {
-        refreshLater = false
-        setTimeout(refreshScreens, 1000)
-    }
 }
 
 // Зберегти поточну позицію плеєра, якщо вона зрушила (ядро робить це лише раз на 2 хв і при закритті)
@@ -1698,7 +1812,7 @@ function start(){
             return
         }
 
-        if (/^nuvio_(enable|active_profile|profile_map|email|backend_url|mode)$/.test(e.name) || e.name == 'account' || e.name == 'account_use') {
+        if (/^nuvio_(enable|active_profile|profile_map|backend_url|mode)$/.test(e.name) || e.name == 'account' || e.name == 'account_use') {
             sync()
         }
     })

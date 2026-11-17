@@ -34,6 +34,10 @@ Lang.add({
 var STATUS = 'off'
 
 function setStatus(s){
+    // Settings.update перебудовує відкриті налаштування — лише коли статус справді змінився
+    if(STATUS == s){
+        return
+    }
     STATUS = s
     try { Storage.set('nuvio_status', s, true) } catch(e){}
     if(window.Lampa && Lampa.Settings && Lampa.Settings.update) { try { Lampa.Settings.update() } catch(e){} }
