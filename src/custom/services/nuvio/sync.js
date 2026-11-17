@@ -115,7 +115,7 @@ function sync(){
         migrate()
         switchScope()
 
-        return pull().then(flush).then(function(){
+        return pull().then(flush).then(favSync).then(function(){
             Settings.setStatus('ok')
         })
     })
@@ -526,6 +526,13 @@ function touchHistory(applied){
 
     var Favorite = Lampa.Favorite
     var saved = Favorite.full().card || []
+    var history = Favorite.full().history || []
+
+    // порядок історії між клієнтами Lampa задає синхронізований список закладок,
+    // тут лише додаємо те, чого в історії ще немає (прогрес з нативного Nuvio)
+    list = list.filter(function(ev){
+        return history.indexOf(Keys.parseCard(ev.card).id) == -1
+    })
 
     return pool(list, function(ev){
         if (cards[ev.card]) {
@@ -693,6 +700,271 @@ function send(name, field, items){
     }, Promise.resolve())
 }
 
+// Відкласти файл поточного профілю й підставити збережений файл наступного.
+// Не вмістилось — не паркуємо й скидаємо курсори: наступного разу профіль повністю підтягнеться з Nuvio
+function park(name, prefix, current, next){
+    var failed = false
+
+    Storage.set(prefix + current, Storage.value(name, '{}'), true, function(){
+        failed = true
+    })
+
+    if (failed) {
+        Storage.set('nuvio_cursor_' + current, {}, true)
+        Storage.set('nuvio_favknown_' + current, {}, true)
+        Storage.set('nuvio_favinit_' + current, false, true)
+    }
+
+    var data = {}
+
+    try {
+        data = JSON.parse(Storage.value(prefix + next, '{}')) || {}
+    }
+    catch (e) {}
+
+    Storage.set(name, data, true)
+}
+
+// ---------- bookmarks ----------
+//
+// Як у CUB: категорії закладок (і історія) — списки, що синхронізуються між клієнтами Lampa,
+// таймкоди при цьому не чіпаються. Нативний Nuvio таких списків не має, тож тримаємо їх в
+// окремому документі профілю (profile_settings_blobs, platform 'lampa'):
+// {v, items: {'type|id': {t} | {t, del}}, cards: {id: card}}.
+// Запис захищений: сервер відхиляє його (409), якщо документ змінив інший клієнт, — тоді
+// читаємо заново, зливаємо поелементно за часом і пробуємо ще раз.
+
+var FAV_TYPES = ['like', 'wath', 'book', 'history', 'look', 'viewed', 'scheduled', 'continued', 'thrown']
+var FAV_TTL = 60 * 24 * 3600 * 1000 // скільки тримати позначки видалення
+var favApplying = false
+var favDeb = null
+var favLast = 0
+
+// Час зміни, що строго зростає: кілька змін за одну мілісекунду мають зберегти свій порядок
+function favNow(){
+    favLast = Math.max(Date.now(), favLast + 1)
+
+    return favLast
+}
+
+function favKey(type, id){
+    return type + '|' + id
+}
+
+function favGet(name, sc){
+    return Storage.get(name + sc, {}) || {}
+}
+
+function favSet(name, sc, value){
+    Storage.set(name + sc, value, true)
+}
+
+function favId(id){
+    return /^\d+$/.test(id) ? parseInt(id, 10) : id
+}
+
+function onFavorite(method){
+    return function(e){
+        if (!ok() || favApplying || !e || !e.card || !e.card.id || FAV_TYPES.indexOf(e.where) == -1) {
+            return
+        }
+
+        // 'remove' з method 'card' — прибирання даних картки, не дія користувача
+        if (method == 'remove' && e.method != 'id') {
+            return
+        }
+
+        var sc = scope()
+        var key = favKey(e.where, e.card.id)
+        var known = favGet('nuvio_favknown_', sc)
+        var dirty = favGet('nuvio_favdirty_', sc)
+
+        // 'add' для картки, що вже в списку, — лише оновлення її даних (Favorite.refresh), не рух у списку.
+        // Підйом картки нагору приходить окремою подією 'added'
+        if (method == 'add' && known[key] > 0 && !dirty[key]) {
+            return
+        }
+
+        dirty[key] = method == 'remove' ? {t: favNow(), del: 1} : {t: favNow(), c: Lampa.Utils.clearCard(e.card)}
+
+        favSet('nuvio_favdirty_', sc, dirty)
+
+        clearTimeout(favDeb)
+        favDeb = setTimeout(function(){
+            run(favSync)
+        }, 3000)
+    }
+}
+
+// Застосувати віддалені зміни, новіші за ті, що ми вже бачили. За зростанням часу:
+// Favorite.add ставить картку на початок, тож найсвіжіша опиниться першою
+function favApply(items, cards, known, dirty){
+    var Favorite = Lampa.Favorite
+    var list = Object.keys(items).filter(function(key){
+        return !dirty[key] && Math.abs(known[key] || 0) < items[key].t
+    }).sort(function(a, b){
+        return items[a].t - items[b].t
+    })
+
+    favApplying = true
+
+    try {
+        list.forEach(function(key){
+            var type = key.split('|')[0]
+            var id = key.slice(type.length + 1)
+            var item = items[key]
+
+            if (FAV_TYPES.indexOf(type) == -1) {
+                return
+            }
+
+            if (item.del) {
+                Favorite.remove(type, {id: favId(id)})
+            }
+            else if (cards[id]) {
+                Favorite.add(type, cards[id])
+            }
+            else {
+                return
+            }
+
+            known[key] = item.del ? -item.t : item.t
+        })
+    }
+    finally {
+        favApplying = false
+    }
+}
+
+// Перше підключення профілю: локальні закладки, яких немає в Nuvio, додаємо із збереженням порядку
+function favSeed(items, dirty){
+    var data = Lampa.Favorite.full()
+    var now = Date.now()
+
+    FAV_TYPES.forEach(function(type){
+        (data[type] || []).forEach(function(id, i){
+            var key = favKey(type, id)
+            var card = data.card.filter(function(c){
+                return c.id == id
+            })[0]
+
+            if (items[key] || dirty[key] || !card) {
+                return
+            }
+
+            dirty[key] = {t: now - i, c: Lampa.Utils.clearCard(card)}
+        })
+    })
+}
+
+function favPrune(items, cards){
+    var used = {}
+    var old = Date.now() - FAV_TTL
+
+    Object.keys(items).forEach(function(key){
+        if (items[key].del && items[key].t < old) {
+            delete items[key]
+        }
+        else if (!items[key].del) {
+            used[key.slice(key.indexOf('|') + 1)] = true
+        }
+    })
+
+    Object.keys(cards).forEach(function(id){
+        if (!used[id]) {
+            delete cards[id]
+        }
+    })
+}
+
+function favSync(attempt){
+    attempt = typeof attempt == 'number' ? attempt : 0
+
+    if (!ok()) {
+        return
+    }
+
+    var sc = scope()
+
+    return rpc('sync_pull_profile_settings_blob', {p_platform: 'lampa'}).then(function(rows){
+        if (sc != scope()) {
+            return
+        }
+
+        var row = rows && rows[0] ? rows[0] : {}
+        var doc = row.settings_json && typeof row.settings_json == 'object' ? row.settings_json : {}
+        var items = doc.items || {}
+        var cards = doc.cards || {}
+        var known = favGet('nuvio_favknown_', sc)
+        var dirty = favGet('nuvio_favdirty_', sc)
+
+        favApply(items, cards, known, dirty)
+
+        if (!Storage.get('nuvio_favinit_' + sc, false)) {
+            favSeed(items, dirty)
+        }
+
+        favSet('nuvio_favknown_', sc, known)
+
+        var keys = Object.keys(dirty)
+
+        if (!keys.length) {
+            Storage.set('nuvio_favinit_' + sc, true, true)
+            return
+        }
+
+        keys.forEach(function(key){
+            var change = dirty[key]
+
+            if (items[key] && items[key].t >= change.t) {
+                return
+            }
+
+            if (change.del) {
+                items[key] = {t: change.t, del: 1}
+            }
+            else {
+                items[key] = {t: change.t}
+                cards[key.slice(key.indexOf('|') + 1)] = change.c
+            }
+        })
+
+        favPrune(items, cards)
+
+        return rpc('sync_push_profile_settings_blob_guarded', {
+            p_platform: 'lampa',
+            p_settings_json: {v: 1, items: items, cards: cards},
+            p_expected_updated_at: row.updated_at || null
+        }).then(function(){
+            var now = favGet('nuvio_favdirty_', sc)
+
+            keys.forEach(function(key){
+                if (!items[key]) {
+                    return
+                }
+
+                known[key] = items[key].del ? -items[key].t : items[key].t
+
+                // за час відправки могла з'явитися новіша зміна — лишаємо її
+                if (now[key] && now[key].t <= dirty[key].t) {
+                    delete now[key]
+                }
+            })
+
+            favSet('nuvio_favknown_', sc, known)
+            favSet('nuvio_favdirty_', sc, now)
+            Storage.set('nuvio_favinit_' + sc, true, true)
+        })
+    }).catch(function(e){
+        // документ змінив інший клієнт між читанням і записом
+        if (e && e.status == 409 && attempt < 3) {
+            return favSync(attempt + 1)
+        }
+
+        throw e
+    })
+}
+
 // ---------- local changes ----------
 
 function onUpdate(e){
@@ -787,28 +1059,11 @@ function switchScope(){
 
     // перше ввімкнення: локальні дані зливаються в перший профіль
     if (current) {
-        var name = timeline().filename()
-        var parked = false
-
-        Storage.set('file_view_nuvio_' + current, Storage.value(name, '{}'), true, function(){
-            parked = true
-        })
-
-        // не вмістилось — не паркуємо, наступного разу профіль повністю підтягнеться з Nuvio
-        if (parked) {
-            Storage.set('nuvio_cursor_' + current, {}, true)
-        }
-
-        var data = {}
-
-        try {
-            data = JSON.parse(Storage.value('file_view_nuvio_' + next, '{}')) || {}
-        }
-        catch (e) {}
-
-        Storage.set(name, data, true)
+        park(timeline().filename(), 'file_view_nuvio_', current, next)
+        park('favorite', 'favorite_nuvio_', current, next)
 
         timeline().read()
+        Lampa.Favorite.read()
     }
 
     Storage.set('nuvio_scope', next, true)
@@ -987,9 +1242,19 @@ function init(){
 function start(){
     timeline().listener.follow('update', onUpdate)
 
+    Lampa.Favorite.listener.follow('add', onFavorite('add'))
+    Lampa.Favorite.listener.follow('added', onFavorite('added'))
+    Lampa.Favorite.listener.follow('remove', onFavorite('remove'))
+
     sync()
 
-    setInterval(sync, 15 * 60 * 1000)
+    // Realtime у Nuvio немає (нативні клієнти теж лише опитують), тож замість сокета — дешевий
+    // опит дельти раз на хвилину, поки вкладка на екрані
+    setInterval(function(){
+        if (!document.hidden) {
+            sync()
+        }
+    }, 60 * 1000)
 
     document.addEventListener('visibilitychange', function(){
         if (document.hidden) {
