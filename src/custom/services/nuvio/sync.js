@@ -488,6 +488,16 @@ function apply(events, found, sc){
 
     timeline().read()
 
+    // read() оновлює картки, а відкритий список серій слухає лише 'update' (mark.js).
+    // Шлемо його напряму в Lampa.Listener: Timeline.listener не зачіпається, відлуння немає
+    var hashes = Object.keys(touched)
+
+    if (hashes.length <= 50) {
+        hashes.forEach(function(hash){
+            Lampa.Listener.send('state:changed', {target: 'timeline', reason: 'update', data: {hash: hash, road: data[hash] || {percent: 0, time: 0, duration: 0}}})
+        })
+    }
+
     return {applied: applied, touched: touched}
 }
 
@@ -1239,6 +1249,32 @@ function init(){
     }
 }
 
+// Опитування за подіями, а не за таймером: Realtime у Nuvio немає (нативні клієнти теж лише
+// опитують), тож тягнемо зміни тоді, коли користувач от-от їх побачить.
+var KICK_GAP = 15 * 1000 // частіше не тягнемо, щоб серія подій не дала шквал запитів
+var SCREENS = ['main', 'bookmarks', 'favorite', 'watch_history']
+var lastKick = 0
+
+function kick(){
+    if (Date.now() - lastKick < KICK_GAP) {
+        return
+    }
+
+    lastKick = Date.now()
+
+    sync()
+}
+
+// Віддати все накопичене одразу (без очікування debounce): вкладку можуть закрити
+function flushAll(){
+    clearTimeout(deb)
+    clearTimeout(favDeb)
+
+    return run(function(){
+        return Promise.resolve(flush()).then(favSync)
+    })
+}
+
 function start(){
     timeline().listener.follow('update', onUpdate)
 
@@ -1248,24 +1284,40 @@ function start(){
 
     sync()
 
-    // Realtime у Nuvio немає (нативні клієнти теж лише опитують), тож замість сокета — дешевий
-    // опит дельти раз на хвилину, поки вкладка на екрані
-    setInterval(function(){
-        if (!document.hidden) {
-            sync()
-        }
-    }, 60 * 1000)
-
-    document.addEventListener('visibilitychange', function(){
-        if (document.hidden) {
-            run(flush)
-        }
-        else {
-            sync()
+    // відкриття картки: свіжі таймкоди й позначки серій (як TimeCode у lampac)
+    Lampa.Listener.follow('full', function(e){
+        if (e.type == 'complite') {
+            kick()
         }
     })
 
-    window.addEventListener('online', sync)
+    // головна, закладки, історія: свіжі «Продовжити» та списки
+    Lampa.Listener.follow('activity', function(e){
+        if (e.type == 'start' && SCREENS.indexOf(e.component) > -1) {
+            kick()
+        }
+    })
+
+    // плеер закрили: остання позиція має піти одразу
+    Lampa.Player.listener.follow('destroy', flushAll)
+
+    document.addEventListener('visibilitychange', function(){
+        if (document.hidden) {
+            flushAll()
+        }
+        else {
+            kick()
+        }
+    })
+
+    window.addEventListener('online', kick)
+
+    // запасний опит, якщо довго немає жодної події
+    setInterval(function(){
+        if (!document.hidden) {
+            kick()
+        }
+    }, 10 * 60 * 1000)
 
     Storage.listener.follow('change', function(e){
         if (/^nuvio_(tokens|enable|active_profile|profile_map|email|backend_url|mode)$/.test(e.name) || e.name == 'account' || e.name == 'account_use') {
