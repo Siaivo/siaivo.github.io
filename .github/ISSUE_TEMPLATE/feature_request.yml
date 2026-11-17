@@ -1,0 +1,15 @@
+name: Feature request
+description: Suggest a fork feature or plugin override
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Fork override or upstream?
+      description: Can this live in src/custom/*, or does it need upstream (yumata/lampa-source)?

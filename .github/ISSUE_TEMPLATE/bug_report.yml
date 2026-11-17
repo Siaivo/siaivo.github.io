@@ -1,0 +1,23 @@
+name: Bug report
+description: Something broken in the app or a fork override
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw vs what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Steps, starting page, and device/browser (old WebViews matter here).
+    validations:
+      required: true
+  - type: textarea
+    id: touched
+    attributes:
+      label: What did you change?
+      description: Files touched (e.g. src/custom/..., public/autoload.json).
