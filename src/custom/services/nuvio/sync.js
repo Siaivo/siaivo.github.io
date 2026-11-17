@@ -112,6 +112,7 @@ function sync(){
 
         Settings.setStatus('syncing')
 
+        migrate()
         switchScope()
 
         return pull().then(flush).then(function(){
@@ -370,7 +371,7 @@ function pull(){
 
             pulled = true
 
-            touchHistory(result.applied)
+            return touchHistory(result.applied)
         })
     })
 }
@@ -426,7 +427,7 @@ function apply(events, found, sc){
                 return b.ts - a.ts
             })[0]
 
-            if (!Keys.decide(local, dirty[hash], ev)) {
+            if (!Keys.decide(local, ev)) {
                 return
             }
 
@@ -453,7 +454,7 @@ function apply(events, found, sc){
         }
         else {
             var hit = list.some(function(ev){
-                return Keys.decide(local, dirty[hash], ev)
+                return Keys.decide(local, ev)
             })
 
             if (!hit) {
@@ -524,21 +525,36 @@ function touchHistory(applied){
     }).slice(-30)
 
     var Favorite = Lampa.Favorite
+    var saved = Favorite.full().card || []
 
-    list.forEach(function(ev){
-        var card = cards[ev.card]
-
-        if (!card) {
-            var id = Keys.parseCard(ev.card).id
-
-            card = (Favorite.full().card || []).filter(function(c){
-                return c.id == id
-            })[0]
+    return pool(list, function(ev){
+        if (cards[ev.card]) {
+            return Promise.resolve()
         }
 
-        if (card) {
-            Favorite.add('history', card, 100)
+        var card = Keys.parseCard(ev.card)
+        var found = saved.filter(function(c){
+            return c.id == card.id && Boolean(c.original_name) == (card.type == 'tv')
+        })[0]
+
+        if (found) {
+            cards[ev.card] = found
+            return Promise.resolve()
         }
+
+        return tmdb(card.type + '/' + card.id).then(function(data){
+            if (data && data.id) {
+                data.source = 'tmdb'
+                cards[ev.card] = data
+            }
+        }).catch(function(){})
+    }).then(function(){
+        // по зростанню часу: останній доданий опиняється першим
+        list.forEach(function(ev){
+            if (cards[ev.card]) {
+                Favorite.add('history', cards[ev.card], 100)
+            }
+        })
     })
 }
 
@@ -946,6 +962,12 @@ function init(){
         return
     }
 
+    // модуль імпортується раніше, ніж app.js створює window.Lampa
+    if (!window.Lampa || !Lampa.Listener) {
+        setTimeout(init, 50)
+        return
+    }
+
     started = true
 
     cleanupButton()
@@ -965,7 +987,6 @@ function init(){
 function start(){
     timeline().listener.follow('update', onUpdate)
 
-    migrate()
     sync()
 
     setInterval(sync, 15 * 60 * 1000)

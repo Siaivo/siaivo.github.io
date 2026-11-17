@@ -128,8 +128,8 @@ function canonHash(type, title, season, episode){
 }
 
 // Чи застосувати віддалену подію до локального запису.
-// ev = {op:'upsert'|'delete', kind:'p'|'w', ts}; dirty — запис змінено локально й ще не відправлено
-function decide(local, dirty, ev){
+// ev = {op:'upsert'|'delete', kind:'p'|'w', ts}
+function decide(local, ev){
     var lu = local ? (local.updated || 0) : 0
 
     if (ev.op == 'delete') {
@@ -137,7 +137,9 @@ function decide(local, dirty, ev){
             return false
         }
 
-        if (dirty && lu > ev.ts) {
+        // у події видалення час рядка, а не час видалення: локальне новіше за нього
+        // (невідправлена правка або запис, зроблений до ввімкнення синхронізації) лишаємо
+        if (lu > ev.ts) {
             return false
         }
 

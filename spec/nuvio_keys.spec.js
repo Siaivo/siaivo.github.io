@@ -60,21 +60,21 @@ test('merge rule', ()=>{
     let local = {percent: 40, duration: 3000, updated: 100}
 
     // своё отражение возвращается с тем же временем
-    expect(Keys.decide(local, false, {op: 'upsert', kind: 'p', ts: 100})).toBe(false)
-    expect(Keys.decide(local, false, {op: 'upsert', kind: 'p', ts: 101})).toBe(true)
-    expect(Keys.decide(null, false, {op: 'upsert', kind: 'p', ts: 1})).toBe(true)
+    expect(Keys.decide(local, {op: 'upsert', kind: 'p', ts: 100})).toBe(false)
+    expect(Keys.decide(local, {op: 'upsert', kind: 'p', ts: 101})).toBe(true)
+    expect(Keys.decide(null, {op: 'upsert', kind: 'p', ts: 1})).toBe(true)
 
-    // удаление не перебивает более свежую неотправленную правку
-    expect(Keys.decide(local, true, {op: 'delete', kind: 'p', ts: 50})).toBe(false)
-    expect(Keys.decide(local, false, {op: 'delete', kind: 'p', ts: 50})).toBe(true)
-    expect(Keys.decide(null, false, {op: 'delete', kind: 'p', ts: 50})).toBe(false)
+    // удаление не перебивает более свежую локальную запись
+    expect(Keys.decide(local, {op: 'delete', kind: 'p', ts: 50})).toBe(false)
+    expect(Keys.decide(local, {op: 'delete', kind: 'p', ts: 100})).toBe(true)
+    expect(Keys.decide(null, {op: 'delete', kind: 'p', ts: 50})).toBe(false)
 
     // удаление прогресса не снимает отметку, удаление отметки снимает
     let done = {percent: 95, duration: 3000, updated: 100}
 
-    expect(Keys.decide(done, false, {op: 'delete', kind: 'p', ts: 200})).toBe(false)
-    expect(Keys.decide(done, false, {op: 'delete', kind: 'w', ts: 200})).toBe(true)
+    expect(Keys.decide(done, {op: 'delete', kind: 'p', ts: 100})).toBe(false)
+    expect(Keys.decide(done, {op: 'delete', kind: 'w', ts: 100})).toBe(true)
 
     // отметка не перебивает незаконченный прогресс
-    expect(Keys.decide(local, false, {op: 'upsert', kind: 'w', ts: 999})).toBe(false)
+    expect(Keys.decide(local, {op: 'upsert', kind: 'w', ts: 999})).toBe(false)
 })
