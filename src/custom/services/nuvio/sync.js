@@ -802,7 +802,7 @@ function onFavorite(method){
         clearTimeout(favDeb)
         favDeb = setTimeout(function(){
             run(favSync)
-        }, 3000)
+        }, 300)
     }
 }
 
@@ -998,7 +998,7 @@ function onUpdate(e){
     clearTimeout(deb)
     deb = setTimeout(function(){
         run(flush)
-    }, 3000)
+    }, 300)
 }
 
 // Запис без прив'язки до картки (онлайн-плагіни, що кличуть Timeline.view(hash) без meta):
