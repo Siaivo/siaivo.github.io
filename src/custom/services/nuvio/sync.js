@@ -27,6 +27,13 @@ var deb = null
 var cards = {} // cardKey -> картка TMDB, знайдена при pull (для історії)
 var ids = null // content_id -> [cardKey, original title], кеш nuvio_ids
 var miss = {} // хеші, які не вдалося впізнати (на сесію)
+var want = {p: false, f: false} // що потрібно наступному циклу: p — прогрес, f — закладки
+var okP = 0 // коли востаннє вдався pull прогресу
+var lastP = 0 // коли востаннє запустили pull прогресу
+var lastF = 0 // коли востаннє тягнули закладки
+var fails = 0
+var failUntil = 0 // після помилок не тягнемо до цього часу (крім пробудження)
+var changes = 0 // скільки віддалених змін застосовано в поточному циклі
 
 function timeline(){
     return Lampa.Timeline
@@ -90,12 +97,22 @@ function run(fn){
     chain = chain.then(fn, fn).catch(function(e){
         console.log('Nuvio', 'sync error', e && e.status ? e.status : e)
         Settings.setStatus(e && e.status == 401 ? 'error' : 'offline')
+
+        // наростаючий відступ: 15 с, 30, 60 … до 5 хв
+        fails++
+        failUntil = Date.now() + Math.min(15000 * Math.pow(2, fails - 1), 5 * 60 * 1000)
     })
 
     return chain
 }
 
-function sync(){
+// Цикл синхронізації. parts: {p, f}; запити, що прийшли, поки цикл у черзі, зливаються в один
+function sync(parts){
+    parts = parts || {p: true, f: true}
+
+    want.p = want.p || Boolean(parts.p)
+    want.f = want.f || Boolean(parts.f)
+
     if (queued) {
         return chain
     }
@@ -103,7 +120,10 @@ function sync(){
     queued = true
 
     return run(function(){
+        var need = want
+
         queued = false
+        want = {p: false, f: false}
 
         if (!ok()) {
             Settings.setStatus(cubSync() ? 'paused' : 'off')
@@ -115,8 +135,25 @@ function sync(){
         migrate()
         switchScope()
 
-        return pull().then(flush).then(favSync).then(function(){
+        changes = 0
+
+        var fav = need.f || Object.keys(favGet('nuvio_favdirty_', scope())).length > 0
+
+        return (need.p || !pulled ? pull() : Promise.resolve()).then(flush).then(function(){
+            if (fav) {
+                lastF = Date.now()
+
+                return favSync()
+            }
+        }).then(function(){
+            fails = 0
+            failUntil = 0
+
             Settings.setStatus('ok')
+
+            if (changes) {
+                refreshScreens()
+            }
         })
     })
 }
@@ -370,6 +407,7 @@ function pull(){
             }
 
             pulled = true
+            okP = Date.now()
 
             return touchHistory(result.applied)
         })
@@ -488,6 +526,10 @@ function apply(events, found, sc){
 
     timeline().read()
 
+    changes += Object.keys(touched).length
+
+    patchViews(touched, data)
+
     // read() оновлює картки, а відкритий список серій слухає лише 'update' (mark.js).
     // Шлемо його напряму в Lampa.Listener: Timeline.listener не зачіпається, відлуння немає
     var hashes = Object.keys(touched)
@@ -578,7 +620,9 @@ function touchHistory(applied){
 // ---------- push ----------
 
 function flush(){
-    if (!pulled || !ok()) {
+    // до першого pull не відправляємо, але курсор з минулої сесії теж підходить:
+    // інакше при стабільній помилці pull за всю сесію нічого б не пішло
+    if (!ok() || (!pulled && !getCursor(scope()))) {
         return
     }
 
@@ -839,6 +883,8 @@ function favApply(items, cards, known, dirty){
             }
 
             known[key] = item.del ? -item.t : item.t
+
+            changes++
         })
     }
     finally {
@@ -984,6 +1030,14 @@ function onUpdate(e){
 
     var hash = e.data.hash
     var road = e.data.road
+
+    // плеер закрили, нічого не подивившись: ядро перезаписало ту саму позицію зі свіжим часом.
+    // Такий штамп у Nuvio затер би новіший прогрес з іншого пристрою — повертаємо старий час
+    if (snap && snap.hash == hash && Math.round(snap.time) == Math.round(road.time) && snap.percent == road.percent) {
+        road.updated = snap.updated
+        Storage.set(timeline().filename(), viewed(), true)
+        return
+    }
 
     if (!Keys.localKey(road) && !identify(hash, road)) {
         return
@@ -1249,31 +1303,247 @@ function init(){
     }
 }
 
-// Опитування за подіями, а не за таймером: Realtime у Nuvio немає (нативні клієнти теж лише
-// опитують), тож тягнемо зміни тоді, коли користувач от-от їх побачить.
-var KICK_GAP = 15 * 1000 // частіше не тягнемо, щоб серія подій не дала шквал запитів
-var SCREENS = ['main', 'bookmarks', 'favorite', 'watch_history']
-var lastKick = 0
+// ---------- triggers ----------
+//
+// Realtime у Nuvio немає (нативні клієнти теж лише опитують), тож тягнемо зміни в момент,
+// коли користувач от-от їх побачить або продовжить перегляд.
+//   intent  — явна дія (картка, торрент, список файлів): не частіше за 5 с, пропущений запит
+//             переноситься на кінець вікна, а не губиться;
+//   ambient — фон (будь-який екран, повернення у вкладку): 15 с;
+//   screen  — головна, закладки, історія: 15 с, разом із закладками;
+//   wake    — пробудження після сну чи простою: одразу, усе.
+// Документ закладок великий, тож попутно його тягнемо не частіше за раз на хвилину.
 
-function kick(){
-    if (Date.now() - lastKick < KICK_GAP) {
+var GAP = {intent: 5000, ambient: 15000, screen: 15000, wake: 0}
+var SCREENS = ['main', 'category', 'bookmarks', 'favorite', 'watch_history']
+var FRESH = 20 * 1000 // дані свіжі, якщо pull вдався не раніше
+var pendingKick = null
+
+function kick(kind){
+    var now = Date.now()
+
+    if (kind != 'wake' && now < failUntil) {
         return
     }
 
-    lastKick = Date.now()
+    // прогрес і закладки мають окремі вікна: екран одразу після картки все одно тягне закладки
+    var needP = now - lastP >= GAP[kind]
+    var needF = kind == 'wake' || now - lastF > 60 * 1000 || (kind == 'screen' && now - lastF > 15 * 1000)
 
-    sync()
+    if (!needP && !needF) {
+        // явну дію не губимо, а переносимо на кінець вікна
+        if (kind != 'ambient' && !pendingKick) {
+            pendingKick = setTimeout(function(){
+                pendingKick = null
+                kick(kind)
+            }, lastP + GAP[kind] - now)
+        }
+
+        return
+    }
+
+    if (needP) {
+        lastP = now
+    }
+
+    if (needF) {
+        lastF = now
+    }
+
+    return sync({p: needP, f: needF})
 }
 
-// Віддати все накопичене одразу (без очікування debounce): вкладку можуть закрити
+// Віддати все накопичене одразу: вкладку чи застосунок можуть закрити
 function flushAll(){
     clearTimeout(deb)
     clearTimeout(favDeb)
 
     return run(function(){
-        return Promise.resolve(flush()).then(favSync)
+        return Promise.resolve(flush()).then(function(){
+            if (Object.keys(favGet('nuvio_favdirty_', scope())).length) {
+                return favSync()
+            }
+        })
     })
 }
+
+// Після pull перебудувати відкриті головну, історію чи закладки («Продовжити» береться з Favorite).
+// Поки грає плеєр — відкладаємо до його закриття
+var refreshLater = false
+
+function refreshScreens(){
+    var active = Lampa.Activity.active()
+
+    if (playing) {
+        refreshLater = true
+        return
+    }
+
+    if (active && SCREENS.indexOf(active.component) > -1) {
+        Lampa.Activity.refresh()
+    }
+}
+
+// Оновити на місці смужки прогресу (як Timeline.update у ядрі) і позицію плеєра, що ще не стартував
+function patchViews(touched, data){
+    Object.keys(touched).forEach(function(hash){
+        var road = data[hash] || {percent: 0, time: 0, duration: 0}
+        var f = timeline().format(road)
+
+        $('.time-line[data-hash="' + hash + '"]').toggleClass('hide', !road.percent).find('> div').css({width: road.percent + '%'})
+
+        $('.time-line-details[data-hash="' + hash + '"]').each(function(){
+            $(this).find('[a="t"]').text(f.time)
+            $(this).find('[a="p"]').text(f.percent)
+            $(this).find('[a="d"]').text(f.duration)
+            $(this).toggleClass('hide', !road.duration)
+        })
+    })
+
+    if (playing && playing.timeline && touched[playing.timeline.hash]) {
+        reread(playing.timeline)
+    }
+}
+
+// ---------- playback ----------
+//
+// Список файлів (торрент, онлайн-плагін) будує об'єкт таймкоду ще при відмальовуванні й віддає
+// його плеєру, тож до старту він міг застаріти. Плеєр читає позицію лише на першому timeupdate
+// (player/timeline.js), тож свіже значення ще встигає потрапити в той самий об'єкт.
+
+var playing = null // дані плеєра, що грає
+var snap = null // таймкод на старті, щоб розпізнати закриття без перегляду
+var bypass = false
+
+// Підтягнути в об'єкт таймкоду збережене, якщо воно новіше. Поки плеєр не перемотав (continued)
+function reread(tl){
+    if (!tl || !tl.hash || tl.continued) {
+        return
+    }
+
+    var meta = tl.card ? {card: tl.card, season: tl.season, episode: tl.episode} : null
+    var v = timeline().view(tl.hash, meta)
+
+    if ((v.updated || 0) > (tl.updated || 0)) {
+        tl.time = v.time
+        tl.percent = v.percent
+        tl.updated = v.updated
+
+        // торрент ставить тривалість з runtime картки, нулем її не затираємо
+        if (v.duration) {
+            tl.duration = v.duration
+        }
+    }
+}
+
+function rereadAll(data){
+    reread(data.timeline)
+
+    if (Array.isArray(data.playlist)) {
+        data.playlist.forEach(function(item){
+            reread(item.timeline)
+        })
+    }
+}
+
+function onCreate(e){
+    var data = e.data
+
+    if (!ok() || !data || data.iptv || !data.timeline) {
+        return
+    }
+
+    rereadAll(data)
+
+    // свіже, наступна серія, немає мережі, відступ після помилок — стартуємо без затримки
+    if (bypass || data.continue_play || Date.now() - okP < FRESH || navigator.onLine === false || Date.now() < failUntil) {
+        return
+    }
+
+    // інакше чекаємо pull, але не довше за 1,5 с: зовнішні плеєри беруть позицію одразу при запуску
+    e.abort()
+
+    var done = false
+    var go = function(cancel){
+        if (done) {
+            return
+        }
+
+        done = true
+
+        Lampa.Loading.stop()
+
+        if (cancel) {
+            return
+        }
+
+        rereadAll(data)
+
+        bypass = true
+
+        try {
+            Lampa.Player.play(data)
+        }
+        finally {
+            bypass = false
+        }
+    }
+
+    Lampa.Loading.start(function(){
+        go(true)
+    })
+
+    setTimeout(function(){
+        go()
+    }, 1500)
+
+    lastP = Date.now()
+
+    sync({p: true}).then(function(){
+        go()
+    })
+}
+
+function onStart(data){
+    playing = data
+
+    var tl = data && data.timeline
+
+    snap = tl ? {hash: tl.hash, time: tl.time, percent: tl.percent, updated: tl.updated || 0} : null
+}
+
+function onDestroy(){
+    // збереження позиції ядро робить раніше за цю подію (player.js destroy: Timeline.destroy)
+    playing = null
+    snap = null
+
+    flushAll()
+    kick('intent')
+
+    if (refreshLater) {
+        refreshLater = false
+        setTimeout(refreshScreens, 1000)
+    }
+}
+
+// Зберегти поточну позицію плеєра, якщо вона зрушила (ядро робить це лише раз на 2 хв і при закритті)
+function savePlaying(){
+    var tl = playing && playing.timeline
+
+    if (!tl || !tl.handler || tl.stop_recording || !tl.continued) {
+        return
+    }
+
+    if (snap && Math.round(snap.time) == Math.round(tl.time)) {
+        return
+    }
+
+    tl.handler(tl.percent, tl.time, tl.duration)
+
+    snap = null
+}
+
+// ---------- start ----------
 
 function start(){
     timeline().listener.follow('update', onUpdate)
@@ -1282,45 +1552,127 @@ function start(){
     Lampa.Favorite.listener.follow('added', onFavorite('added'))
     Lampa.Favorite.listener.follow('remove', onFavorite('remove'))
 
+    lastP = Date.now()
+
     sync()
 
-    // відкриття картки: свіжі таймкоди й позначки серій (як TimeCode у lampac)
+    // картка
     Lampa.Listener.follow('full', function(e){
         if (e.type == 'complite') {
-            kick()
+            kick('intent')
         }
     })
 
-    // головна, закладки, історія: свіжі «Продовжити» та списки
+    // торренти: відкрили роздачу чи список файлів («Мої торренти» без картки)
+    Lampa.Listener.follow('torrent', function(e){
+        if (e.type == 'onenter') {
+            kick('intent')
+        }
+    })
+
+    Lampa.Listener.follow('torrent_file', function(e){
+        if (e.type == 'list_open') {
+            kick('intent')
+        }
+    })
+
+    // екрани
     Lampa.Listener.follow('activity', function(e){
-        if (e.type == 'start' && SCREENS.indexOf(e.component) > -1) {
-            kick()
+        if (e.type == 'start') {
+            kick(SCREENS.indexOf(e.component) > -1 ? 'screen' : 'ambient')
         }
     })
 
-    // плеер закрили: остання позиція має піти одразу
-    Lampa.Player.listener.follow('destroy', flushAll)
+    // плеєр
+    Lampa.Player.listener.follow('create', onCreate)
+    Lampa.Player.listener.follow('start', onStart)
+    Lampa.Player.listener.follow('destroy', onDestroy)
+
+    var pauseTimer = null
+
+    Lampa.PlayerVideo.listener.follow('pause', function(){
+        clearTimeout(pauseTimer)
+        pauseTimer = setTimeout(savePlaying, 10 * 1000)
+    })
+
+    Lampa.PlayerVideo.listener.follow('play', function(){
+        clearTimeout(pauseTimer)
+    })
+
+    // вихід із застосунку на ТВ: діалог виходу з'являється на 'backward' з однією активністю
+    Lampa.Activity.listener.follow('backward', function(e){
+        if (e.count == 1) {
+            savePlaying()
+            flushAll()
+        }
+    })
 
     document.addEventListener('visibilitychange', function(){
         if (document.hidden) {
+            savePlaying()
             flushAll()
         }
         else {
-            kick()
+            kick('wake')
         }
     })
 
-    window.addEventListener('online', kick)
+    window.addEventListener('pagehide', function(){
+        savePlaying()
+        flushAll()
+    })
 
-    // запасний опит, якщо довго немає жодної події
-    setInterval(function(){
-        if (!document.hidden) {
-            kick()
+    window.addEventListener('online', function(){
+        fails = 0
+        failUntil = 0
+
+        kick('wake')
+    })
+
+    // простій: перше натискання після 5 хв тиші
+    var lastKey = Date.now()
+
+    Lampa.Keypad.listener.follow('keydown', function(){
+        if (Date.now() - lastKey > 5 * 60 * 1000) {
+            kick('wake')
         }
-    }, 10 * 60 * 1000)
+
+        lastKey = Date.now()
+    })
+
+    // сон: таймер простояв довше, ніж мав (ТВ у standby, ноутбук закрили);
+    // і запасний опит, якщо 10 хв не було жодного вдалого pull
+    var lastTick = Date.now()
+
+    setInterval(function(){
+        var now = Date.now()
+
+        if (now - lastTick > 20 * 1000) {
+            kick('wake')
+        }
+        else if (!document.hidden && now - okP > 10 * 60 * 1000) {
+            kick('ambient')
+        }
+
+        lastTick = now
+    }, 5 * 1000)
+
+    var hadToken = Boolean(Api.tokens().access_token)
 
     Storage.listener.follow('change', function(e){
-        if (/^nuvio_(tokens|enable|active_profile|profile_map|email|backend_url|mode)$/.test(e.name) || e.name == 'account' || e.name == 'account_use') {
+        // оновлення токена змінює nuvio_tokens щогодини — синхронізуємо лише на вхід і вихід
+        if (e.name == 'nuvio_tokens') {
+            var has = Boolean(Api.tokens().access_token)
+
+            if (has != hadToken) {
+                hadToken = has
+                sync()
+            }
+
+            return
+        }
+
+        if (/^nuvio_(enable|active_profile|profile_map|email|backend_url|mode)$/.test(e.name) || e.name == 'account' || e.name == 'account_use') {
             sync()
         }
     })

@@ -2,7 +2,6 @@ import Storage from '../../../core/storage/storage'
 
 var CLOUD_URL = 'https://api.nuvio.tv'
 var CLOUD_KEY = 'sb_publishable_1Clq8rlTVACkdcZuqr6_AD__xUUC_EN'
-var RETRY_DELAYS = [1000, 5000, 30000]
 
 function base(){
     var mode = Storage.field('nuvio_mode') || Storage.get('nuvio_mode', 'cloud')
@@ -34,46 +33,32 @@ function serialize(args){
     return JSON.parse(JSON.stringify(args || {}))
 }
 
-// fn(attempt) -> Promise. 429/сеть -> backoff, события остаются в outbox
-function withBackoff(fn, attempt){
-    attempt = attempt || 0
-    return Promise.resolve(fn()).catch(function(e){
-        var status = e && e.status
-        if(status == 429 || status === 0 || !status){
-            if(attempt >= 3) throw e
-            return new Promise(function(res){ setTimeout(res, RETRY_DELAYS[attempt] || 30000) }).then(function(){
-                return withBackoff(fn, attempt + 1)
-            })
-        }
-        throw e
-    })
-}
-
 var refresher = null
 
 function setRefresher(fn){ refresher = fn }
 
+// Без повторів усередині запиту: вони тримали б чергу синхронізації до 36 с. Повтор робить
+// сама синхронізація за наступною подією, а невідправлене лежить у Storage
 function request(method, path, body, retryAuth){
-    return withBackoff(function(){
-        return new Promise(function(resolve, reject){
-            $.ajax({
-                url: base() + path,
-                method: method,
-                headers: headers(),
-                data: body ? JSON.stringify(serialize(body)) : undefined,
-                contentType: 'application/json',
-                success: resolve,
-                error: function(xhr){ reject(xhr) }
-            })
-        }).catch(function(xhr){
-            var status = xhr && xhr.status
-            if(status == 401 && !retryAuth && refresher){
-                return Promise.resolve(refresher()).then(function(){
-                    return request(method, path, body, true)
-                })
-            }
-            throw xhr
+    return new Promise(function(resolve, reject){
+        $.ajax({
+            url: base() + path,
+            method: method,
+            headers: headers(),
+            data: body ? JSON.stringify(serialize(body)) : undefined,
+            contentType: 'application/json',
+            timeout: 15000,
+            success: resolve,
+            error: function(xhr){ reject(xhr) }
         })
+    }).catch(function(xhr){
+        var status = xhr && xhr.status
+        if(status == 401 && !retryAuth && refresher){
+            return Promise.resolve(refresher()).then(function(){
+                return request(method, path, body, true)
+            })
+        }
+        throw xhr
     })
 }
 
