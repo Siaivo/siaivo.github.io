@@ -9,6 +9,7 @@ import Controller from '../../../core/controller'
 import Auth from './auth'
 import Head from './head'
 import Profiles from './profiles'
+import SettingsSync from './settings-sync'
 
 var ICON = '<svg width="37" height="37" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18.5" cy="18.5" r="16" stroke="white" stroke-width="2.5"/><circle cx="18.5" cy="18.5" r="4" fill="white"/><path d="M18.5 6v4M18.5 27v4M6 18.5h4M27 18.5h4" stroke="white" stroke-width="2"/></svg>'
 
@@ -28,12 +29,20 @@ Lang.add({
     nuvio_logout: {uk: 'Вийти', en: 'Log out', ru: 'Выйти', 'be': 'Выйсці', 'zh': '退出', 'pt': 'Sair', 'bg': 'Изход', 'he': 'התנתק', 'cs': 'Odhlásit', 'ro': 'Deconectare', 'fr': 'Se déconnecter', 'pl': 'Wyloguj'},
     nuvio_profile: {uk: 'Nuvio-профіль', en: 'Nuvio profile', ru: 'Nuvio-профиль', 'be': 'Профіль Nuvio', 'zh': 'Nuvio 档案', 'pt': 'Perfil Nuvio', 'bg': 'Профил Nuvio', 'he': 'פרופיל Nuvio', 'cs': 'Profil Nuvio', 'fr': 'Profil Nuvio', 'pl': 'Profil Nuvio'},
     nuvio_status: {uk: 'Статус', en: 'Status', ru: 'Статус', 'be': 'Статус', 'zh': '状态', 'pt': 'Estado', 'bg': 'Статус', 'he': 'סטטוס', 'cs': 'Stav', 'ro': 'Stare', 'fr': 'Statut', 'pl': 'Status'},
-    nuvio_pin: {uk: 'PIN профілю', en: 'Profile PIN', ru: 'PIN профиля'}
+    nuvio_pin: {uk: 'PIN профілю', en: 'Profile PIN', ru: 'PIN профиля'},
+    nuvio_set_sync: {uk: 'Налаштування', en: 'Settings', ru: 'Настройки', 'be': 'Налады', 'zh': '设置', 'pt': 'Configurações', 'bg': 'Настройки', 'he': 'הגדרות', 'cs': 'Nastavení', 'fr': 'Paramètres', 'pl': 'Ustawienia'},
+    nuvio_set_sync_export: {uk: 'Експорт налаштувань', en: 'Export settings', ru: 'Экспорт настроек', 'be': 'Экспарт налад', 'zh': '导出设置', 'pt': 'Exportar configurações', 'bg': 'Експорт на настройки', 'he': 'ייצוא הגדרות', 'cs': 'Exportovat nastavení', 'fr': 'Exporter les paramètres', 'pl': 'Eksportuj ustawienia'},
+    nuvio_set_sync_import: {uk: 'Імпорт налаштувань', en: 'Import settings', ru: 'Импорт настроек', 'be': 'Імпарт налад', 'zh': '导入设置', 'pt': 'Importar configurações', 'bg': 'Импорт на настройки', 'he': 'ייבוא הגדרות', 'cs': 'Importovat nastavení', 'fr': 'Importer les paramètres', 'pl': 'Importuj ustawienia'},
+    nuvio_set_sync_conflict: {uk: 'Налаштування змінено на іншому пристрої — спочатку імпорт', en: 'Settings changed on another device — import first', ru: 'Настройки изменены на другом устройстве — сначала импорт', 'be': 'Налады зменены на іншай прыладзе — спачатку імпарт', 'zh': '设置已在其他设备上更改 — 请先导入', 'pt': 'Configurações alteradas em outro dispositivo — importe primeiro', 'bg': 'Настройките са променени на друго устройство — първо импортирайте', 'he': 'ההגדרות השתנו במכשיר אחר — ייבא תחילה', 'cs': 'Nastavení bylo změněno na jiném zařízení — nejprve importujte', 'fr': 'Paramètres modifiés sur un autre appareil — importez d’abord', 'pl': 'Ustawienia zmieniono na innym urządzeniu — najpierw zaimportuj'}
 })
 
 var STATUS = 'off'
 
 function setStatus(s){
+    // Settings.update перебудовує відкриті налаштування — лише коли статус справді змінився
+    if(STATUS == s){
+        return
+    }
     STATUS = s
     try { Storage.set('nuvio_status', s, true) } catch(e){}
     if(window.Lampa && Lampa.Settings && Lampa.Settings.update) { try { Lampa.Settings.update() } catch(e){} }
@@ -65,6 +74,7 @@ function init(){
     SettingsApi.addParam({component: 'nuvio', param: {name: 'nuvio_email', type: 'input', values: '', default: ''}, field: {name: '', description: ''}, onRender: renderRaw('nuvio_email', '')})
     SettingsApi.addParam({component: 'nuvio', param: {name: 'nuvio_login_btn', type: 'button'}, field: {name: ''}, onRender: loginBtn()})
     SettingsApi.addParam({component: 'nuvio', param: {name: 'nuvio_profile_sel', type: 'button'}, field: {name: ''}, onRender: profileBtn()})
+    SettingsApi.addParam({component: 'nuvio', param: {name: 'nuvio_set_sync_btn', type: 'button'}, field: {name: ''}, onRender: settingsSyncBtn()})
     SettingsApi.addParam({component: 'nuvio', param: {name: 'nuvio_status_info', type: 'button'}, field: {name: ''}, onRender: statusBtn()})
 }
 
@@ -153,6 +163,78 @@ function profileBtn(){
             })
         } catch(e){}
     }
+}
+
+// Експорт/імпорт налаштувань: Select-меню за зразком Cub backup.js.
+// Кнопки активні лише коли canRun (увімкнено + профіль + Cub-sync не активний),
+// інакше мовчимо в консоль — як Cub при no access.
+function settingsSyncBtn(){
+    return function(item){
+        try {
+            item.find('.settings-param__name').text(Lang.translate('nuvio_set_sync'))
+            item.on('hover:enter', function(){
+                if(!SettingsSync.canRun()){ try { console.warn('Nuvio settings-sync', 'not available') } catch(e){} return }
+                Select.show({
+                    title: Lang.translate('nuvio_set_sync'),
+                    nomark: true,
+                    items: [
+                        {title: Lang.translate('nuvio_set_sync_export'), export: true, selected: true},
+                        {title: Lang.translate('nuvio_set_sync_import'), import: true},
+                        {title: Lang.translate('cancel')}
+                    ],
+                    onSelect: function(a){
+                        if(a.export) doExport()
+                        else if(a.import) doImport()
+                    },
+                    onBack: function(){}
+                })
+            })
+        } catch(e){}
+    }
+}
+
+function doExport(){
+    var profile = Profiles.resolveActive()
+    setStatus('syncing')
+    SettingsSync.push(profile).then(function(r){
+        setStatus('ok')
+        if(r == 'conflict') Noty.show(Lang.translate('nuvio_set_sync_conflict'))
+        else Noty.show(Lang.translate('account_export_secuses'))
+    }).catch(function(xhr){
+        setStatus(xhr && xhr.status == 401 ? 'error' : 'offline')
+        Noty.show(Lang.translate('account_export_fail_' + ((xhr && xhr.status) || 500)))
+    })
+}
+
+function doImport(){
+    var profile = Profiles.resolveActive()
+    setStatus('syncing')
+    SettingsSync.pull(profile).then(function(remote){
+        if(!remote || !remote.settings_json){ setStatus('ok'); Noty.show(Lang.translate('nodata')); return }
+        Select.show({
+            title: Lang.translate('sure'),
+            nomark: true,
+            items: [
+                {title: Lang.translate('confirm'), confirm: true, selected: true},
+                {title: Lang.translate('cancel')}
+            ],
+            onSelect: function(a){
+                if(!a.confirm){ setStatus('ok'); return }
+                SettingsSync.apply(remote.settings_json).then(function(r){
+                    Noty.show(Lang.translate('account_import_secuses') + ' (' + r.imported + '/' + r.errors + ') - ' + Lang.translate('account_reload_after'))
+                    setStatus('ok')
+                    setTimeout(function(){ try { window.location.reload() } catch(e){} }, 5000)
+                }).catch(function(){
+                    setStatus('offline')
+                    Noty.show(Lang.translate('account_import_fail'))
+                })
+            },
+            onBack: function(){ setStatus('ok') }
+        })
+    }).catch(function(xhr){
+        setStatus(xhr && xhr.status == 401 ? 'error' : 'offline')
+        Noty.show(Lang.translate('account_import_fail'))
+    })
 }
 
 function statusBtn(){

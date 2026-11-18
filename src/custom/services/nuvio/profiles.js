@@ -15,15 +15,12 @@ function map(){
 }
 
 function activeProfile(){
-    try { return Storage.get('nuvio_active_profile', 0) || 0 } catch(e){ return 0 }
+    // 1 — основний профіль Nuvio, він є навіть коли список профілів порожній
+    try { return Storage.get('nuvio_active_profile', 1) || 1 } catch(e){ return 1 }
 }
 
 function setActive(profile_index){
-    try {
-        Storage.set('nuvio_active_profile', profile_index)
-        // перемикання профілю скидає курсори цього профілю
-        Storage.set('nuvio_cursor_' + profile_index, {})
-    } catch(e){}
+    try { Storage.set('nuvio_active_profile', profile_index) } catch(e){}
 }
 
 function lampaProfileId(){
