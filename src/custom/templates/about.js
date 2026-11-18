@@ -5,7 +5,7 @@ let html = `<div class="about">
         <div class="about__contacts">
             <div>
                 <small>#{about_group}</small><br>
-                @mmssixxx
+                @misiixxs
             </div>
 
             <div>
