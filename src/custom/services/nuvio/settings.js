@@ -11,7 +11,7 @@ import Head from './head'
 import Profiles from './profiles'
 import SettingsSync from './settings-sync'
 
-var ICON = '<svg width="37" height="37" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18.5" cy="18.5" r="16" stroke="white" stroke-width="2.5"/><circle cx="18.5" cy="18.5" r="4" fill="white"/><path d="M18.5 6v4M18.5 27v4M6 18.5h4M27 18.5h4" stroke="white" stroke-width="2"/></svg>'
+var ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 540" width="490" height="540" role="img" aria-label="Play logo"><path fill="currentColor" fill-rule="evenodd" d="M0 60V480A60 60 0 0 0 89.6 532.2L459.6 322.2A60 60 0 0 0 459.6 217.8L89.6 7.8A60 60 0 0 0 0 60ZM118 185V360A32 32 0 0 0 166.2 387.6L316.2 299.6A32 32 0 0 0 316.1 244.3L166.1 157.3A32 32 0 0 0 118 185Z" /></svg>'
 
 Lang.add({
     nuvio_name: {uk: 'Nuvio', en: 'Nuvio', be: 'Nuvio', zh: 'Nuvio', pt: 'Nuvio', bg: 'Nuvio', he: 'Nuvio', cs: 'Nuvio', ro: 'Nuvio', fr: 'Nuvio', pl: 'Nuvio', ru: 'Nuvio'},
