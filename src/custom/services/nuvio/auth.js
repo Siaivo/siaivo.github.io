@@ -13,17 +13,19 @@ function saveTokens(data){
 }
 
 function login(email, password){
-    return new Promise(function(resolve, reject){
-        $.ajax({
-            url: Api.base() + '/auth/v1/token?grant_type=password',
-            method: 'POST',
-            headers: {'apikey': Api.anonKey(), 'Content-Type': 'application/json'},
-            data: JSON.stringify({email: email, password: password}),
-            success: function(data){
-                saveTokens(data)
-                registerDevice().then(function(){ resolve(data) }, function(){ resolve(data) })
-            },
-            error: function(xhr){ reject(xhr) }
+    return Api.refreshAnonKey().then(function(){
+        return new Promise(function(resolve, reject){
+            $.ajax({
+                url: Api.base() + '/auth/v1/token?grant_type=password',
+                method: 'POST',
+                headers: Api.anonHeaders(),
+                data: JSON.stringify({email: email, password: password}),
+                success: function(data){
+                    saveTokens(data)
+                    registerDevice().then(function(){ resolve(data) }, function(){ resolve(data) })
+                },
+                error: function(xhr){ reject(xhr) }
+            })
         })
     })
 }
@@ -33,16 +35,18 @@ function refresh(){
     if(flight) return flight
     var t = Api.tokens()
     if(!t.refresh_token) return Promise.reject({status: 401})
-    flight = new Promise(function(resolve, reject){
-        $.ajax({
-            url: Api.base() + '/auth/v1/token?grant_type=refresh_token',
-            method: 'POST',
-            headers: {'apikey': Api.anonKey(), 'Content-Type': 'application/json'},
-            data: JSON.stringify({refresh_token: t.refresh_token}),
-            success: function(data){ saveTokens(data); flight = null; resolve(data) },
-            error: function(xhr){ flight = null; reject(xhr) }
+    flight = Api.refreshAnonKey().then(function(){
+        return new Promise(function(resolve, reject){
+            $.ajax({
+                url: Api.base() + '/auth/v1/token?grant_type=refresh_token',
+                method: 'POST',
+                headers: Api.anonHeaders(),
+                data: JSON.stringify({refresh_token: t.refresh_token}),
+                success: function(data){ saveTokens(data); resolve(data) },
+                error: function(xhr){ reject(xhr) }
+            })
         })
-    })
+    }).then(function(data){ flight = null; return data }, function(xhr){ flight = null; throw xhr })
     return flight
 }
 
