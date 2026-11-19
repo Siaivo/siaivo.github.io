@@ -43,7 +43,6 @@
 <body>
     <div id="player"></div>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
 		function gup(name, url){
 			if(!url) url = location.href
@@ -121,6 +120,8 @@
 		}
 
 		window.onYouTubeIframeAPIReady = function(){
+			if(player) return
+
 			player = new YT.Player('player', {
 				videoId: videoId,
 				width: '100%',
@@ -220,6 +221,13 @@
 
 		send('bridgeReady')
 
+    </script>
+    <!-- Register the bridge before a cached API can signal that it is ready. -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        if(window.YT && typeof window.YT.ready === 'function'){
+            window.YT.ready(window.onYouTubeIframeAPIReady)
+        }
     </script>
 </body>
 </html>
