@@ -10,7 +10,7 @@ const env = vi.hoisted(()=>{
 
     Object.defineProperty(localStorage, 'keys', {value: ()=> Object.keys(data)})
 
-    globalThis.window = {localStorage, appready: true}
+    globalThis.window = {localStorage, appready: true, lampa_settings: {nuvio_use: true}}
     globalThis.Lampa = {Listener: {follow(){}}}
     globalThis.window.Lampa = globalThis.Lampa
 
@@ -97,4 +97,28 @@ test('a value the core could not write to localStorage is not overwritten by the
 
     // ядро само положило новое в резерв; старое из localStorage переносить нельзя
     expect(env.idb.file_view).not.toBe('{"old":1}')
+})
+
+test('without nuvio_use nothing is moved: sync plugins read favorite from localStorage', async ()=>{
+    window.lampa_settings.nuvio_use = false
+    vi.resetModules()
+
+    const fresh = {
+        set: (name, value)=> window.localStorage.setItem(name, JSON.stringify(value)),
+        get: ()=> false,
+        listener: {follow(){}}
+    }
+
+    vi.doMock('../src/core/storage/storage', ()=>({default: fresh}))
+    await import('../src/custom/core/storage-idb')
+
+    delete env.idb.favorite
+    fresh.set('favorite', {book: [3]})
+
+    await flush()
+
+    expect(window.localStorage.getItem('favorite')).toBe('{"book":[3]}')
+    expect(env.idb.favorite).toBe(undefined)
+
+    window.lampa_settings.nuvio_use = true
 })

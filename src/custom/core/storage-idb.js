@@ -7,6 +7,9 @@ import Cache from '../../utils/cache'
 // Ядро пише в резерв лише при переповненні; тут переносимо туди ці ключі завжди: ядро записало
 // як звичайно — переносимо значення в IndexedDB і прибираємо з localStorage.
 // Без IndexedDB (деякі ТВ і WebView) нічого не робимо — працює localStorage, як раніше.
+// Лише з nuvio_use: плагіни синхронізації читають favorite з localStorage і без нього бачать
+// порожні закладки. Без прапорця все лишається в localStorage, як в оригінальній Лампі; уже
+// перенесене ядро дочитає з резерву і при першому записі поверне в localStorage.
 
 const MATCH = /^(file_view(_.+)?|favorite|favorite_nuvio_.+|nuvio_(dirty|favdirty|favknown|ids)(_.+)?)$/
 
@@ -65,25 +68,35 @@ function after(original){
     }
 }
 
-// Storage.set: помилку запису (квота, серіалізація) ядро повідомляє через callerror —
-// підміняємо його, щоб знати, чи лежить у localStorage свіже значення
-const set = Storage.set
-
-Storage.set = function(name, value, nolisten, callerror){
-    let failed = false
-    let result = set.call(this, name, value, nolisten, function(){
-        failed = true
-
-        if(callerror) {
-            callerror.apply(this, arguments)
-        }
-    })
-
-    if(!failed) {
-        move(name, true)
+// Той самий прапорець, що вмикає Nuvio (services/nuvio/index.js)
+function enabled(){
+    if(window.lampa_settings && window.lampa_settings.nuvio_use === true) {
+        return true
     }
 
-    return result
+    return Storage.get('nuvio_use', false) === true
+}
+
+function install(){
+    // Storage.set: помилку запису (квота, серіалізація) ядро повідомляє через callerror —
+    // підміняємо його, щоб знати, чи лежить у localStorage свіже значення
+    const set = Storage.set
+
+    Storage.set = function(name, value, nolisten, callerror){
+        let failed = false
+        let result = set.call(this, name, value, nolisten, function(){
+            failed = true
+
+            if(callerror) {
+                callerror.apply(this, arguments)
+            }
+        })
+
+        if(!failed) {
+            move(name, true)
+        }
+
+        return result
 }
 
 // Storage.add і Storage.cache пишуть через внутрішній set() ядра без callerror — там звіряємо значення
@@ -126,6 +139,8 @@ Storage.listener.follow('clear', (e) => {
     })
 })
 
+}
+
 // Те, що вже лежить у localStorage з минулих запусків, переносимо, щойно відкрилась IndexedDB
 function migrate(){
     if(!Cache.db) {
@@ -141,13 +156,23 @@ function init(){
         return
     }
 
-    if(window.appready) {
+    // lampa_settings плагіни виставляють до app ready — прапорець читаємо там
+    let start = () => {
+        if(!enabled()) {
+            return
+        }
+
+        install()
         migrate()
+    }
+
+    if(window.appready) {
+        start()
     }
     else {
         Lampa.Listener.follow('app', (e) => {
             if(e.type == 'ready') {
-                migrate()
+                start()
             }
         })
     }
