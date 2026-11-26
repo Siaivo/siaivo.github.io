@@ -7,7 +7,6 @@ import AnimeMap from '../../utils/anime-map'
 import cors from '../../utils/cors'
 import {card as hikkaCard} from '../../category/siavo-anime'
 
-let hikka     = 'https://api.hikka.io'    // через CORS-проксі, як і каталог аніме
 let shikimori = 'https://shikimori.io'    // CORS відкритий; .one/.me уже мертві - домен міняють
 let size      = 20                        // як у TMDB: ранжування розраховане на 20 позицій
 let recheck   = 30                        // днів: тайтл, якого Hikka не знала, питаємо знову
@@ -151,7 +150,7 @@ function batch(get){
     waiting = {}
     timer   = 0
 
-    get(cors.apiUrl(hikka, '/integrations/mal/anime'), JSON.stringify({mal_ids: ids.map(Number)})).then(json => {
+    get(cors.hikka('/integrations/mal/anime'), JSON.stringify({mal_ids: ids.map(Number)})).then(json => {
         let list = cors.unwrap(json)
 
         // збій мережі не запам'ятовуємо: наступний показ спитає знову
@@ -206,7 +205,7 @@ export function load(card, method, from, get){
                 return null
             }
 
-            return get(cors.apiUrl(hikka, '/anime/' + slug + '/recommendations?page=1&size=' + size)).then(json => {
+            return get(cors.hikka('/anime/' + slug + '/recommendations?page=1&size=' + size)).then(json => {
                 let data = cors.unwrap(json)
 
                 return data && Array.isArray(data.list) ? unique(data.list.map(fromHikka)) : null

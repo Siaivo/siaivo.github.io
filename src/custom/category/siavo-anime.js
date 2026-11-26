@@ -23,7 +23,6 @@ import cors from '../utils/cors'
 //     в card()), тож відкриття/обране/continue-watch працюють через джерело tmdb.
 //   - дедуп/резолв через статичну карту lampa-ua (AnimeMap, utils/anime-map.js) — БЕЗ ani.zip.
 var SOURCE = 'siaivo'
-var API    = 'https://api.hikka.io'   // через CORS-проксі utils/cors (відповідь — конверт, див. cors.unwrap)
 var day    = 60 * 24
 
 // Розмір сторінки Hikka (size, максимум 100). Беремо з запасом: після фільтра no-tmdb + дедупу
@@ -53,11 +52,9 @@ var ICON_TROPHY =
 
 var network = new Reguest()
 
-// Проксований URL до api.hikka.io.
-// Відкат на lme-шлюз (сира відповідь, cors.unwrap її пропускає як є):
-//   return 'https://apx.lme.isroot.in/hikka' + path   // /hikka/<path> -> api.hikka.io/<path>
+// URL до api.hikka.io через lme-шлюз (cors.hikka).
 function apiUrl(path) {
-    return cors.apiUrl(API, path)
+    return cors.hikka(path)
 }
 
 // Нормалізація назви: прибираємо хвостові маркери сезону/частини, щоб схлопнута картка

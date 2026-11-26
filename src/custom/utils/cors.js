@@ -42,6 +42,12 @@ function apiUrl(base, path) {
     return proxied(base + path)
 }
 
+// Hikka йде не через cors.io (там лише GET, а каталог і mal_ids — POST), а через lme-шлюз:
+// /hikka/<path> -> api.hikka.io/<path>, відповідь сира (unwrap пропускає її як є).
+function hikka(path) {
+    return 'https://apx.lme.isroot.in/hikka' + path
+}
+
 // Розгортає конверт cors.io { url, status, headers, body } -> розпарсений JSON з body.
 // Не-2xx статус цілі -> null (виклики трактують як помилку/порожньо).
 // Якщо це не конверт (або body не парситься) — повертає аргумент як є.
@@ -63,5 +69,6 @@ export default {
     PROXY: PROXY,
     proxied: proxied,
     apiUrl: apiUrl,
+    hikka: hikka,
     unwrap: unwrap
 }

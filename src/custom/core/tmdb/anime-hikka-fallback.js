@@ -16,13 +16,10 @@ import cors from '../../utils/cors'
 // неперекладеним. Картку ніколи не роняємо (будь-яка помилка Hikka -> oncomplite з наявними даними).
 //
 // Переклад шукаємо для 1-го (найменшого) mal_id, що відповідає tmdb-елементу (AnimeMap.malsOf()[0]).
-// Hikka (через той самий CORS-проксі utils/cors, що siavo-anime):
+// Hikka (через lme-шлюз cors.hikka, як і siavo-anime):
 //   GET /integrations/mal/anime/{mal} -> { slug, title_ua, ... } (без синопсису)
 //   GET /anime/{slug}                 -> { title_ua, synopsis_ua, ... }
 // Другий запит робимо лише коли потрібен опис.
-var API  = 'https://api.hikka.io'
-// Відкат на lme-шлюз (сира відповідь, cors.unwrap її пропускає як є): замість cors.apiUrl(API, p)
-//   'https://apx.lme.isroot.in/hikka' + p   // /hikka/<path> -> api.hikka.io/<path>
 var week = 60 * 24 * 7
 
 var network = new Reguest()
@@ -58,12 +55,12 @@ function cleanSynopsis(text) {
 
 // mal -> дані Hikka. ok({ title_ua, synopsis_ua }) | ok(null). needDescr=false -> без 2-го запиту.
 function fetchHikka(mal, needDescr, ok) {
-    network.silent(cors.apiUrl(API, '/integrations/mal/anime/' + mal), function(raw) {
+    network.silent(cors.hikka('/integrations/mal/anime/' + mal), function(raw) {
         var info = cors.unwrap(raw)
         if (!info) return ok(null)
         if (!needDescr || !info.slug) return ok({ title_ua: info.title_ua })
 
-        network.silent(cors.apiUrl(API, '/anime/' + info.slug), function(raw) {
+        network.silent(cors.hikka('/anime/' + info.slug), function(raw) {
             ok(cors.unwrap(raw) || info)
         }, function() { ok(info) }, false, { cache: { life: week } })
     }, function() { ok(null) }, false, { cache: { life: week } })

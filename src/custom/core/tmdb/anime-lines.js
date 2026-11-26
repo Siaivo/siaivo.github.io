@@ -16,7 +16,6 @@ import {source, shikimoriByMal, hikkaCards, shikimoriCards} from '../../app/rows
 
 const WAIT  = 3000
 const WEEK  = 60 * 24 * 7
-const HIKKA = 'https://api.hikka.io'
 const SIZE  = 20
 
 // Найпоширеніші теги — від найширшого. Тег для пошуку схожих беремо найвужчий:
@@ -43,7 +42,7 @@ function get(url, body){
 }
 
 function info(mal){
-    return get(cors.apiUrl(HIKKA, '/integrations/mal/anime'), JSON.stringify({mal_ids: [mal]})).then(json => {
+    return get(cors.hikka('/integrations/mal/anime'), JSON.stringify({mal_ids: [mal]})).then(json => {
         let list = cors.unwrap(json)
 
         return Array.isArray(list) && list[0] || null
@@ -51,7 +50,7 @@ function info(mal){
 }
 
 function recommendations(item){
-    return get(cors.apiUrl(HIKKA, '/anime/' + item.slug + '/recommendations?page=1&size=' + SIZE)).then(json => {
+    return get(cors.hikka('/anime/' + item.slug + '/recommendations?page=1&size=' + SIZE)).then(json => {
         let data = cors.unwrap(json)
 
         return data && Array.isArray(data.list) ? data.list : []
@@ -78,7 +77,7 @@ function similar(item){
 
     let body = {genres: [seed], media_type: [item.media_type], score: [7, null], sort: ['score:desc']}
 
-    return get(cors.apiUrl(HIKKA, '/anime?page=1&size=50'), JSON.stringify(body)).then(json => {
+    return get(cors.hikka('/anime?page=1&size=50'), JSON.stringify(body)).then(json => {
         let data = cors.unwrap(json)
         let list = data && Array.isArray(data.list) ? data.list : []
 
