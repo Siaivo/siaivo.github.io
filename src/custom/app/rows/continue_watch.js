@@ -16,8 +16,16 @@ function judge(card, episodes, counts){
     if (!card.original_name) {
         // фільм: на головній і аніме-повнометражки в аніме
         let time = Timeline.watched(card, true)
+        let done = time.percent >= 90
 
-        return {type: time.percent >= 90 ? 'hide' : 'keep', seen: time.updated}
+        // Титри бувають по 10+ хвилин: рахуємо від кінця, запас росте з довжиною фільму, 7-15 хв.
+        if (time.duration) {
+            let tail = Math.min(15, Math.max(7, Math.round(5 + time.duration / 60 * 0.06)))
+
+            done = time.duration - time.time <= tail * 60
+        }
+
+        return {type: done ? 'hide' : 'keep', seen: time.updated}
     }
 
     if (!episodes) {
